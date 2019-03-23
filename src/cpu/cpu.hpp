@@ -25,17 +25,14 @@ class Cpu {
   bool step(u32& cycles_passed);
   void execute_instruction(const Instruction& i);
 
-// Register getters
-private:
- Register& r(u8 index) {
+  // Register getters
+ private:
+  Register& r(u8 index) {
     Ensures(index >= 0);
     Ensures(index <= 32);
     return m_gpr[index];
   }
- Register &pc()
- {
-  return m_pc;
- }
+  Register& pc() { return m_pc; }
 
  private:
   bus::Bus const& m_bus;

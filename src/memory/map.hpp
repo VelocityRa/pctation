@@ -7,7 +7,7 @@ namespace memory {
 namespace map {
 
 // Memory map
-static constexpr memory::Range BIOS{ 0xBFC00000, bios::BIOS_SIZE };
+static constexpr Range BIOS{ 0xBFC00000, bios::BIOS_SIZE };
 
 }  // namespace map
 }  // namespace memory
