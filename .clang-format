@@ -1,0 +1,6 @@
+﻿---
+BasedOnStyle: Chromium
+Language: Cpp
+IndentWidth: 2
+AllowShortCaseLabelsOnASingleLine: true
+...
