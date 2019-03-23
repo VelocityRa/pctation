@@ -1,6 +1,7 @@
 add_subdirectory(main)
 add_subdirectory(emulator)
 add_subdirectory(cpu)
+add_subdirectory(memory)
 add_subdirectory(bus)
 add_subdirectory(bios)
 add_subdirectory(util)

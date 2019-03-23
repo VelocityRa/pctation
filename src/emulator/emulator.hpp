@@ -1,11 +1,12 @@
 #pragma once
 
-#include <bios.hpp>
-#include <bus.hpp>
-#include <cpu.hpp>
+#include <bios/bios.hpp>
+#include <bus/bus.hpp>
+#include <cpu/cpu.hpp>
 
-#include <fs.hpp>
+#include <util/fs.hpp>
 
+#include <optional>
 namespace emulator {
 
 class Emulator {

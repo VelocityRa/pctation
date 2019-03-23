@@ -1,5 +1,5 @@
-#include <emulator.hpp>
-#include <fs.hpp>
+#include <emulator/emulator.hpp>
+#include <util/fs.hpp>
 
 namespace emulator {
 

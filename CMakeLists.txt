@@ -8,12 +8,14 @@ else()
     cmake_policy(VERSION 3.14)
 endif()
 
+include_directories(src)
+
 # vcpkg setup
 set(VCPKG_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/external/vcpkg")
 set(CMAKE_TOOLCHAIN_FILE "${VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake")
 
 # Project definition
-project(pcstation VERSION 0.1
+project(pctation VERSION 0.1
                   DESCRIPTION "PlayStation emulator"
                   LANGUAGES CXX)
 
@@ -28,3 +30,4 @@ endif()
 add_subdirectory(external)
 
 add_subdirectory(src)
+

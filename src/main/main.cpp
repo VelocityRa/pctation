@@ -1,6 +1,6 @@
-#include <emulator.hpp>
-#include <fs.hpp>
-#include <log.hpp>
+#include <emulator/emulator.hpp>
+#include <util/fs.hpp>
+#include <util/log.hpp>
 
 #include <cassert>
 #include <exception>

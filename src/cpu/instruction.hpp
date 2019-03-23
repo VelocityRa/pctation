@@ -1,7 +1,7 @@
 #pragma once
 
-#include <cpu_opcode.hpp>
-#include <types.hpp>
+#include <cpu/opcode.hpp>
+#include <util/types.hpp>
 
 namespace cpu {
 

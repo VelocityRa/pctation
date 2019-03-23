@@ -1,6 +1,6 @@
-#include <bios.hpp>
-#include <fs.hpp>
-#include <load_file.hpp>
+#include <bios/bios.hpp>
+#include <util/fs.hpp>
+#include <util/load_file.hpp>
 
 #include <memory>
 

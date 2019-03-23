@@ -4,9 +4,9 @@ namespace cpu {
 
 enum class Opcode {
 #define OPCODE(mnemonic, value) mnemonic,
-#include <cpu_opcodes.def>
+#include <cpu/opcodes.def>
 #undef OPCODE
-  UNKNOWN
+  INVALID
 };
 
 inline const char* opcode_to_str(Opcode opcode) {
@@ -14,9 +14,9 @@ inline const char* opcode_to_str(Opcode opcode) {
 #define OPCODE(mnemonic, value) \
   case Opcode::mnemonic:        \
     return #mnemonic;
-#include <cpu_opcodes.def>
+#include <cpu/opcodes.def>
 #undef OPCODE
-    default: return "UNKNOWN";
+    default: return "<INVALID>";
   }
 }
 

@@ -1,4 +1,4 @@
-#include <cpu_instruction.hpp>
+#include <cpu/instruction.hpp>
 
 namespace cpu {
 
@@ -15,9 +15,9 @@ Opcode Instruction::decode_opcode() const {
 #define OPCODE_PRIM(mnemonic, value) \
   case value:                        \
     return Opcode::mnemonic;
-#include <cpu_opcodes.def>
+#include <cpu/opcodes.def>
 #undef OPCODE_PRIM
-      default: return Opcode::UNKNOWN;
+      default: return Opcode::INVALID;
     }
   } else {
     // SPECIAL opcode
@@ -26,9 +26,9 @@ Opcode Instruction::decode_opcode() const {
 #define OPCODE_SEC(mnemonic, value) \
   case value:                       \
     return Opcode::mnemonic;
-#include <cpu_opcodes.def>
+#include <cpu/opcodes.def>
 #undef OPCODE_SEC
-      default: return Opcode::UNKNOWN;
+      default: return Opcode::INVALID;
     }
   }
 }

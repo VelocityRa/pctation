@@ -1,6 +1,6 @@
 #pragma once
 
-#include <types.hpp>
+#include <util/types.hpp>
 
 namespace bios {
 class Bios;

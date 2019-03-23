@@ -1,15 +1,14 @@
 #pragma once
-#include <fstream>
 
-#include <fs.hpp>
-#include <types.hpp>
+#include <util/fs.hpp>
+#include <util/types.hpp>
 
 #include <array>
 #include <memory>
 
-static constexpr auto BIOS_SIZE = 512 * 1024;  // All BIOS images are 512KB
-
 namespace bios {
+
+static constexpr u32 BIOS_SIZE = 512 * 1024;  // All BIOS images are 512KB
 
 class Bios {
  public:
