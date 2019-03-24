@@ -22,12 +22,12 @@ buffer load_file(fs::path const& filepath) {
   if (size == 0)  // avoid undefined behavior
     return {};
 
-  const buffer buffer(size);
+  const buffer buf(size);
 
-  if (!ifs.read((char*)buffer.data(), buffer.size()))
+  if (!ifs.read((char*)buf.data(), buf.size()))
     throw std::runtime_error(filepath.string() + ": " + std::strerror(errno));
 
-  return buffer;
+  return buf;
 }
 
 }  // namespace util

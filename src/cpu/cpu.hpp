@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cpu/instruction.hpp>
 #include <util/types.hpp>
 
 #include <gsl-lite.hpp>
@@ -17,28 +18,57 @@ class Instruction;
 namespace cpu {
 constexpr auto PC_RESET_ADDR = 0xBFC00000u;
 
-using Register = u32;
 
 class Cpu {
  public:
-  explicit Cpu(bus::Bus const& bus);
+  explicit Cpu(bus::Bus& bus);
   bool step(u32& cycles_passed);
   void execute_instruction(const Instruction& i);
 
-  // Register getters
+  u32 read32(u32 addr) const;
+  void write32(u32 addr, u32 val);
+
  private:
-  Register& r(u8 index) {
+  // Register getters
+  const Register& r(RegisterIndex index) const {
     Ensures(index >= 0);
     Ensures(index <= 32);
     return m_gpr[index];
   }
+  const Register& pc() const { return m_pc; }
   Register& pc() { return m_pc; }
 
- private:
-  bus::Bus const& m_bus;
+  // Instruction operand register getters
+  const Register& rs(const Instruction& i) const { return r(i.rs()); }
+  const Register& rt(const Instruction& i) const { return r(i.rt()); }
+  const Register& rd(const Instruction& i) const { return r(i.rd()); }
 
-  Register m_pc{ PC_RESET_ADDR };
+  // Instruction operand register setters
+  void set_rs(const Instruction& i, u32 v) {
+    m_gpr[i.rs()] = v;
+    m_gpr[0] = 0;
+  }
+  void set_rt(const Instruction& i, u32 v) {
+    m_gpr[i.rt()] = v;
+    m_gpr[0] = 0;
+  }
+  void set_rd(const Instruction& i, u32 v) {
+    m_gpr[i.rd()] = v;
+    m_gpr[0] = 0;
+  }
+
+ private:
+  bus::Bus& m_bus;
+
+  // General purpose registers
   std::array<Register, 32> m_gpr{};
+
+  // Special purpose registers
+  Register m_pc{ PC_RESET_ADDR };
+
+  // Next instruction to execute
+  // Used to emulate branch delay slot
+  u32 m_next_instr{ 0 };
 };
 
 static const char* register_to_str(u8 reg_idx) {

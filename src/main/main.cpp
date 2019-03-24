@@ -7,11 +7,12 @@
 
 int main() {
   try {
+    spdlog::set_pattern("%^[--%L--]%$ %16s:%-3# %v");
     emulator::Emulator emulator("../../data/bios/SCPH101.BIN");
     emulator.run();
 
   } catch (const std::exception& e) {
-    LOG::critical("{}", e.what());
+    LOG_CRITICAL("{}", e.what());
     assert(0);
   }
 

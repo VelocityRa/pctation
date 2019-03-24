@@ -47,25 +47,13 @@ std::string Instruction::disassemble() const {
   for (const auto operand : m_operands) {
     switch (operand) {
       case OPERAND_NONE: break;
-      case OPERAND_RS:
-        disasm_text += fmt::format("{}, ", register_to_str(rs()));
-        break;
-      case OPERAND_RT:
-        disasm_text += fmt::format("{}, ", register_to_str(rt()));
-        break;
-      case OPERAND_RD:
-        disasm_text += fmt::format("{}, ", register_to_str(rd()));
-        break;
+      case OPERAND_RS: disasm_text += fmt::format("{}, ", register_to_str(rs())); break;
+      case OPERAND_RT: disasm_text += fmt::format("{}, ", register_to_str(rt())); break;
+      case OPERAND_RD: disasm_text += fmt::format("{}, ", register_to_str(rd())); break;
       case OPERAND_IMM5: disasm_text += fmt::format("0x{:X}, ", imm5()); break;
-      case OPERAND_IMM16:
-        disasm_text += fmt::format("0x{:X}, ", imm16());
-        break;
-      case OPERAND_IMM20:
-        disasm_text += fmt::format("0x{:X}, ", imm20());
-        break;
-      case OPERAND_IMM26:
-        disasm_text += fmt::format("0x{:X}, ", imm26());
-        break;
+      case OPERAND_IMM16: disasm_text += fmt::format("0x{:X}, ", imm16()); break;
+      case OPERAND_IMM20: disasm_text += fmt::format("0x{:X}, ", imm20()); break;
+      case OPERAND_IMM26: disasm_text += fmt::format("0x{:X}, ", imm26()); break;
       default: disasm_text += "<invalid_operand>";
     }
   }
