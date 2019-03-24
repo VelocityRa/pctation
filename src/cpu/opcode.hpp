@@ -3,7 +3,7 @@
 namespace cpu {
 
 enum class Opcode {
-#define OPCODE(mnemonic, value, operands) mnemonic,
+#define OPCODE(mnemonic, opcode, operand1, operand2, operand3) mnemonic,
 #include <cpu/opcodes.def>
 #undef OPCODE
   INVALID
@@ -11,8 +11,8 @@ enum class Opcode {
 
 inline const char* opcode_to_str(Opcode opcode) {
   switch (opcode) {
-#define OPCODE(mnemonic, value, operands) \
-  case Opcode::mnemonic:                  \
+#define OPCODE(mnemonic, opcode, operand1, operand2, operand3) \
+  case Opcode::mnemonic:                                       \
     return #mnemonic;
 #include <cpu/opcodes.def>
 #undef OPCODE

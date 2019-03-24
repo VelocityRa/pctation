@@ -1,11 +1,11 @@
+#include <cpu/cpu.hpp>
 #include <cpu/instruction.hpp>
 
 #include <spdlog/fmt/fmt.h>
 
 namespace cpu {
 
-Instruction::Instruction(u32 word)
-    : m_word(word), m_operands(0), m_opcode(decode()) {}
+Instruction::Instruction(u32 word) : m_word(word), m_opcode(decode()) {}
 
 Opcode Instruction::decode() {
   const u8 primary_opcode = op_prim();
@@ -13,9 +13,9 @@ Opcode Instruction::decode() {
   if (primary_opcode != 0) {
     // non-SPECIAL opcode
     switch (primary_opcode) {
-#define OPCODE_PRIM(mnemonic, value, operands) \
-  case value:                                  \
-    m_operands = operands;                     \
+#define OPCODE_PRIM(mnemonic, opcode, operand1, operand2, operand3) \
+  case opcode:                                                      \
+    m_operands = { operand1, operand2, operand3 };                  \
     return Opcode::mnemonic;
 #include <cpu/opcodes.def>
 #undef OPCODE_PRIM
@@ -25,9 +25,9 @@ Opcode Instruction::decode() {
     // SPECIAL opcode
     const u8 seconday_opcode = op_sec();
     switch (seconday_opcode) {
-#define OPCODE_SEC(mnemonic, value, operands) \
-  case value:                                 \
-    m_operands = operands;                    \
+#define OPCODE_SEC(mnemonic, opcode, operand1, operand2, operand3) \
+  case opcode:                                                     \
+    m_operands = { operand1, operand2, operand3 };                 \
     return Opcode::mnemonic;
 #include <cpu/opcodes.def>
 #undef OPCODE_SEC
@@ -44,19 +44,35 @@ std::string Instruction::disassemble() const {
   disasm_text = opcode_to_str(m_opcode);
   disasm_text += "\t";
 
-  // TODO: some instructions' operands should be printed in a different order
-  // TODO: add 3 operand fields to opcodes.def? or maybe add 1 more (an enum) to
-  // choose between hardcoded orderings?
-  if (m_operands & OPERAND_RD)
-    disasm_text += fmt::format("{}, ", register_to_str(rd()));
-  if (m_operands & OPERAND_RS)
-    disasm_text += fmt::format("{}, ", register_to_str(rs()));
-  if (m_operands & OPERAND_RT)
-    disasm_text += fmt::format("{}, ", register_to_str(rt()));
-  if (m_operands & OPERAND_IMM16)
-    disasm_text += fmt::format("0x{:X}, ", imm16());
+  for (const auto operand : m_operands) {
+    switch (operand) {
+      case OPERAND_NONE: break;
+      case OPERAND_RS:
+        disasm_text += fmt::format("{}, ", register_to_str(rs()));
+        break;
+      case OPERAND_RT:
+        disasm_text += fmt::format("{}, ", register_to_str(rt()));
+        break;
+      case OPERAND_RD:
+        disasm_text += fmt::format("{}, ", register_to_str(rd()));
+        break;
+      case OPERAND_IMM5: disasm_text += fmt::format("0x{:X}, ", imm5()); break;
+      case OPERAND_IMM16:
+        disasm_text += fmt::format("0x{:X}, ", imm16());
+        break;
+      case OPERAND_IMM20:
+        disasm_text += fmt::format("0x{:X}, ", imm20());
+        break;
+      case OPERAND_IMM26:
+        disasm_text += fmt::format("0x{:X}, ", imm26());
+        break;
+      default: disasm_text += "<invalid_operand>";
+    }
+  }
 
-  disasm_text.erase(disasm_text.size() - 2, 2);
+  // Erase trailing ", "
+  if (disasm_text[disasm_text.size() - 2] == ',')
+    disasm_text.erase(disasm_text.size() - 2, 2);
 
   return disasm_text;
 }

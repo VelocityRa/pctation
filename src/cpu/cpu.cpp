@@ -20,8 +20,6 @@ bool Cpu::step(u32& cycles_passed) {
 
   LOG::debug("0x{:08X}: {}", instr_value, instr.disassemble());
 
-  // TODO: Disassembler (we could add an extra field in opcodes.def
-
   // Execute instruction
 
   execute_instruction(instr);
