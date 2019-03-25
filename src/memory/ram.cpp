@@ -18,4 +18,9 @@ u32 Ram::read32(u32 addr) const {
 void Ram::write32(u32 addr, u32 val) const {
   *(u32*)(m_data.get()->data() + addr) = val;
 }
+
+void Ram::write8(u32 addr, u8 val) {
+  m_data.get()->data()[addr] = val;
+}
+
 }  // namespace memory

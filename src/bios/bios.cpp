@@ -18,4 +18,8 @@ u32 Bios::read32(u32 addr) const {
   return *(u32*)(m_data.get()->data() + addr);
 }
 
+u8 Bios::read8(u32 addr) const {
+  return m_data->data()[addr];
+}
+
 }  // namespace bios

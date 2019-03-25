@@ -20,7 +20,7 @@ namespace cpu {
 constexpr auto PC_RESET_ADDR = 0xBFC00000u;
 
 // Co-processor 0 registers
-enum class Cop0Register {
+enum class Cop0Register : u32 {
   COP0_BPC = 3,        // BPC - Breakpoint on execute (R/W)
   COP0_BDA = 5,        // BDA - Breakpoint on data access (R/W)
   COP0_JUMPDEST = 6,   // JUMPDEST - Randomly memorized jump address (R)
@@ -46,11 +46,15 @@ class Cpu {
   void execute_instruction(const Instruction& i);
 
   u32 read32(u32 addr) const;
+  u8 read8(u32 addr) const;
   void write32(u32 addr, u32 val);
+  void write16(u32 addr, u16 val);
+  void write8(u32 addr, u8 val);
 
   // Interpreter helpers
  private:
-  void Cpu::branch(s16 offset);
+  void op_branch(const Instruction& i);
+  void op_jump(const Instruction& i);
   static u32 checked_add(s32 op1, s32 op2);
   static u32 checked_sub(s32 op1, s32 op2);
   //  static u32 checked_mul(u32 op1, u32 op2);
@@ -58,6 +62,11 @@ class Cpu {
  private:
   // Register getters
   const Register& r(RegisterIndex index) const {
+    Ensures(index >= 0);
+    Ensures(index <= 32);
+    return m_gpr[index];
+  }
+  Register& r(RegisterIndex index) {
     Ensures(index >= 0);
     Ensures(index <= 32);
     return m_gpr[index];

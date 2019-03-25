@@ -30,17 +30,11 @@ class Instruction {
   // Co-processor opcode field (partial) [31:21]
   constexpr u16 op_cop() const { return (m_word & 0b11111111'11100000'00000000'00000000) >> 21; }
   // Register source field [25:21]
-  constexpr RegisterIndex rs() const {
-    return (m_word & 0b00000011'11100000'00000000'00000000) >> 21;
-  }
+  constexpr RegisterIndex rs() const { return (m_word & 0b00000011'11100000'00000000'00000000) >> 21; }
   // Register target field [20:16]
-  constexpr RegisterIndex rt() const {
-    return (m_word & 0b00000000'00011111'00000000'00000000) >> 16;
-  }
+  constexpr RegisterIndex rt() const { return (m_word & 0b00000000'00011111'00000000'00000000) >> 16; }
   // Register destination field [15:11]
-  constexpr RegisterIndex rd() const {
-    return (m_word & 0b00000000'00000000'11111000'00000000) >> 11;
-  }
+  constexpr RegisterIndex rd() const { return (m_word & 0b00000000'00000000'11111000'00000000) >> 11; }
   // Immediate 5 field [10:6]
   constexpr u8 imm5() const { return (m_word & 0b00000000'00000000'00000111'11000000) >> 6; }
   // Immediate 16 field [16:0]
