@@ -1,6 +1,7 @@
 #include <bios/bios.hpp>
 #include <bus/bus.hpp>
 #include <memory/map.hpp>
+#include <memory/ram.hpp>
 #include <util/log.hpp>
 
 #include <gsl-lite.hpp>
@@ -13,7 +14,9 @@ u32 Bus::read32(u32 addr) const {
 
   address addr_rebased;
 
-  if (memory::map::BIOS.contains(addr, addr_rebased))
+  if (memory::map::RAM.contains(addr, addr_rebased))
+    return m_ram.read32(addr_rebased);
+  else if (memory::map::BIOS.contains(addr, addr_rebased))
     return m_bios.read32(addr_rebased);
 
   LOG_ERROR("Unknown memory read at 0x{:08X}", addr);
@@ -27,7 +30,9 @@ void Bus::write32(u32 addr, u32 val) {
 
   address addr_rebased;
 
-  if (memory::map::MEM_CONTROL1.contains(addr, addr_rebased)) {
+  if (memory::map::RAM.contains(addr, addr_rebased))
+    return m_ram.write32(addr_rebased, val);
+  else if (memory::map::MEM_CONTROL1.contains(addr, addr_rebased)) {
     switch (addr_rebased) {
       case 0x0:
         if (val != 0x1F000000)

@@ -16,8 +16,28 @@ class Instruction;
 }
 
 namespace cpu {
+
 constexpr auto PC_RESET_ADDR = 0xBFC00000u;
 
+// Co-processor 0 registers
+enum class Cop0Register {
+  COP0_BPC = 3,        // BPC - Breakpoint on execute (R/W)
+  COP0_BDA = 5,        // BDA - Breakpoint on data access (R/W)
+  COP0_JUMPDEST = 6,   // JUMPDEST - Randomly memorized jump address (R)
+  COP0_DCIC = 7,       // DCIC - Breakpoint control (R/W)
+  COP0_BAD_VADDR = 8,  // BadVaddr - Bad Virtual Address (R)
+  COP0_BDAM = 9,       // BDAM - Data Access breakpoint mask (R/W)
+  COP0_BPCM = 11,      // BPCM - Execute breakpoint mask (R/W)
+  COP0_SR = 12,        // SR - System status register (R/W)
+  COP0_CAUSE = 13,     // CAUSE - (R)  Describes the most recently recognised exception
+  COP0_EPC = 14,       // EPC - Return Address from Trap (R)
+  COP0_PRID = 15,      // PRID - Processor ID (R)
+};
+
+// Co-processor 0 Status Register fields
+enum Cop0StatusRegister {
+  COP0_SR_ISOLATE_CACHE = 1 << 16,
+};
 
 class Cpu {
  public:
@@ -27,6 +47,13 @@ class Cpu {
 
   u32 read32(u32 addr) const;
   void write32(u32 addr, u32 val);
+
+  // Interpreter helpers
+ private:
+  void Cpu::branch(s16 offset);
+  static u32 checked_add(s32 op1, s32 op2);
+  static u32 checked_sub(s32 op1, s32 op2);
+  //  static u32 checked_mul(u32 op1, u32 op2);
 
  private:
   // Register getters
@@ -42,6 +69,36 @@ class Cpu {
   const Register& rs(const Instruction& i) const { return r(i.rs()); }
   const Register& rt(const Instruction& i) const { return r(i.rt()); }
   const Register& rd(const Instruction& i) const { return r(i.rd()); }
+
+  // Load delay emulation
+
+  struct DelayedLoadInfo {
+    bool is_pending;
+    u8 time_left;
+    RegisterIndex reg;
+    u32 val;
+  };
+
+  void issue_pending_load(RegisterIndex reg, u32 val) {
+    m_pending_load.reg = reg;
+    m_pending_load.val = val;
+    // If there was already a pending load, we need to force it to happen now (by not setting
+    // time_left), with the new value. So, only set it when there's _not_ already a pending load.
+    if (!m_pending_load.is_pending) {
+      m_pending_load.time_left = 1;
+      m_pending_load.is_pending = true;
+    }
+  }
+
+  void check_pending_load() {
+    if (m_pending_load.is_pending) {
+      if (m_pending_load.time_left == 0) {
+        m_gpr[m_pending_load.reg] = m_pending_load.val;
+        m_pending_load.is_pending = false;
+      } else
+        m_pending_load.time_left--;
+    }
+  }
 
   // Instruction operand register setters
   void set_rs(const Instruction& i, u32 v) {
@@ -65,10 +122,17 @@ class Cpu {
 
   // Special purpose registers
   Register m_pc{ PC_RESET_ADDR };
+  Register m_previous_pc{ 0 };  // Needed for the disassembler
+
+  // Cop0 register 12 (Status Register)
+  Register m_sr{ 0 };
 
   // Next instruction to execute
-  // Used to emulate branch delay slot
+  // For emulating branch delay slot
   u32 m_next_instr{ 0 };
+
+  // For emulating Load delay
+  DelayedLoadInfo m_pending_load{};
 };
 
 static const char* register_to_str(u8 reg_idx) {

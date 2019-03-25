@@ -10,8 +10,24 @@ Instruction::Instruction(u32 word) : m_word(word), m_opcode(decode()) {}
 Opcode Instruction::decode() {
   const u8 primary_opcode = op_prim();
 
-  if (primary_opcode != 0) {
+  const bool is_cop_instr = m_word >> 30 & 1;
+
+  if (is_cop_instr) {  // TODO: handle LWC/SWC
+    // Co-processor opcode
+    const u16 cop_opcode = op_cop();
+
+    switch (cop_opcode) {
+#define OPCODE_COP(mnemonic, opcode, operand1, operand2, operand3) \
+  case opcode:                                                     \
+    m_operands = { operand1, operand2, operand3 };                 \
+    return Opcode::mnemonic;
+#include <cpu/opcodes.def>
+#undef OPCODE_COP
+      default: return Opcode::INVALID;
+    }
+  } else if (primary_opcode != 0) {
     // non-SPECIAL opcode
+
     switch (primary_opcode) {
 #define OPCODE_PRIM(mnemonic, opcode, operand1, operand2, operand3) \
   case opcode:                                                      \
@@ -23,8 +39,9 @@ Opcode Instruction::decode() {
     }
   } else {
     // SPECIAL opcode
-    const u8 seconday_opcode = op_sec();
-    switch (seconday_opcode) {
+    const u8 secondary_opcode = op_sec();
+
+    switch (secondary_opcode) {
 #define OPCODE_SEC(mnemonic, opcode, operand1, operand2, operand3) \
   case opcode:                                                     \
     m_operands = { operand1, operand2, operand3 };                 \

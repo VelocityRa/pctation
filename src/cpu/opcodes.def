@@ -1,8 +1,9 @@
 #include <cpu/instruction.hpp>
 
-#if defined(OPCODE) && !defined(OPCODE_PRIM) && !defined(OPCODE_SEC)
+#if defined(OPCODE) && !defined(OPCODE_PRIM) && !defined(OPCODE_SEC) && !defined(OPCODE_COP)
   #define OPCODE_PRIM OPCODE
   #define OPCODE_SEC OPCODE
+  #define OPCODE_COP OPCODE
 #endif
 
 #ifndef OPCODE_PRIM
@@ -11,6 +12,10 @@
 
 #ifndef OPCODE_SEC
   #define OPCODE_SEC(mnemonic, opcode, operand1, operand2, operand3)
+#endif
+
+#ifndef OPCODE_COP
+  #define OPCODE_COP(mnemonic, opcode, operand1, operand2, operand3)
 #endif
 
 // For brevity
@@ -96,6 +101,11 @@ OPCODE_SEC(XOR,       0x26,    RD,    RS,    RT)
 OPCODE_SEC(SRAV,      0x07,  NONE,  NONE,  NONE)
 OPCODE_SEC(NOR,       0x27,    RD,    RS,    RT)
 
+OPCODE_COP(MFC0,  0b010000'0'0000, RT, RD, NONE)
+OPCODE_COP(CFC0,  0b010000'0'0010, RT, RD, NONE)
+OPCODE_COP(MTC0,  0b010000'0'0100, RT, RD, NONE)
+OPCODE_COP(CTC0,  0b010000'0'0110, RT, RD, NONE)
+
 #undef NONE
 #undef RS
 #undef RT
@@ -107,4 +117,5 @@ OPCODE_SEC(NOR,       0x27,    RD,    RS,    RT)
 
 #undef OPCODE_PRIM
 #undef OPCODE_SEC
+#undef OPCODE_COP
 #undef OPCODE

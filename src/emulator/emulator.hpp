@@ -3,6 +3,7 @@
 #include <bios/bios.hpp>
 #include <bus/bus.hpp>
 #include <cpu/cpu.hpp>
+#include <memory/ram.hpp>
 
 #include <util/fs.hpp>
 
@@ -15,6 +16,7 @@ class Emulator {
   void run();
 
  private:
+  memory::Ram m_ram;
   bios::Bios m_bios;
   bus::Bus m_bus;
 
