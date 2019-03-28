@@ -18,7 +18,11 @@ u32 Bus::read32(u32 addr) const {
 
   if (memory::map::RAM.contains(addr, addr_rebased))
     return m_ram.read32(addr_rebased);
-  else if (memory::map::BIOS.contains(addr, addr_rebased))
+  if (memory::map::IRQ_CONTROL.contains(addr, addr_rebased)) {
+    LOG_WARN("Unhandled read of {}", addr_rebased == 0 ? "I_STAT" : "I_MASK");
+    return 0;
+  }
+  if (memory::map::BIOS.contains(addr, addr_rebased))
     return m_bios.read32(addr_rebased);
 
   LOG_ERROR("Unknown 32-bit memory read at 0x{:08X}", addr);
@@ -31,10 +35,12 @@ u8 Bus::read8(u32 addr) const {
 
   address addr_rebased;
 
+  if (memory::map::RAM.contains(addr, addr_rebased))
+    return m_ram.read8(addr_rebased);
   if (memory::map::BIOS.contains(addr, addr_rebased))
     return m_bios.read8(addr_rebased);
   if (memory::map::EXPANSION_1.contains(addr, addr_rebased)) {
-    LOG_CRITICAL("Unhandled read of EXPANSION 1 memory at 0x{:08X}", addr);
+    LOG_WARN("Unhandled read of EXPANSION 1 memory at 0x{:08X}", addr);
     // No expansion unimplemented
     return 0xFF;
   }
@@ -54,6 +60,10 @@ void Bus::write32(u32 addr, u32 val) {
 
   if (memory::map::RAM.contains(addr, addr_rebased))
     return m_ram.write32(addr_rebased, val);
+  if (memory::map::IRQ_CONTROL.contains(addr, addr_rebased)) {
+    LOG_WARN("Unhandled write of 0x{:08X} to {}", val, addr_rebased == 0 ? "I_STAT" : "I_MASK");
+    return;
+  }
   if (memory::map::MEM_CONTROL1.contains(addr, addr_rebased)) {
     switch (addr_rebased) {
       case 0x0:

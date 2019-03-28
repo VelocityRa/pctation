@@ -60,7 +60,7 @@ class Cpu {
   //  static u32 checked_mul(u32 op1, u32 op2);
 
  private:
-  // Register getters
+  // Register getters/setters
   const Register& r(RegisterIndex index) const {
     Ensures(index >= 0);
     Ensures(index <= 32);
@@ -89,14 +89,13 @@ class Cpu {
   };
 
   void issue_pending_load(RegisterIndex reg, u32 val) {
+    // Commit the pending load if any
+    check_pending_load();
+
     m_pending_load.reg = reg;
     m_pending_load.val = val;
-    // If there was already a pending load, we need to force it to happen now (by not setting
-    // time_left), with the new value. So, only set it when there's _not_ already a pending load.
-    if (!m_pending_load.is_pending) {
-      m_pending_load.time_left = 1;
-      m_pending_load.is_pending = true;
-    }
+    m_pending_load.time_left = 1;
+    m_pending_load.is_pending = true;
   }
 
   void check_pending_load() {

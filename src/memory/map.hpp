@@ -19,6 +19,7 @@ static constexpr Range MEM_CONTROL3{ 0xFFFE0130, 0x4 };
 static constexpr Range SPU{ 0x1F801C00, 0x280 };
 static constexpr Range EXPANSION_1{ 0x1F000000, 512 * 1024 };
 static constexpr Range EXPANSION_2{ 0x1F802000, 0x42 };
+static constexpr Range IRQ_CONTROL{ 0x1F801070, 8 };
 
 }  // namespace map
 

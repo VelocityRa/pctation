@@ -5,6 +5,11 @@
 #include <util/log.hpp>
 
 #include <limits>
+#include <string>
+
+#define TRACE_INST 0
+#define TRACE_REGS 1
+#define TRACE_PC_ONLY 0
 
 namespace cpu {
 
@@ -18,11 +23,19 @@ bool Cpu::step(u32& cycles_passed) {
   m_next_instr = m_bus.read32(m_pc);
 
   // Decode current instruction
-  const Instruction instr(cur_instr);
+  const Instruction instr(cur_instr);  // todo: find out the strings that fail strcmp
 
   // Log instruction disassembly
-  LOG_TRACE("[{:08X}]: {:08X} {}", m_previous_pc, cur_instr, instr.disassemble());
 
+#if TRACE_REGS
+  std::string debug_str;
+  for (auto i = 1; i < 32; ++i)
+    debug_str +=
+        fmt::format("{}:{:X} ", reinterpret_cast<const char*>(register_to_str(i)) + 1, m_gpr[i]);
+  LOG_TRACE("[{:08X}]: {:08X} {}\n  {}", m_previous_pc, cur_instr, instr.disassemble(), debug_str);
+#elif TRACE_INST
+  LOG_TRACE("[{:08X}]: {:08X} {}", m_previous_pc, cur_instr, instr.disassemble());
+#endif
   m_previous_pc = m_pc;
 
   // Increment Program Counter
@@ -31,6 +44,9 @@ bool Cpu::step(u32& cycles_passed) {
   // Execute instruction
   execute_instruction(instr);
 
+#if TRACE_PC_ONLY && !TRACE_REGS
+  LOG_TRACE("{:08X}", m_pc - 4);
+#endif
   cycles_passed = 0;  // TODO
   return false;
 }
@@ -47,7 +63,7 @@ void Cpu::execute_instruction(const Instruction& i) {
     // Comparison
     case Opcode::SLT: set_rd(i, (s32)rs(i) < (s32)rt(i) ? 1 : 0); break;
     case Opcode::SLTU: set_rd(i, rs(i) < rt(i) ? 1 : 0); break;
-    case Opcode::SLTI: set_rt(i, (s32)rs(i) < i.imm16_se() ? 1 : 0); break;
+    case Opcode::SLTI: set_rt(i, (s32)rs(i) < (s32)i.imm16_se() ? 1 : 0); break;
     case Opcode::SLTIU:
       set_rt(i, rs(i) < (u32)i.imm16_se() ? 1 : 0);
       break;  // TODO: verify
@@ -70,6 +86,7 @@ void Cpu::execute_instruction(const Instruction& i) {
     case Opcode::XOR: set_rd(i, rs(i) ^ rt(i)); break;
     case Opcode::NOR: set_rd(i, 0xFFFFFFFF ^ (rs(i) | rt(i))); break;
     // Memory operations (loads)
+    case Opcode::LBU: issue_pending_load(i.rt(), read8(i.imm16_se() + rs(i))); break;
     case Opcode::LB: issue_pending_load(i.rt(), (s8)read8(i.imm16_se() + rs(i))); break;
     case Opcode::LW:
       issue_pending_load(i.rt(), read32(i.imm16_se() + rs(i)));
@@ -85,6 +102,10 @@ void Cpu::execute_instruction(const Instruction& i) {
       r(31) = pc();
       op_jump(i);
       break;
+    case Opcode::JALR:
+      set_rd(i, pc());
+      pc() = rs(i);
+      break;
     case Opcode::BEQ:
       if (rs(i) == rt(i))
         op_branch(i);
@@ -93,29 +114,49 @@ void Cpu::execute_instruction(const Instruction& i) {
       if (rs(i) != rt(i))
         op_branch(i);
       break;
+    case Opcode::BGTZ:
+      if ((s32)rs(i) > 0)
+        op_branch(i);
+      break;
+    case Opcode::BLEZ:
+      if ((s32)rs(i) <= 0)
+        op_branch(i);
+      break;
+    case Opcode::BCONDZ: {  // TODO: make separate opcodes?
+      const u8 opcode_2 = rt(i);
+      const bool is_bgez = opcode_2 & 0b1;
+      const bool is_link = opcode_2 & 0b10000;
+      const s32 test =
+          ((s32)rs(i) < 0) ^ is_bgez;  // test if <= 0. invert result (>0) if is_bgez is true
+      if (test) {
+        if (is_link) {
+          r(31) = pc();
+        }
+        op_branch(i);
+      }
+      break;
+    }
+
     // Co-processor 0
     case Opcode::MTC0: {
       const auto cop_dst_reg = static_cast<Cop0Register>(i.rd());
       switch (cop_dst_reg) {
-        case Cop0Register::COP0_BPC:
-        case Cop0Register::COP0_BDA:
-        case Cop0Register::COP0_JUMPDEST:
-        case Cop0Register::COP0_DCIC:
-        case Cop0Register::COP0_BAD_VADDR:
-        case Cop0Register::COP0_BDAM:
-        case Cop0Register::COP0_BPCM:
-        case Cop0Register::COP0_CAUSE:
-        case Cop0Register::COP0_EPC:
-        case Cop0Register::COP0_PRID: break;
         case Cop0Register::COP0_SR: m_sr = rt(i); break;
-        default: LOG_WARN("Unhandled Cop1 register 0x{:08X}", static_cast<u32>(cop_dst_reg)); assert(0);
+        default: LOG_WARN("Unhandled Cop1 register {} write", static_cast<u32>(cop_dst_reg));
+      }
+      break;
+    }
+    case Opcode::MFC0: {
+      const auto cop_dst_reg = static_cast<Cop0Register>(i.rd());
+      switch (cop_dst_reg) {
+        case Cop0Register::COP0_SR: issue_pending_load(i.rt(), m_sr); break;
+        default: LOG_WARN("Unhandled Cop1 register {} read", static_cast<u32>(cop_dst_reg));
       }
       break;
     }
 
     default: LOG_ERROR("Unimplemented instruction executed"); assert(0);
   }
-
   check_pending_load();
 }
 
