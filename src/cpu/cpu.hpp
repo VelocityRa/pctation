@@ -55,6 +55,8 @@ class Cpu {
  private:
   void op_branch(const Instruction& i);
   void op_jump(const Instruction& i);
+  void op_udiv(const Instruction& i);
+  void op_sdiv(const Instruction& i);
   static u32 checked_add(s32 op1, s32 op2);
   static u32 checked_sub(s32 op1, s32 op2);
   //  static u32 checked_mul(u32 op1, u32 op2);
@@ -123,17 +125,17 @@ class Cpu {
   }
 
  private:
-  bus::Bus& m_bus;
-
   // General purpose registers
   std::array<Register, 32> m_gpr{};
 
   // Special purpose registers
-  Register m_pc{ PC_RESET_ADDR };
-  Register m_previous_pc{ 0 };  // Needed for the disassembler
+  Register m_pc{ PC_RESET_ADDR };  // Program counter
+  Register m_previous_pc{ 0 };     // Previous Program counter value (needed for the disassembler)
+  Register m_hi;                   // Division remainder and multiplication high result
+  Register m_lo;                   // Division quotient and multiplication low result
 
-  // Cop0 register 12 (Status Register)
-  Register m_sr{ 0 };
+  // Cop0 registers
+  Register m_sr{ 0 };  // Status Register (r12)
 
   // Next instruction to execute
   // For emulating branch delay slot
@@ -141,6 +143,8 @@ class Cpu {
 
   // For emulating Load delay
   DelayedLoadInfo m_pending_load{};
+
+  bus::Bus& m_bus;
 };
 
 static const char* register_to_str(u8 reg_idx) {

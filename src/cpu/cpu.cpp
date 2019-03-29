@@ -7,9 +7,12 @@
 #include <limits>
 #include <string>
 
-#define TRACE_INST 0
-#define TRACE_REGS 1
-#define TRACE_PC_ONLY 0
+#define TRACE_NONE 0
+#define TRACE_INST 1
+#define TRACE_REGS 2
+#define TRACE_PC_ONLY 3
+
+#define TRACE_MODE TRACE_INST
 
 namespace cpu {
 
@@ -24,16 +27,17 @@ bool Cpu::step(u32& cycles_passed) {
 
   // Decode current instruction
   const Instruction instr(cur_instr);  // todo: find out the strings that fail strcmp
-
+  
   // Log instruction disassembly
 
-#if TRACE_REGS
+#if TRACE_MODE == TRACE_REGS
   std::string debug_str;
   for (auto i = 1; i < 32; ++i)
     debug_str +=
         fmt::format("{}:{:X} ", reinterpret_cast<const char*>(register_to_str(i)) + 1, m_gpr[i]);
+  debug_str += fmt::format("hi:{:X} lo:{:X}", m_hi, m_lo);
   LOG_TRACE("[{:08X}]: {:08X} {}\n  {}", m_previous_pc, cur_instr, instr.disassemble(), debug_str);
-#elif TRACE_INST
+#elif TRACE_MODE == TRACE_INST
   LOG_TRACE("[{:08X}]: {:08X} {}", m_previous_pc, cur_instr, instr.disassemble());
 #endif
   m_previous_pc = m_pc;
@@ -44,9 +48,11 @@ bool Cpu::step(u32& cycles_passed) {
   // Execute instruction
   execute_instruction(instr);
 
-#if TRACE_PC_ONLY && !TRACE_REGS
+  // In PC_ONLY mode we print the PC-4 for branch delay slot instructions (to match no$psx's output)
+#if TRACE_MODE == TRACE_PC_ONLY
   LOG_TRACE("{:08X}", m_pc - 4);
 #endif
+
   cycles_passed = 0;  // TODO
   return false;
 }
@@ -60,23 +66,21 @@ void Cpu::execute_instruction(const Instruction& i) {
     case Opcode::SUBU: set_rd(i, rs(i) - rt(i)); break;
     case Opcode::ADDI: set_rt(i, checked_add(rs(i), i.imm16_se())); break;
     case Opcode::ADDIU: set_rt(i, rs(i) + i.imm16_se()); break;
+    case Opcode::DIV: op_sdiv(i); break;
+    case Opcode::DIVU: op_udiv(i); break;
     // Comparison
     case Opcode::SLT: set_rd(i, (s32)rs(i) < (s32)rt(i) ? 1 : 0); break;
     case Opcode::SLTU: set_rd(i, rs(i) < rt(i) ? 1 : 0); break;
     case Opcode::SLTI: set_rt(i, (s32)rs(i) < (s32)i.imm16_se() ? 1 : 0); break;
-    case Opcode::SLTIU:
-      set_rt(i, rs(i) < (u32)i.imm16_se() ? 1 : 0);
-      break;  // TODO: verify
+    case Opcode::SLTIU: set_rt(i, rs(i) < (u32)i.imm16_se() ? 1 : 0); break;
     // Shifting
     case Opcode::LUI: set_rt(i, i.imm16() << 16); break;
     case Opcode::SLLV: set_rd(i, rt(i) << (rs(i) & 0x1F)); break;
     case Opcode::SRLV: set_rd(i, rt(i) >> (rs(i) & 0x1F)); break;
-    case Opcode::SRAV: set_rd(i, (s32)rt(i) >> (rs(i) & 0x1F)); break;  // TODO: verify
+    case Opcode::SRAV: set_rd(i, (s32)rt(i) >> (rs(i) & 0x1F)); break;
     case Opcode::SLL: set_rd(i, rt(i) << i.imm5()); break;
     case Opcode::SRL: set_rd(i, rt(i) >> i.imm5()); break;
-    case Opcode::SRA:
-      set_rd(i, (s32)rt(i) >> i.imm5());
-      break;  // TODO: verify
+    case Opcode::SRA: set_rd(i, (s32)rt(i) >> i.imm5()); break;
     // Logical
     case Opcode::ANDI: set_rt(i, rs(i) & i.imm16()); break;
     case Opcode::ORI: set_rt(i, rs(i) | i.imm16()); break;
@@ -123,11 +127,12 @@ void Cpu::execute_instruction(const Instruction& i) {
         op_branch(i);
       break;
     case Opcode::BCONDZ: {  // TODO: make separate opcodes?
-      const u8 opcode_2 = rt(i);
+      const u8 opcode_2 = i.rt();
       const bool is_bgez = opcode_2 & 0b1;
       const bool is_link = opcode_2 & 0b10000;
-      const s32 test =
-          ((s32)rs(i) < 0) ^ is_bgez;  // test if <= 0. invert result (>0) if is_bgez is true
+
+      // test if <= 0. invert result (>0) if is_bgez is true
+      const auto test = (u32)((s32)rs(i) < 0) ^ is_bgez;
       if (test) {
         if (is_link) {
           r(31) = pc();
@@ -154,6 +159,8 @@ void Cpu::execute_instruction(const Instruction& i) {
       }
       break;
     }
+    case Opcode::MFLO: set_rd(i, m_lo); break;
+    case Opcode::MFHI: set_rd(i, m_hi); break;
 
     default: LOG_ERROR("Unimplemented instruction executed"); assert(0);
   }
@@ -166,6 +173,38 @@ void Cpu::op_jump(const Instruction& i) {
 
 void Cpu::op_branch(const Instruction& i) {
   pc() += (i.imm16_se() << 2) - 4;
+}
+
+void Cpu::op_udiv(const Instruction& i) {
+  const u32 numerator = rs(i);
+  const u32 denominator = rt(i);
+
+  if (denominator == 0) {
+    m_lo = 0xFFFFFFFF;
+    m_hi = numerator;
+  } else {
+    m_lo = numerator / denominator;
+    m_hi = numerator % denominator;
+  }
+}
+
+void Cpu::op_sdiv(const Instruction& i) {
+  const s32 numerator = rs(i);
+  const s32 denominator = rt(i);
+
+  if (denominator == 0) {
+    if (numerator >= 0)
+      m_lo = 0xFFFFFFFF;
+    else
+      m_lo = 1;
+    m_hi = numerator;
+  } else if (denominator == 0xFFFFFFFF && numerator == 0x80000000) {
+    m_lo = 0x80000000;
+    m_hi = 0;
+  } else {
+    m_lo = numerator / denominator;
+    m_hi = numerator % denominator;
+  }
 }
 
 u32 Cpu::checked_add(s32 op1, s32 op2) {

@@ -94,7 +94,7 @@ void Bus::write32(u32 addr, u32 val) {
     return;  // Cache Control, ignore
   }
 
-  LOG_ERROR("Unknown memory write of 0x{:08X} at 0x{:08X} ", val, addr);
+  LOG_ERROR("Unknown 32-bit memory write of 0x{:08X} at 0x{:08X} ", val, addr);
   assert(0);
 }
 
@@ -106,12 +106,16 @@ void Bus::write16(u32 addr, u16 val) {
 
   address addr_rebased;
 
-  if (memory::map::SPU.contains(addr, addr_rebased)) {
+  if (memory::map::TIMERS.contains(addr, addr_rebased)) {
     LOG_WARN("Unhandled write to SPU register: 0x{:04X} at 0x{:08X}", val, addr);
     return;  // ignore
   }
+  if (memory::map::SPU.contains(addr, addr_rebased)) {
+    LOG_WARN("Unhandled write to Timer register: 0x{:04X} at 0x{:08X}", val, addr);
+    return;  // ignore
+  }
 
-  LOG_ERROR("Unknown memory write of 0x{:04X} at 0x{:08X} ", val, addr);
+  LOG_ERROR("Unknown 16-bit memory write of 0x{:04X} at 0x{:08X} ", val, addr);
   assert(0);
 }
 
@@ -127,7 +131,7 @@ void Bus::write8(u32 addr, u8 val) {
     return;  // ignore
   }
 
-  LOG_ERROR("Unknown memory write of 0x{:02X} at 0x{:08X} ", val, addr);
+  LOG_ERROR("Unknown 8-bit memory write of 0x{:02X} at 0x{:08X} ", val, addr);
   assert(0);
 }
 
