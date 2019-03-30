@@ -4,6 +4,7 @@
 #include <cpu/opcode.hpp>
 #include <util/log.hpp>
 
+#include <iostream>
 #include <limits>
 #include <string>
 
@@ -13,6 +14,8 @@
 #define TRACE_PC_ONLY 3
 
 #define TRACE_MODE TRACE_INST
+
+#define TTY_OUTPUT 1
 
 namespace cpu {
 
@@ -27,7 +30,7 @@ bool Cpu::step(u32& cycles_passed) {
 
   // Decode current instruction
   const Instruction instr(cur_instr);  // todo: find out the strings that fail strcmp
-  
+
   // Log instruction disassembly
 
 #if TRACE_MODE == TRACE_REGS
@@ -44,6 +47,14 @@ bool Cpu::step(u32& cycles_passed) {
 
   // Increment Program Counter
   m_pc += 4;
+
+#if TTY_OUTPUT
+  // TODO: Check in JAL(?)
+  if (m_pc == 0x4074) {
+    char tty_out_char = r(4);
+    std::cout << tty_out_char;
+  }
+#endif
 
   // Execute instruction
   execute_instruction(instr);
