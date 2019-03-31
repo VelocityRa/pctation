@@ -106,6 +106,8 @@ void Bus::write16(u32 addr, u16 val) {
 
   address addr_rebased;
 
+  if (memory::map::RAM.contains(addr, addr_rebased))
+    return m_ram.write16(addr_rebased, val);
   if (memory::map::TIMERS.contains(addr, addr_rebased)) {
     LOG_WARN("Unhandled write to SPU register: 0x{:04X} at 0x{:08X}", val, addr);
     return;  // ignore

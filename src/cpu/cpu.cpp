@@ -13,26 +13,22 @@
 #define TRACE_REGS 2
 #define TRACE_PC_ONLY 3
 
-#define TRACE_MODE TRACE_INST
+#define TRACE_MODE TRACE_NONE
 
-#define TTY_OUTPUT 1
+#define TTY_OUTPUT 0
 
 namespace cpu {
 
 Cpu::Cpu(bus::Bus& bus) : m_bus(bus) {}
 
 bool Cpu::step(u32& cycles_passed) {
-  // Current instruction is the previously 'next' one
-  u32 cur_instr = m_next_instr;
-
-  // Fetch next instruction, save for next execution step
-  m_next_instr = m_bus.read32(m_pc);
+  // Fetch current instruction
+  const u32 cur_instr = m_bus.read32(m_pc);
 
   // Decode current instruction
-  const Instruction instr(cur_instr);  // todo: find out the strings that fail strcmp
+  const Instruction instr(cur_instr);
 
   // Log instruction disassembly
-
 #if TRACE_MODE == TRACE_REGS
   std::string debug_str;
   for (auto i = 1; i < 32; ++i)
@@ -41,13 +37,9 @@ bool Cpu::step(u32& cycles_passed) {
   debug_str += fmt::format("hi:{:X} lo:{:X}", m_hi, m_lo);
   LOG_TRACE("[{:08X}]: {:08X} {}\n  {}", m_previous_pc, cur_instr, instr.disassemble(), debug_str);
 #elif TRACE_MODE == TRACE_INST
-  LOG_TRACE("[{:08X}]: {:08X} {}", m_previous_pc, cur_instr, instr.disassemble());
+  LOG_TRACE("[{:08X}]: {:08X} {}", m_pc, cur_instr, instr.disassemble());
 #endif
-  m_previous_pc = m_pc;
-
-  // Increment Program Counter
-  m_pc += 4;
-
+  // Log TTY
 #if TTY_OUTPUT
   // TODO: Check in JAL(?)
   if (m_pc == 0x4074) {
@@ -55,6 +47,18 @@ bool Cpu::step(u32& cycles_passed) {
     std::cout << tty_out_char;
   }
 #endif
+
+  // Check PC alignment
+  if (m_pc % 4 != 0) {
+    trigger_exception(ExceptionCause::EC_LOAD_ADDR_ERR);
+    return false;
+  }
+
+  // Save current PC
+  m_pc_current = m_pc;
+  // Advance PC
+  m_pc = m_pc_next;
+  m_pc_next += 4;
 
   // Execute instruction
   execute_instruction(instr);
@@ -101,25 +105,25 @@ void Cpu::execute_instruction(const Instruction& i) {
     case Opcode::XOR: set_rd(i, rs(i) ^ rt(i)); break;
     case Opcode::NOR: set_rd(i, 0xFFFFFFFF ^ (rs(i) | rt(i))); break;
     // Memory operations (loads)
-    case Opcode::LBU: issue_pending_load(i.rt(), read8(i.imm16_se() + rs(i))); break;
-    case Opcode::LB: issue_pending_load(i.rt(), (s8)read8(i.imm16_se() + rs(i))); break;
+    case Opcode::LBU: op_lbu(i); break;
+    case Opcode::LB: op_lb(i); break;
     case Opcode::LW:
-      issue_pending_load(i.rt(), read32(i.imm16_se() + rs(i)));
+      op_lw(i);
       break;
       // Memory operations (stores)
-    case Opcode::SB: write8(i.imm16_se() + rs(i), (u8)rt(i)); break;
-    case Opcode::SH: write16(i.imm16_se() + rs(i), (u16)rt(i)); break;
-    case Opcode::SW: write32(i.imm16_se() + rs(i), rt(i)); break;
+    case Opcode::SB: op_sb(i); break;
+    case Opcode::SH: op_sh(i); break;
+    case Opcode::SW: op_sw(i); break;
     // Jumps/Branches
     case Opcode::J: op_jump(i); break;
-    case Opcode::JR: pc() = rs(i); break;
+    case Opcode::JR: m_pc_next = rs(i); break;
     case Opcode::JAL:
-      r(31) = pc();
+      r(31) = m_pc_next;
       op_jump(i);
       break;
     case Opcode::JALR:
-      set_rd(i, pc());
-      pc() = rs(i);
+      set_rd(i, m_pc_next);
+      m_pc_next = rs(i);
       break;
     case Opcode::BEQ:
       if (rs(i) == rt(i))
@@ -146,18 +150,21 @@ void Cpu::execute_instruction(const Instruction& i) {
       const auto test = (u32)((s32)rs(i) < 0) ^ is_bgez;
       if (test) {
         if (is_link) {
-          r(31) = pc();
+          r(31) = m_pc_next;
         }
         op_branch(i);
       }
       break;
     }
-
+    // Syscall
+    case Opcode::SYSCALL: trigger_exception(ExceptionCause::EC_SYSCALL); break;
     // Co-processor 0
     case Opcode::MTC0: {
       const auto cop_dst_reg = static_cast<Cop0Register>(i.rd());
       switch (cop_dst_reg) {
-        case Cop0Register::COP0_SR: m_sr = rt(i); break;
+        case Cop0Register::COP0_SR: m_cop0_sr = rt(i); break;
+        case Cop0Register::COP0_CAUSE: m_cop0_cause = rt(i); break;
+        case Cop0Register::COP0_EPC: m_cop0_epc = rt(i); break;
         default: LOG_WARN("Unhandled Cop1 register {} write", static_cast<u32>(cop_dst_reg));
       }
       break;
@@ -165,25 +172,98 @@ void Cpu::execute_instruction(const Instruction& i) {
     case Opcode::MFC0: {
       const auto cop_dst_reg = static_cast<Cop0Register>(i.rd());
       switch (cop_dst_reg) {
-        case Cop0Register::COP0_SR: issue_pending_load(i.rt(), m_sr); break;
+        case Cop0Register::COP0_SR: issue_pending_load(i.rt(), m_cop0_sr); break;
+        case Cop0Register::COP0_CAUSE: issue_pending_load(i.rt(), m_cop0_cause); break;
+        case Cop0Register::COP0_EPC: issue_pending_load(i.rt(), m_cop0_epc); break;
         default: LOG_WARN("Unhandled Cop1 register {} read", static_cast<u32>(cop_dst_reg));
       }
       break;
     }
     case Opcode::MFLO: set_rd(i, m_lo); break;
     case Opcode::MFHI: set_rd(i, m_hi); break;
+    case Opcode::MTLO: m_lo = rs(i); break;
+    case Opcode::MTHI: m_hi = rs(i); break;
+    case Opcode::RFE: op_rfe(i); break;
 
     default: LOG_ERROR("Unimplemented instruction executed"); assert(0);
   }
   check_pending_load();
 }
 
+void Cpu::trigger_exception(ExceptionCause cause) {
+  const u32 handler_addr =
+      m_cop0_sr & COP0_SR_BEV ? EXCEPTION_VECTOR_GENERAL_ROM : EXCEPTION_VECTOR_GENERAL_RAM;
+
+  // Shift bits [5:0] of the Status Register two bits to the left.
+  // This has the effect of disabling interrupts and enabling kernel mode.
+  // The last two bits in [5:4] are discarded, it's up to the kernel to handle more exception recursion
+  // levels.
+  const u8 mode = m_cop0_sr & 0b111111;
+  m_cop0_sr &= ~0b111111u;
+  m_cop0_sr |= (mode << 2) & 0b111111;
+
+  m_cop0_cause = (static_cast<u32>(cause) << 2);
+
+  // Update EPC with the return address (PC) from the exception
+  m_cop0_epc = m_pc_current;
+  if (is_in_branch_delay_slot()) {
+    m_cop0_epc = m_pc_next;   // need to set this to the branch target if we're in a branch delay slot
+    m_cop0_sr |= COP0_SR_BD;  // also set this SR bit which indicates this edge case
+  }
+
+  // Exceptions don't have a branch delay, jump directly to the handler
+  m_pc = handler_addr;
+  m_pc_next = m_pc + 4;
+}
+
+void Cpu::op_sb(const Instruction& i) {
+  const address addr = i.imm16_se() + rs(i);
+  return store8(addr, (u8)rt(i));
+}
+
+void Cpu::op_sh(const Instruction& i) {
+  const address addr = i.imm16_se() + rs(i);
+  if (addr % 2 != 0) {
+    trigger_exception(ExceptionCause::EC_STORE_ADDR_ERR);
+    return;
+  }
+  store16(addr, (u16)rt(i));
+}
+
+void Cpu::op_sw(const Instruction& i) {
+  const address addr = i.imm16_se() + rs(i);
+  if (addr % 4 != 0) {
+    trigger_exception(ExceptionCause::EC_STORE_ADDR_ERR);
+    return;
+  }
+  store32(addr, rt(i));
+}
+
+void Cpu::op_lbu(const Instruction& i) {
+  const address addr = i.imm16_se() + rs(i);
+  issue_pending_load(i.rt(), load8(addr));
+}
+
+void Cpu::op_lb(const Instruction& i) {
+  const address addr = i.imm16_se() + rs(i);
+  issue_pending_load(i.rt(), (s8)load8(addr));
+}
+
+void Cpu::op_lw(const Instruction& i) {
+  const address addr = i.imm16_se() + rs(i);
+  if (addr % 4 != 0) {
+    trigger_exception(ExceptionCause::EC_LOAD_ADDR_ERR);
+    return;
+  }
+  issue_pending_load(i.rt(), load32(addr));
+}
+
 void Cpu::op_jump(const Instruction& i) {
-  pc() = pc() & 0xF0000000 | (i.imm26() << 2);
+  m_pc_next = m_pc_next & 0xF0000000 | (i.imm26() << 2);
 }
 
 void Cpu::op_branch(const Instruction& i) {
-  pc() += (i.imm16_se() << 2) - 4;
+  m_pc_next += (i.imm16_se() << 2) - 4;
 }
 
 void Cpu::op_udiv(const Instruction& i) {
@@ -218,50 +298,71 @@ void Cpu::op_sdiv(const Instruction& i) {
   }
 }
 
+void Cpu::op_rfe(const Instruction& i) {
+  // Restore the mode before the exception by shifting the Interrupt Enable / User Mode stack back to its
+  // original position.
+  const auto mode = m_cop0_sr & 0b111111;
+
+  m_cop0_sr &= ~0b1111u;
+  m_cop0_sr |= mode >> 2;
+}
+
 u32 Cpu::checked_add(s32 op1, s32 op2) {
   //  if (op1 > 0 && op2 > 0 && op1 + op2 < 0)
   if (op1 > 0 && op2 > 0 && op1 > INT_MAX - op2 || op1 < 0 && op2 < 0 && op1 < INT_MIN - op2)
-    assert(0);
+    trigger_exception(ExceptionCause::EC_OVERFLOW);
   return op1 + op2;
 }
 
 u32 Cpu::checked_sub(s32 op1, s32 op2) {
   if (op1 < 0 && op2 > INT_MAX + op1 || op1 > 0 && op2 < INT_MIN + op1)
-    assert(0);
+    trigger_exception(ExceptionCause::EC_OVERFLOW);
   return op1 - op2;
 }
 
 // u32 Cpu::checked_mul(u32 op1, u32 op2) {
 //  if (static_cast<u64>(op1) * static_cast<u64>(op2) > 0x100000000LL)
-//    assert(0);  // TODO: overflow trap
+//    trigger_exception(ExceptionCause::EC_OVERFLOW);
 //  return op1 - op2;
 //}
 
-u8 Cpu::read8(u32 addr) const {
+u8 Cpu::load8(u32 addr) {
   return m_bus.read8(addr);
 }
 
-u32 Cpu::read32(u32 addr) const {
+u32 Cpu::load32(u32 addr) {
+  if (addr % 4 != 0) {
+    trigger_exception(ExceptionCause::EC_LOAD_ADDR_ERR);
+    return 0;
+  }
   return m_bus.read32(addr);
 }
 
-void Cpu::write32(u32 addr, u32 val) {
-  if (m_sr & COP0_SR_ISOLATE_CACHE) {
+void Cpu::store32(u32 addr, u32 val) {
+  if (addr % 4 != 0) {
+    trigger_exception(ExceptionCause::EC_STORE_ADDR_ERR);
+    return;
+  }
+  if (m_cop0_sr & COP0_SR_ISOLATE_CACHE) {
     LOG_DEBUG("Ignoring write 0x{:08X} to 0x{:08X} due to cache isolation", val, addr);
     return;
   }
   m_bus.write32(addr, val);
 }
-void Cpu::write16(u32 addr, u16 val) {
-  if (m_sr & COP0_SR_ISOLATE_CACHE) {
+void Cpu::store16(u32 addr, u16 val) {
+  if (addr % 2 != 0) {
+    trigger_exception(ExceptionCause::EC_STORE_ADDR_ERR);
+    return;
+  }
+  if (m_cop0_sr & COP0_SR_ISOLATE_CACHE) {
     LOG_DEBUG("Ignoring write 0x{:04X} to 0x{:08X} due to cache isolation", val, addr);
     return;
   }
   m_bus.write16(addr, val);
 }
 
-void Cpu::write8(u32 addr, u8 val) {
-  if (m_sr & COP0_SR_ISOLATE_CACHE) {
+void Cpu::store8(u32 addr, u8 val) {
+  if (m_cop0_sr & COP0_SR_ISOLATE_CACHE) {
     LOG_DEBUG("Ignoring write 0x{:02X} to 0x{:08X} due to cache isolation", val, addr);
     return;
   }

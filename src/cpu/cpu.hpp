@@ -19,6 +19,10 @@ namespace cpu {
 
 constexpr auto PC_RESET_ADDR = 0xBFC00000u;
 
+// Interrupt vectors for general interrupts and exceptions
+constexpr auto EXCEPTION_VECTOR_GENERAL_RAM = 0x80000080u;
+constexpr auto EXCEPTION_VECTOR_GENERAL_ROM = 0xBFC00180u;
+
 // Co-processor 0 registers
 enum class Cop0Register : u32 {
   COP0_BPC = 3,        // BPC - Breakpoint on execute (R/W)
@@ -35,8 +39,19 @@ enum class Cop0Register : u32 {
 };
 
 // Co-processor 0 Status Register fields
+// See usages for details
 enum Cop0StatusRegister {
+  // First 6 bits are used directly in Cpu::trigger_excption
   COP0_SR_ISOLATE_CACHE = 1 << 16,
+  COP0_SR_BEV = 1 << 22,
+  COP0_SR_BD = 1 << 31,
+};
+
+enum class ExceptionCause : u32 {
+  EC_LOAD_ADDR_ERR = 0x4,
+  EC_STORE_ADDR_ERR = 0x5,
+  EC_SYSCALL = 0x8,
+  EC_OVERFLOW = 0xC,
 };
 
 class Cpu {
@@ -44,22 +59,30 @@ class Cpu {
   explicit Cpu(bus::Bus& bus);
   bool step(u32& cycles_passed);
   void execute_instruction(const Instruction& i);
+  void trigger_exception(ExceptionCause cause);
 
-  u32 read32(u32 addr) const;
-  u8 read8(u32 addr) const;
-  void write32(u32 addr, u32 val);
-  void write16(u32 addr, u16 val);
-  void write8(u32 addr, u8 val);
-
-  // Interpreter helpers
  private:
+  // Interpreter helpers
+  void op_sb(const Instruction& i);
+  void op_sh(const Instruction& i);
+  void op_sw(const Instruction& i);
+  void op_lbu(const Instruction& i);
+  void op_lb(const Instruction& i);
+  void op_lw(const Instruction& i);
   void op_branch(const Instruction& i);
   void op_jump(const Instruction& i);
   void op_udiv(const Instruction& i);
   void op_sdiv(const Instruction& i);
-  static u32 checked_add(s32 op1, s32 op2);
-  static u32 checked_sub(s32 op1, s32 op2);
-  //  static u32 checked_mul(u32 op1, u32 op2);
+  void op_rfe(const Instruction& i);
+
+  u32 load32(u32 addr);
+  u8 load8(u32 addr);
+  void store32(u32 addr, u32 val);
+  void store16(u32 addr, u16 val);
+  void store8(u32 addr, u8 val);
+  u32 checked_add(s32 op1, s32 op2);
+  u32 checked_sub(s32 op1, s32 op2);
+  // u32 checked_mul(u32 op1, u32 op2);
 
  private:
   // Register getters/setters
@@ -73,8 +96,6 @@ class Cpu {
     Ensures(index <= 32);
     return m_gpr[index];
   }
-  const Register& pc() const { return m_pc; }
-  Register& pc() { return m_pc; }
 
   // Instruction operand register getters
   const Register& rs(const Instruction& i) const { return r(i.rs()); }
@@ -124,22 +145,28 @@ class Cpu {
     m_gpr[0] = 0;
   }
 
+  // Branch delay slot helpers
+  bool is_in_branch_delay_slot() const {
+    // TODO: Would miss an edge case where there's a jump for 4 bytes ahead
+    return m_pc + 4 == m_pc_next;
+  }
+
  private:
   // General purpose registers
   std::array<Register, 32> m_gpr{};
 
   // Special purpose registers
-  Register m_pc{ PC_RESET_ADDR };  // Program counter
-  Register m_previous_pc{ 0 };     // Previous Program counter value (needed for the disassembler)
-  Register m_hi;                   // Division remainder and multiplication high result
-  Register m_lo;                   // Division quotient and multiplication low result
+  Register
+      m_pc_current{};  // Previous program counter. Used when an exception happens (saved to COP0_EPC).
+  Register m_pc{ PC_RESET_ADDR };  // Current PC
+  Register m_pc_next{ m_pc + 4 };  // Next PC we'll execute (used for branch delay emulation)
+  Register m_hi{};                 // Division remainder and multiplication high result
+  Register m_lo{};                 // Division quotient and multiplication low result
 
   // Cop0 registers
-  Register m_sr{ 0 };  // Status Register (r12)
-
-  // Next instruction to execute
-  // For emulating branch delay slot
-  u32 m_next_instr{ 0 };
+  Register m_cop0_sr{};     // Status Register (r12)
+  Register m_cop0_cause{};  // Cause Register (r13)
+  Register m_cop0_epc{};    // EPC (r14)
 
   // For emulating Load delay
   DelayedLoadInfo m_pending_load{};

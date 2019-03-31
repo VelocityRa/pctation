@@ -7,50 +7,58 @@ namespace cpu {
 
 Instruction::Instruction(u32 word) : m_word(word), m_opcode(decode()) {}
 
+// TODO: Using X-Macros for instruction decoding & disassembly sounded like a good idea initially, but it
+// got a bit out of hand. This should be refactored, if not to completely remove X-Macros use, to remove
+// the disassembly part of it for some simplicty.
+
 Opcode Instruction::decode() {
-  const u8 primary_opcode = op_prim();
+  const auto primary_opcode = op_prim();
 
   const bool is_cop_instr = m_word >> 30 & 1;
 
-  if (is_cop_instr) {  // TODO: handle LWC/SWC
-    // Co-processor opcode
-    const u16 cop_opcode = op_cop();
+  // Disable formattinig to keep macro defs in a single line for brevity
+  // clang-format off
 
-    switch (cop_opcode) {
+  if (is_cop_instr) {  // Co-processor insruction
+    const auto cop_opcode = op_cop();
+
+    // TODO: handle decoding of LWC/SWC
+    if (cop_opcode & (1 << 4)) { // COP0 instruction
+      const u16 cop0_opcode_sec = op_cop0_sec();
+
+      // RFE is the only COP0 instruction implemented on PlayStation hardware
+      Ensures(cop0_opcode_sec == 0b010000);
+
+      return Opcode::RFE;
+    } else {
+      switch (cop_opcode) {  // Other COPn instruction
 #define OPCODE_COP(mnemonic, opcode, operand1, operand2, operand3) \
-  case opcode:                                                     \
-    m_operands = { operand1, operand2, operand3 };                 \
-    return Opcode::mnemonic;
+  case opcode: m_operands = { operand1, operand2, operand3 }; return Opcode::mnemonic;
 #include <cpu/opcodes.def>
 #undef OPCODE_COP
-      default: return Opcode::INVALID;
+        default: return Opcode::INVALID;
+      }
     }
-  } else if (primary_opcode != 0) {
-    // non-SPECIAL opcode
-
+  } else if (primary_opcode != 0) {  // non-SPECIAL insruction
     switch (primary_opcode) {
 #define OPCODE_PRIM(mnemonic, opcode, operand1, operand2, operand3) \
-  case opcode:                                                      \
-    m_operands = { operand1, operand2, operand3 };                  \
-    return Opcode::mnemonic;
+  case opcode: m_operands = { operand1, operand2, operand3 }; return Opcode::mnemonic;
 #include <cpu/opcodes.def>
 #undef OPCODE_PRIM
       default: return Opcode::INVALID;
     }
-  } else {
-    // SPECIAL opcode
+  } else {  // SPECIAL insruction
     const u8 secondary_opcode = op_sec();
 
     switch (secondary_opcode) {
 #define OPCODE_SEC(mnemonic, opcode, operand1, operand2, operand3) \
-  case opcode:                                                     \
-    m_operands = { operand1, operand2, operand3 };                 \
-    return Opcode::mnemonic;
+  case opcode: m_operands = { operand1, operand2, operand3 }; return Opcode::mnemonic;
 #include <cpu/opcodes.def>
 #undef OPCODE_SEC
       default: return Opcode::INVALID;
     }
   }
+  // clang-format on
 }
 
 std::string Instruction::disassemble() const {

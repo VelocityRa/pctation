@@ -27,8 +27,10 @@ class Instruction {
   constexpr u8 op_prim() const { return (m_word & 0b11111100'00000000'00000000'00000000) >> 26; }
   // Secondary opcode field [5:0]
   constexpr u8 op_sec() const { return (m_word & 0b00000000'00000000'00000000'00111111) >> 0; }
-  // Co-processor opcode field (partial) [31:21]
+  // Co-processor opcode field [31:21]
   constexpr u16 op_cop() const { return (m_word & 0b11111111'11100000'00000000'00000000) >> 21; }
+  // Co-processor 0 secondary opcode field [5:0]
+  constexpr u8 op_cop0_sec() const { return (m_word & 0b00000000'00000000'00000000'00111111) >> 0; }
   // Register source field [25:21]
   constexpr RegisterIndex rs() const { return (m_word & 0b00000011'11100000'00000000'00000000) >> 21; }
   // Register target field [20:16]
