@@ -3,7 +3,7 @@
 
 namespace emulator {
 
-Emulator::Emulator(fs::path bios_path) : m_bios(bios_path), m_bus(m_bios, m_ram), m_cpu(m_bus) {}
+Emulator::Emulator(fs::path bios_path) : m_bios(bios_path), m_bus(m_bios, m_ram, m_dma), m_cpu(m_bus) {}
 
 void Emulator::run() {
   bool cpu_halt;

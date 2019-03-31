@@ -15,12 +15,14 @@ static constexpr Range RAM{ 0x00000000, RAM_SIZE };
 static constexpr Range BIOS{ 0x1FC00000, BIOS_SIZE };
 static constexpr Range SPU{ 0x1F801C00, 0x280 };
 static constexpr Range MEM_CONTROL1{ 0x1F801000, 0x24 };
-static constexpr Range MEM_CONTROL2{ 0x1F801060, 0x4 };
-static constexpr Range MEM_CONTROL3{ 0xFFFE0130, 0x4 };
+static constexpr Range MEM_CONTROL2{ 0x1F801060, 4 };
+static constexpr Range MEM_CONTROL3{ 0xFFFE0130, 4 };
 static constexpr Range EXPANSION_1{ 0x1F000000, 512 * 1024 };
 static constexpr Range EXPANSION_2{ 0x1F802000, 0x42 };
 static constexpr Range IRQ_CONTROL{ 0x1F801070, 8 };
 static constexpr Range TIMERS{ 0x1F801100, 0x2C };
+static constexpr Range DMA{ 0x1F801080, 0x80 };
+static constexpr Range GPU{ 0x1F801810, 8 };
 
 }  // namespace map
 

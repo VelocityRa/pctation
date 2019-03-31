@@ -15,7 +15,7 @@
 
 #define TRACE_MODE TRACE_NONE
 
-#define TTY_OUTPUT 0
+#define TTY_OUTPUT 1
 
 namespace cpu {
 
@@ -38,14 +38,6 @@ bool Cpu::step(u32& cycles_passed) {
   LOG_TRACE("[{:08X}]: {:08X} {}\n  {}", m_previous_pc, cur_instr, instr.disassemble(), debug_str);
 #elif TRACE_MODE == TRACE_INST
   LOG_TRACE("[{:08X}]: {:08X} {}", m_pc, cur_instr, instr.disassemble());
-#endif
-  // Log TTY
-#if TTY_OUTPUT
-  // TODO: Check in JAL(?)
-  if (m_pc == 0x4074) {
-    char tty_out_char = r(4);
-    std::cout << tty_out_char;
-  }
 #endif
 
   // Check PC alignment
@@ -83,6 +75,8 @@ void Cpu::execute_instruction(const Instruction& i) {
     case Opcode::ADDIU: set_rt(i, rs(i) + i.imm16_se()); break;
     case Opcode::DIV: op_sdiv(i); break;
     case Opcode::DIVU: op_udiv(i); break;
+    case Opcode::MULT: op_mult(i); break;
+    case Opcode::MULTU: op_multu(i); break;
     // Comparison
     case Opcode::SLT: set_rd(i, (s32)rs(i) < (s32)rt(i) ? 1 : 0); break;
     case Opcode::SLTU: set_rd(i, rs(i) < rt(i) ? 1 : 0); break;
@@ -103,10 +97,12 @@ void Cpu::execute_instruction(const Instruction& i) {
     case Opcode::AND: set_rd(i, rs(i) & rt(i)); break;
     case Opcode::OR: set_rd(i, rs(i) | rt(i)); break;
     case Opcode::XOR: set_rd(i, rs(i) ^ rt(i)); break;
-    case Opcode::NOR: set_rd(i, 0xFFFFFFFF ^ (rs(i) | rt(i))); break;
+    case Opcode::NOR: set_rd(i, !(rs(i) | rt(i))); break;
     // Memory operations (loads)
     case Opcode::LBU: op_lbu(i); break;
     case Opcode::LB: op_lb(i); break;
+    case Opcode::LHU: op_lhu(i); break;
+    case Opcode::LH: op_lh(i); break;
     case Opcode::LW:
       op_lw(i);
       break;
@@ -116,7 +112,21 @@ void Cpu::execute_instruction(const Instruction& i) {
     case Opcode::SW: op_sw(i); break;
     // Jumps/Branches
     case Opcode::J: op_jump(i); break;
-    case Opcode::JR: m_pc_next = rs(i); break;
+    case Opcode::JR: m_pc_next = rs(i);
+#if TTY_OUTPUT
+      // Hook std_out_putchar function in the B0 kernel table. Assumes there's an ADDIU/"LI" instruction
+      // right after the JR, containing the kernel procedure vector.
+      if (m_pc_next == 0xB0) {
+        const Instruction next_instr(load32(m_pc));
+        Ensures(next_instr.opcode() == Opcode::ADDIU);
+
+        if (next_instr.imm16_se() == 0x3D) {
+          char tty_out_char = r(4);
+          std::cout << tty_out_char;
+        }
+      }
+#endif
+      break;
     case Opcode::JAL:
       r(31) = m_pc_next;
       op_jump(i);
@@ -249,6 +259,24 @@ void Cpu::op_lb(const Instruction& i) {
   issue_pending_load(i.rt(), (s8)load8(addr));
 }
 
+void Cpu::op_lhu(const Instruction& i) {
+  const address addr = i.imm16_se() + rs(i);
+  if (addr % 2 != 0) {
+    trigger_exception(ExceptionCause::EC_LOAD_ADDR_ERR);
+    return;
+  }
+  issue_pending_load(i.rt(), load16(addr));
+}
+
+void Cpu::op_lh(const Instruction& i) {
+  const address addr = i.imm16_se() + rs(i);
+  if (addr % 2 != 0) {
+    trigger_exception(ExceptionCause::EC_LOAD_ADDR_ERR);
+    return;
+  }
+  issue_pending_load(i.rt(), (s16)load16(addr));
+}
+
 void Cpu::op_lw(const Instruction& i) {
   const address addr = i.imm16_se() + rs(i);
   if (addr % 4 != 0) {
@@ -260,6 +288,21 @@ void Cpu::op_lw(const Instruction& i) {
 
 void Cpu::op_jump(const Instruction& i) {
   m_pc_next = m_pc_next & 0xF0000000 | (i.imm26() << 2);
+}
+
+void Cpu::op_mult(const Instruction& i) {
+  const auto a = (s64)(s32)rs(i);
+  const auto b = (s64)(s32)rt(i);
+  const auto result = (u64)(a * b);
+
+  m_hi = result >> 32;
+  m_lo = (u32)result;
+}
+
+void Cpu::op_multu(const Instruction& i) {
+  const auto result = (u64)rs(i) * (u64)rt(i);
+  m_hi = result >> 32;
+  m_lo = (u32)result;
 }
 
 void Cpu::op_branch(const Instruction& i) {
@@ -308,7 +351,6 @@ void Cpu::op_rfe(const Instruction& i) {
 }
 
 u32 Cpu::checked_add(s32 op1, s32 op2) {
-  //  if (op1 > 0 && op2 > 0 && op1 + op2 < 0)
   if (op1 > 0 && op2 > 0 && op1 > INT_MAX - op2 || op1 < 0 && op2 < 0 && op1 < INT_MIN - op2)
     trigger_exception(ExceptionCause::EC_OVERFLOW);
   return op1 + op2;
@@ -326,10 +368,6 @@ u32 Cpu::checked_sub(s32 op1, s32 op2) {
 //  return op1 - op2;
 //}
 
-u8 Cpu::load8(u32 addr) {
-  return m_bus.read8(addr);
-}
-
 u32 Cpu::load32(u32 addr) {
   if (addr % 4 != 0) {
     trigger_exception(ExceptionCause::EC_LOAD_ADDR_ERR);
@@ -338,13 +376,25 @@ u32 Cpu::load32(u32 addr) {
   return m_bus.read32(addr);
 }
 
+u16 Cpu::load16(u32 addr) {
+  if (addr % 2 != 0) {
+    trigger_exception(ExceptionCause::EC_LOAD_ADDR_ERR);
+    return 0;
+  }
+  return m_bus.read16(addr);
+}
+
+u8 Cpu::load8(u32 addr) {
+  return m_bus.read8(addr);
+}
+
 void Cpu::store32(u32 addr, u32 val) {
   if (addr % 4 != 0) {
     trigger_exception(ExceptionCause::EC_STORE_ADDR_ERR);
     return;
   }
   if (m_cop0_sr & COP0_SR_ISOLATE_CACHE) {
-    LOG_DEBUG("Ignoring write 0x{:08X} to 0x{:08X} due to cache isolation", val, addr);
+    LOG_TRACE("Ignoring write 0x{:08X} to 0x{:08X} due to cache isolation", val, addr);
     return;
   }
   m_bus.write32(addr, val);
@@ -355,7 +405,7 @@ void Cpu::store16(u32 addr, u16 val) {
     return;
   }
   if (m_cop0_sr & COP0_SR_ISOLATE_CACHE) {
-    LOG_DEBUG("Ignoring write 0x{:04X} to 0x{:08X} due to cache isolation", val, addr);
+    LOG_TRACE("Ignoring write 0x{:04X} to 0x{:08X} due to cache isolation", val, addr);
     return;
   }
   m_bus.write16(addr, val);
@@ -363,7 +413,7 @@ void Cpu::store16(u32 addr, u16 val) {
 
 void Cpu::store8(u32 addr, u8 val) {
   if (m_cop0_sr & COP0_SR_ISOLATE_CACHE) {
-    LOG_DEBUG("Ignoring write 0x{:02X} to 0x{:08X} due to cache isolation", val, addr);
+    LOG_TRACE("Ignoring write 0x{:02X} to 0x{:08X} due to cache isolation", val, addr);
     return;
   }
   m_bus.write8(addr, val);

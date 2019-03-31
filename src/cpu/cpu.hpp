@@ -63,19 +63,24 @@ class Cpu {
 
  private:
   // Interpreter helpers
+  void op_lbu(const Instruction& i);
   void op_sb(const Instruction& i);
   void op_sh(const Instruction& i);
   void op_sw(const Instruction& i);
-  void op_lbu(const Instruction& i);
   void op_lb(const Instruction& i);
+  void op_lhu(const Instruction& i);
+  void op_lh(const Instruction& i);
   void op_lw(const Instruction& i);
   void op_branch(const Instruction& i);
   void op_jump(const Instruction& i);
+  void op_mult(const Instruction& i);
+  void op_multu(const Instruction& i);
   void op_udiv(const Instruction& i);
   void op_sdiv(const Instruction& i);
   void op_rfe(const Instruction& i);
 
   u32 load32(u32 addr);
+  u16 load16(u32 addr);
   u8 load8(u32 addr);
   void store32(u32 addr, u32 val);
   void store16(u32 addr, u16 val);

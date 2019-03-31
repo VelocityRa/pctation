@@ -3,11 +3,11 @@
 #include <bios/bios.hpp>
 #include <bus/bus.hpp>
 #include <cpu/cpu.hpp>
+#include <memory/dma.hpp>
 #include <memory/ram.hpp>
 
 #include <util/fs.hpp>
 
-#include <optional>
 namespace emulator {
 
 class Emulator {
@@ -17,6 +17,7 @@ class Emulator {
 
  private:
   memory::Ram m_ram;
+  memory::Dma m_dma;
   bios::Bios m_bios;
   bus::Bus m_bus;
 

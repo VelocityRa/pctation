@@ -15,6 +15,10 @@ u32 Ram::read32(u32 addr) const {
   return *(u32*)(m_data.get()->data() + addr);
 }
 
+u16 Ram::read16(u32 addr) {
+  return *(u16*)(m_data.get()->data() + addr);
+}
+
 u8 Ram::read8(u32 addr) const {
   return m_data.get()->data()[addr];
 }
