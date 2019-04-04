@@ -1,9 +1,9 @@
 #pragma once
 
-#include <filesystem>
-
 #ifdef _MSC_VER
-namespace fs = std::experimental::filesystem;
+#include <filesystem>
 #else
-namespace fs = std::filesystem;
+#include <experimental/filesystem>
 #endif
+
+namespace fs = std::experimental::filesystem;

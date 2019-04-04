@@ -3,6 +3,7 @@
 #include <util/types.hpp>
 
 #include <cstddef>
+#include <cstring>
 #include <fstream>
 #include <vector>
 

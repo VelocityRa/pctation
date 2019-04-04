@@ -8,11 +8,18 @@
 #include <spdlog/sinks/basic_file_sink.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 
+constexpr auto LOG_FILENAME =
+#ifdef WIN32
+    L"pctation.log";
+#else
+    "pctation.log";
+#endif
+
 void init_logging() {
   // Set up sinks
   std::vector<spdlog::sink_ptr> sinks;
   sinks.push_back(std::make_shared<spdlog::sinks::stdout_color_sink_st>());
-  sinks.push_back(std::make_shared<spdlog::sinks::basic_file_sink_st>(L"pctation.log", true));
+  sinks.push_back(std::make_shared<spdlog::sinks::basic_file_sink_st>(LOG_FILENAME, true));
 
   // Set up logger
   auto pctation_logger = std::make_shared<spdlog::logger>("pcstation", begin(sinks), end(sinks));
@@ -28,7 +35,7 @@ int main() {
   try {
     init_logging();
 
-    emulator::Emulator emulator("../../data/bios/SCPH101.BIN");
+    emulator::Emulator emulator("../../data/bios/SCPH1001.BIN");
     emulator.run();
 
   } catch (const std::exception& e) {

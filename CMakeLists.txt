@@ -1,11 +1,16 @@
 ### Initial CMake set-up
-cmake_minimum_required(VERSION 3.1)
+cmake_minimum_required(VERSION 3.12.4)
 
 # Work around a bug with old MSVC
 if(${CMAKE_VERSION} VERSION_LESS 3.14)
     cmake_policy(VERSION ${CMAKE_MAJOR_VERSION}.${CMAKE_MINOR_VERSION})
 else()
     cmake_policy(VERSION 3.14)
+endif()
+
+if(NOT WIN32)
+    SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread")
+    link_libraries(stdc++fs)
 endif()
 
 include_directories(src)
@@ -30,4 +35,3 @@ endif()
 add_subdirectory(external)
 
 add_subdirectory(src)
-

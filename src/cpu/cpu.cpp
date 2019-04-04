@@ -4,8 +4,8 @@
 #include <cpu/opcode.hpp>
 #include <util/log.hpp>
 
+#include <climits>
 #include <iostream>
-#include <limits>
 #include <string>
 
 #define TRACE_NONE 0
