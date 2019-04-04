@@ -29,7 +29,12 @@ u32 Bus::read32(u32 addr) const {
     return m_dma.read_reg(static_cast<memory::DmaRegister>(addr_rebased));
   if (memory::map::GPU.contains(addr, addr_rebased)) {
     LOG_WARN("Unhandled 32-bit read of {}", addr_rebased == 0 ? "GPUREAD" : "GPUSTAT");
-    return addr_rebased == 4 ? 0x10000000 : 0;  // HACK: hardcode GPUSTAT's "DMA Ready" bit
+    return addr_rebased == 4 ? 0x1C000000 : 0;  // HACK: hardcode GPUSTAT's 26,27,28 bits
+    return 0;
+  }
+  if (memory::map::TIMERS.contains(addr, addr_rebased)) {
+    LOG_WARN("Unhandled 32-bit read of Timer register at 0x{:08X}", addr);
+    return 0;
   }
 
   LOG_ERROR("Unknown 32-bit read at 0x{:08X}", addr);
@@ -50,7 +55,7 @@ u16 Bus::read16(u32 addr) const {
   if (memory::map::SPU.contains(addr, addr_rebased)) {
     // NOTE: TRACE level because it's used a lot in BIOS init.
     LOG_TRACE("Unhandled 16-bit read of SPU register at 0x{:08X}", addr);
-    return 0;  // ignore
+    return 0;
   }
   if (memory::map::IRQ_CONTROL.contains(addr, addr_rebased)) {
     LOG_WARN("Unhandled 16-bit read of {}", addr_rebased == 0 ? "I_STAT" : "I_MASK");
@@ -82,7 +87,7 @@ u8 Bus::read8(u32 addr) const {
   return 0;
 }
 
-void Bus::write32(u32 addr, u32 val) {
+void Bus::write32(u32 addr, u32 val) const {
   // Only 32-bit words are addressable
   Expects(addr % 4 == 0);
 
@@ -135,14 +140,14 @@ void Bus::write32(u32 addr, u32 val) {
   }
   if (memory::map::TIMERS.contains(addr, addr_rebased)) {
     LOG_WARN("Unhandled 32-bit write to Timer register: 0x{:08X} at 0x{:08X}", val, addr);
-    return;  // ignore
+    return;
   }
 
   LOG_ERROR("Unknown 32-bit write of 0x{:08X} at 0x{:08X} ", val, addr);
   assert(0);
 }
 
-void Bus::write16(u32 addr, u16 val) {
+void Bus::write16(u32 addr, u16 val) const {
   // Only 16-bit words are addressable
   Expects(addr % 2 == 0);
 
@@ -154,23 +159,23 @@ void Bus::write16(u32 addr, u16 val) {
     return m_ram.write16(addr_rebased, val);
   if (memory::map::TIMERS.contains(addr, addr_rebased)) {
     LOG_WARN("Unhandled 16-bit write to Timer register: 0x{:04X} at 0x{:08X}", val, addr);
-    return;  // ignore
+    return;
   }
   if (memory::map::SPU.contains(addr, addr_rebased)) {
     // NOTE: TRACE level because it's used a lot in BIOS init.
     LOG_TRACE("Unhandled 16-bit write to SPU register: 0x{:04X} at 0x{:08X}", val, addr);
-    return;  // ignore
+    return;
   }
   if (memory::map::IRQ_CONTROL.contains(addr, addr_rebased)) {
     LOG_WARN("Unhandled 16-bit write of 0x{:04X} to {}", val, addr_rebased == 0 ? "I_STAT" : "I_MASK");
-    return;  // ignore
+    return;
   }
 
   LOG_ERROR("Unknown 16-bit write of 0x{:04X} at 0x{:08X} ", val, addr);
   assert(0);
 }
 
-void Bus::write8(u32 addr, u8 val) {
+void Bus::write8(u32 addr, u8 val) const {
   addr = memory::mask_region(addr);
 
   address addr_rebased;
@@ -179,7 +184,7 @@ void Bus::write8(u32 addr, u8 val) {
     return m_ram.write8(addr_rebased, val);
   if (memory::map::EXPANSION_2.contains(addr, addr_rebased)) {
     LOG_WARN("Unhandled 8-bit write to EXPANSION_2 register: 0x{:02X} at 0x{:08X}", val, addr);
-    return;  // ignore
+    return;
   }
 
   LOG_ERROR("Unknown 8-bit write of 0x{:02X} at 0x{:08X} ", val, addr);
