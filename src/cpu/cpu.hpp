@@ -48,10 +48,10 @@ enum Cop0StatusRegister {
 };
 
 enum class ExceptionCause : u32 {
-  EC_LOAD_ADDR_ERR = 0x4,
-  EC_STORE_ADDR_ERR = 0x5,
-  EC_SYSCALL = 0x8,
-  EC_OVERFLOW = 0xC,
+  LoadAddressError = 0x4,
+  StoreAddressError = 0x5,
+  Syscall = 0x8,
+  Overflow = 0xC,
 };
 
 class Cpu {
@@ -175,6 +175,11 @@ class Cpu {
 
   // For emulating Load delay
   DelayedLoadInfo m_pending_load{};
+
+  //  #ifndef NDEBUG
+  //  // For debugging
+  //  u64 instr_counter{};
+  //  #endif
 
   bus::Bus& m_bus;
 };

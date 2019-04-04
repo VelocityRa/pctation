@@ -15,7 +15,7 @@
 
 #define TRACE_MODE TRACE_NONE
 
-#define TTY_OUTPUT 1
+#define TTY_OUTPUT 0
 
 namespace cpu {
 
@@ -42,7 +42,7 @@ bool Cpu::step(u32& cycles_passed) {
 
   // Check PC alignment
   if (m_pc % 4 != 0) {
-    trigger_exception(ExceptionCause::EC_LOAD_ADDR_ERR);
+    trigger_exception(ExceptionCause::LoadAddressError);
     return false;
   }
 
@@ -59,6 +59,10 @@ bool Cpu::step(u32& cycles_passed) {
 #if TRACE_MODE == TRACE_PC_ONLY
   LOG_TRACE("{:08X}", m_pc - 4);
 #endif
+
+  //#ifndef NDEBUG
+  //  ++instr_counter;
+  //#endif
 
   cycles_passed = 0;  // TODO
   return false;
@@ -167,7 +171,7 @@ void Cpu::execute_instruction(const Instruction& i) {
       break;
     }
     // Syscall
-    case Opcode::SYSCALL: trigger_exception(ExceptionCause::EC_SYSCALL); break;
+    case Opcode::SYSCALL: trigger_exception(ExceptionCause::Syscall); break;
     // Co-processor 0
     case Opcode::MTC0: {
       const auto cop_dst_reg = static_cast<Cop0Register>(i.rd());
@@ -234,7 +238,7 @@ void Cpu::op_sb(const Instruction& i) {
 void Cpu::op_sh(const Instruction& i) {
   const address addr = i.imm16_se() + rs(i);
   if (addr % 2 != 0) {
-    trigger_exception(ExceptionCause::EC_STORE_ADDR_ERR);
+    trigger_exception(ExceptionCause::StoreAddressError);
     return;
   }
   store16(addr, (u16)rt(i));
@@ -243,7 +247,7 @@ void Cpu::op_sh(const Instruction& i) {
 void Cpu::op_sw(const Instruction& i) {
   const address addr = i.imm16_se() + rs(i);
   if (addr % 4 != 0) {
-    trigger_exception(ExceptionCause::EC_STORE_ADDR_ERR);
+    trigger_exception(ExceptionCause::StoreAddressError);
     return;
   }
   store32(addr, rt(i));
@@ -262,7 +266,7 @@ void Cpu::op_lb(const Instruction& i) {
 void Cpu::op_lhu(const Instruction& i) {
   const address addr = i.imm16_se() + rs(i);
   if (addr % 2 != 0) {
-    trigger_exception(ExceptionCause::EC_LOAD_ADDR_ERR);
+    trigger_exception(ExceptionCause::LoadAddressError);
     return;
   }
   issue_pending_load(i.rt(), load16(addr));
@@ -271,7 +275,7 @@ void Cpu::op_lhu(const Instruction& i) {
 void Cpu::op_lh(const Instruction& i) {
   const address addr = i.imm16_se() + rs(i);
   if (addr % 2 != 0) {
-    trigger_exception(ExceptionCause::EC_LOAD_ADDR_ERR);
+    trigger_exception(ExceptionCause::LoadAddressError);
     return;
   }
   issue_pending_load(i.rt(), (s16)load16(addr));
@@ -280,7 +284,7 @@ void Cpu::op_lh(const Instruction& i) {
 void Cpu::op_lw(const Instruction& i) {
   const address addr = i.imm16_se() + rs(i);
   if (addr % 4 != 0) {
-    trigger_exception(ExceptionCause::EC_LOAD_ADDR_ERR);
+    trigger_exception(ExceptionCause::LoadAddressError);
     return;
   }
   issue_pending_load(i.rt(), load32(addr));
@@ -352,13 +356,13 @@ void Cpu::op_rfe(const Instruction& i) {
 
 u32 Cpu::checked_add(s32 op1, s32 op2) {
   if (op1 > 0 && op2 > 0 && op1 > INT_MAX - op2 || op1 < 0 && op2 < 0 && op1 < INT_MIN - op2)
-    trigger_exception(ExceptionCause::EC_OVERFLOW);
+    trigger_exception(ExceptionCause::Overflow);
   return op1 + op2;
 }
 
 u32 Cpu::checked_sub(s32 op1, s32 op2) {
   if (op1 < 0 && op2 > INT_MAX + op1 || op1 > 0 && op2 < INT_MIN + op1)
-    trigger_exception(ExceptionCause::EC_OVERFLOW);
+    trigger_exception(ExceptionCause::Overflow);
   return op1 - op2;
 }
 
@@ -370,7 +374,7 @@ u32 Cpu::checked_sub(s32 op1, s32 op2) {
 
 u32 Cpu::load32(u32 addr) {
   if (addr % 4 != 0) {
-    trigger_exception(ExceptionCause::EC_LOAD_ADDR_ERR);
+    trigger_exception(ExceptionCause::LoadAddressError);
     return 0;
   }
   return m_bus.read32(addr);
@@ -378,7 +382,7 @@ u32 Cpu::load32(u32 addr) {
 
 u16 Cpu::load16(u32 addr) {
   if (addr % 2 != 0) {
-    trigger_exception(ExceptionCause::EC_LOAD_ADDR_ERR);
+    trigger_exception(ExceptionCause::LoadAddressError);
     return 0;
   }
   return m_bus.read16(addr);
@@ -390,7 +394,7 @@ u8 Cpu::load8(u32 addr) {
 
 void Cpu::store32(u32 addr, u32 val) {
   if (addr % 4 != 0) {
-    trigger_exception(ExceptionCause::EC_STORE_ADDR_ERR);
+    trigger_exception(ExceptionCause::StoreAddressError);
     return;
   }
   if (m_cop0_sr & COP0_SR_ISOLATE_CACHE) {
@@ -401,7 +405,7 @@ void Cpu::store32(u32 addr, u32 val) {
 }
 void Cpu::store16(u32 addr, u16 val) {
   if (addr % 2 != 0) {
-    trigger_exception(ExceptionCause::EC_STORE_ADDR_ERR);
+    trigger_exception(ExceptionCause::StoreAddressError);
     return;
   }
   if (m_cop0_sr & COP0_SR_ISOLATE_CACHE) {
