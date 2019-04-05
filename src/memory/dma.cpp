@@ -135,28 +135,40 @@ void Dma::do_block_transfer(DmaPort port) {
 
   u32 transfer_word_count = channel.transfer_word_count();
 
+  LOG_DEBUG("Starting DMA block transfer: {} {} RAM, sync mode: {}", dma_port_to_str(port),
+            channel.to_ram() ? "to" : "from", channel.sync_mode_str());
+
   while (transfer_word_count > 0) {
     const auto addr_cur = addr & RAM_ADDR_MASK;
 
     switch (channel.transfer_direction()) {
       case DmaChannel::TransferDirection::ToRam: {
-        u32 val{};
+        u32 src_word{};
 
         switch (port) {
-          case DmaPort::Otc:  // Not supposed to read from anywhere, values are specific and depend on
-                              // the address
+          // Not supposed to read from anywhere for OTC, values are specific and depend on the address
+          case DmaPort::Otc:
             if (transfer_word_count == 1)
-              val = 0xFFFFFF;  // Last OTC entry contains the "End of table" marker
+              src_word = 0xFFFFFF;  // Last OTC entry contains the "End of table" marker
             else
               // TODO: Should this be RAM_ADDR_MASK?
-              val = (addr - 4) & 0x1FFFFF;  // Each of the rest of the entries points to the previous one
+              src_word =
+                  (addr - 4) & 0x1FFFFF;  // Each of the rest of the entries points to the previous one
             break;
           default: LOG_WARN("DMA transfer to unimplemented port {} requested", static_cast<u8>(port));
         }
-        m_ram.write32(addr_cur, val);
+        m_ram.write32(addr_cur, src_word);
         break;
       }
-      case DmaChannel::TransferDirection::FromRam: assert(0); break;
+      case DmaChannel::TransferDirection::FromRam: {
+        u32 src_word = m_ram.read32(addr_cur);
+        switch (port) {
+          default:
+            LOG_WARN("DMA transfer of word 0x{:08X} to unimplemented port {} requested", src_word,
+                     static_cast<u8>(port));
+        }
+        break;
+      }
       default: LOG_ERROR("Invalid DMA transfer direction"); assert(0);
     }
     addr += addr_step;
@@ -172,6 +184,8 @@ void Dma::do_linked_list_transfer(DmaPort port) {
   Expects(port == DmaPort::Gpu);
 
   address addr = channel.m_base_addr & RAM_ADDR_MASK;
+
+  LOG_DEBUG("Starting DMA linked list transfer: RAM to GPU");
 
   while (true) {  // for each packet in the linked list
     const u32 packet_header = m_ram.read32(addr);

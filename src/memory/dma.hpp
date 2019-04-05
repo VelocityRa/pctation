@@ -20,6 +20,18 @@ enum class DmaPort {
   Pio = 5,      // Extension port
   Otc = 6,      // Used to clear the ordering table
 };
+static const char* dma_port_to_str(DmaPort dma_port) {
+  switch (dma_port) {
+    case DmaPort::MdecIn: return "MDECin";
+    case DmaPort::MdecOut: return "MDECout";
+    case DmaPort::Gpu: return "GPU";
+    case DmaPort::CdRom: return "CD-ROM";
+    case DmaPort::Spu: return "SPU";
+    case DmaPort::Pio: return "PIO";
+    case DmaPort::Otc: return "OTC";
+    default: return "<Invalid>";
+  }
+}
 
 union DmaChannelControl {
   u32 word{};
@@ -81,10 +93,19 @@ class DmaChannel {
   TransferDirection transfer_direction() const {
     return static_cast<TransferDirection>(m_channel_control.transfer_direction);
   }
+  bool to_ram() const { return transfer_direction() == TransferDirection::ToRam; }
   MemoryAddressStep memory_address_step() const {
     return static_cast<MemoryAddressStep>(m_channel_control.memory_address_step);
   }
   SyncMode sync_mode() const { return static_cast<SyncMode>(m_channel_control.sync_mode); }
+  const char* sync_mode_str() const {
+    switch (sync_mode()) {
+      case SyncMode::Manual: return "Manual";
+      case SyncMode::Request: return "Request";
+      case SyncMode::LinkedList: return "Linked List";
+      default: return "<Invalid>";
+    }
+  }
 
   DmaChannelControl m_channel_control;
   DmaBlockControl m_block_control;
