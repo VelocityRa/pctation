@@ -107,13 +107,15 @@ void Cpu::execute_instruction(const Instruction& i) {
     case Opcode::LB: op_lb(i); break;
     case Opcode::LHU: op_lhu(i); break;
     case Opcode::LH: op_lh(i); break;
-    case Opcode::LW:
-      op_lw(i);
-      break;
-      // Memory operations (stores)
+    case Opcode::LW: op_lw(i); break;
+    case Opcode::LWL: op_lwl(i); break;
+    case Opcode::LWR: op_lwr(i); break;
+    // Memory operations (stores)
     case Opcode::SB: op_sb(i); break;
     case Opcode::SH: op_sh(i); break;
     case Opcode::SW: op_sw(i); break;
+    case Opcode::SWL: op_swl(i); break;
+    case Opcode::SWR: op_swr(i); break;
     // Jumps/Branches
     case Opcode::J: op_jump(i); break;
     case Opcode::JR: m_pc_next = rs(i);
@@ -253,6 +255,42 @@ void Cpu::op_sw(const Instruction& i) {
   store32(addr, rt(i));
 }
 
+void Cpu::op_swl(const Instruction& i) {
+  const address addr = rs(i) + i.imm16_se();
+
+  // Load aligned word
+  const auto aligned_addr = addr & ~0b11u;
+  const auto cur_mem = load32(aligned_addr);
+
+  // Depending on the alignment, fetch different number of bytes
+  u32 val{};
+  switch (addr & 0b11u) {
+    case 0: val = cur_mem & 0xFFFFFF00 | rt(i) >> 24; break;
+    case 1: val = cur_mem & 0xFFFF0000 | rt(i) >> 16; break;
+    case 2: val = cur_mem & 0xFF000000 | rt(i) >> 8; break;
+    case 3: val = cur_mem & 0x00000000 | rt(i) >> 0; break;
+  }
+  m_bus.write32(addr, val);
+}
+
+void Cpu::op_swr(const Instruction& i) {
+  const address addr = rs(i) + i.imm16_se();
+
+  // Load aligned word
+  const auto aligned_addr = addr & ~0b11u;
+  const auto cur_mem = load32(aligned_addr);
+
+  // Depending on the alignment, fetch different number of bytes
+  u32 val{};
+  switch (addr & 0b11u) {
+    case 0: val = cur_mem & 0x00000000 | rt(i) << 0; break;
+    case 1: val = cur_mem & 0x000000FF | rt(i) << 8; break;
+    case 2: val = cur_mem & 0x0000FFFF | rt(i) << 16; break;
+    case 3: val = cur_mem & 0x00FFFFFF | rt(i) << 24; break;
+  }
+  m_bus.write32(addr, val);
+}
+
 void Cpu::op_lbu(const Instruction& i) {
   const address addr = i.imm16_se() + rs(i);
   issue_pending_load(i.rt(), load8(addr));
@@ -288,6 +326,46 @@ void Cpu::op_lw(const Instruction& i) {
     return;
   }
   issue_pending_load(i.rt(), load32(addr));
+}
+
+void Cpu::op_lwl(const Instruction& i) {
+  const address addr = rs(i) + i.imm16_se();
+
+  const auto cur_v = rt(i);
+
+  // Load aligned word
+  const auto aligned_addr = addr & ~0b11u;
+  const auto aligned_word = load32(aligned_addr);
+
+  // Depending on the alignment, fetch different number of bytes
+  u32 val{};
+  switch (addr & 0b11u) {
+    case 0: val = cur_v & 0x00FFFFFF | aligned_word << 24; break;
+    case 1: val = cur_v & 0x0000FFFF | aligned_word << 16; break;
+    case 2: val = cur_v & 0x000000FF | aligned_word << 8; break;
+    case 3: val = cur_v & 0x00000000 | aligned_word << 0; break;
+  }
+  issue_pending_load(i.rt(), val);
+}
+
+void Cpu::op_lwr(const Instruction& i) {
+  const address addr = rs(i) + i.imm16_se();
+
+  const auto cur_v = rt(i);
+
+  // Load aligned word
+  const auto aligned_addr = addr & ~0b11u;
+  const auto aligned_word = load32(aligned_addr);
+
+  // Depending on the alignment, fetch different number of bytes
+  u32 val{};
+  switch (addr & 0b11u) {
+    case 0: val = cur_v & 0x00000000 | aligned_word >> 0; break;
+    case 1: val = cur_v & 0xFF000000 | aligned_word >> 8; break;
+    case 2: val = cur_v & 0xFFFF0000 | aligned_word >> 16; break;
+    case 3: val = cur_v & 0xFFFFFF00 | aligned_word >> 24; break;
+  }
+  issue_pending_load(i.rt(), val);
 }
 
 void Cpu::op_jump(const Instruction& i) {

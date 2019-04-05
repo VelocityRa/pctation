@@ -67,10 +67,14 @@ class Cpu {
   void op_sb(const Instruction& i);
   void op_sh(const Instruction& i);
   void op_sw(const Instruction& i);
+  void op_swl(const Instruction& i);
+  void op_swr(const Instruction& i);
   void op_lb(const Instruction& i);
   void op_lhu(const Instruction& i);
   void op_lh(const Instruction& i);
   void op_lw(const Instruction& i);
+  void op_lwl(const Instruction& i);
+  void op_lwr(const Instruction& i);
   void op_branch(const Instruction& i);
   void op_jump(const Instruction& i);
   void op_mult(const Instruction& i);
