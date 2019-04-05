@@ -5,14 +5,9 @@
 #include <memory/ram.hpp>
 #include <util/log.hpp>
 
-#include <gsl-lite.hpp>
-
 namespace bus {
 
 u32 Bus::read32(u32 addr) const {
-  // Only 32-bit words are addressable
-  Expects(addr % 4 == 0);
-
   addr = memory::mask_region(addr);
 
   address addr_rebased;
@@ -43,9 +38,6 @@ u32 Bus::read32(u32 addr) const {
 }
 
 u16 Bus::read16(u32 addr) const {
-  // Only 16-bit words are addressable
-  Expects(addr % 2 == 0);
-
   addr = memory::mask_region(addr);
 
   address addr_rebased;
@@ -88,9 +80,6 @@ u8 Bus::read8(u32 addr) const {
 }
 
 void Bus::write32(u32 addr, u32 val) const {
-  // Only 32-bit words are addressable
-  Expects(addr % 4 == 0);
-
   addr = memory::mask_region(addr);
 
   address addr_rebased;
@@ -148,9 +137,6 @@ void Bus::write32(u32 addr, u32 val) const {
 }
 
 void Bus::write16(u32 addr, u16 val) const {
-  // Only 16-bit words are addressable
-  Expects(addr % 2 == 0);
-
   addr = memory::mask_region(addr);
 
   address addr_rebased;
