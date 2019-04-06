@@ -4,6 +4,7 @@ add_subdirectory(cpu)
 add_subdirectory(memory)
 add_subdirectory(bus)
 add_subdirectory(bios)
+add_subdirectory(gpu)
 add_subdirectory(util)
 
 # Main executable

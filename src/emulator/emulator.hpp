@@ -3,6 +3,7 @@
 #include <bios/bios.hpp>
 #include <bus/bus.hpp>
 #include <cpu/cpu.hpp>
+#include <gpu/gpu.hpp>
 #include <memory/dma.hpp>
 #include <memory/ram.hpp>
 
@@ -16,9 +17,10 @@ class Emulator {
   void run();
 
  private:
+  bios::Bios m_bios;
   memory::Ram m_ram;
   memory::Dma m_dma;
-  bios::Bios m_bios;
+  gpu::Gpu m_gpu;
   bus::Bus m_bus;
 
   cpu::Cpu m_cpu;

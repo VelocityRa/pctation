@@ -118,6 +118,33 @@ enum class DmaRegister : u32 {
   DMA_INTERRUPT = 0x74,
 };
 
+union DmaInterruptRegister {
+  u32 word{};
+
+  struct {
+    u32 _0_14 : 15;
+    u32 force : 1;
+
+    u32 dec_in_enable : 1;
+    u32 dec_out_enable : 1;
+    u32 gpu_enable : 1;
+    u32 cdrom_enable : 1;
+    u32 spu_enable : 1;
+    u32 ext_enable : 1;
+    u32 ram_enable : 1;
+    u32 master_enable : 1;
+
+    u32 dec_in_flags : 1;
+    u32 dec_out_flags : 1;
+    u32 gpu_flags : 1;
+    u32 cdrom_flags : 1;
+    u32 spu_flags : 1;
+    u32 ext_flags : 1;
+    u32 ram_flags : 1;
+    u32 master_flags : 1;
+  };
+};
+
 class Dma {
  public:
   explicit Dma(memory::Ram& ram) : m_ram(ram) {}
@@ -133,33 +160,6 @@ class Dma {
   void do_linked_list_transfer(DmaPort port);
 
  private:
-  union DmaInterruptRegister {
-    u32 word{};
-
-    struct {
-      u32 _0_14 : 15;
-      u32 force : 1;
-
-      u32 dec_in_enable : 1;
-      u32 dec_out_enable : 1;
-      u32 gpu_enable : 1;
-      u32 cdrom_enable : 1;
-      u32 spu_enable : 1;
-      u32 ext_enable : 1;
-      u32 ram_enable : 1;
-      u32 master_enable : 1;
-
-      u32 dec_in_flags : 1;
-      u32 dec_out_flags : 1;
-      u32 gpu_flags : 1;
-      u32 cdrom_flags : 1;
-      u32 spu_flags : 1;
-      u32 ext_flags : 1;
-      u32 ram_flags : 1;
-      u32 master_flags : 1;
-    };
-  };
-
   DmaInterruptRegister m_interrupt;
   std::array<DmaChannel, 7> m_channels{};
   u32 m_control{ 0x07654321 };

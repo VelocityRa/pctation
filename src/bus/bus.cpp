@@ -1,5 +1,6 @@
 #include <bios/bios.hpp>
 #include <bus/bus.hpp>
+#include <gpu/gpu.hpp>
 #include <memory/dma.hpp>
 #include <memory/map.hpp>
 #include <memory/ram.hpp>
@@ -22,11 +23,8 @@ u32 Bus::read32(u32 addr) const {
     return m_bios.read32(addr_rebased);
   if (memory::map::DMA.contains(addr, addr_rebased))
     return m_dma.read_reg(static_cast<memory::DmaRegister>(addr_rebased));
-  if (memory::map::GPU.contains(addr, addr_rebased)) {
-    LOG_WARN("Unhandled 32-bit read of {}", addr_rebased == 0 ? "GPUREAD" : "GPUSTAT");
-    return addr_rebased == 4 ? 0x1C000000 : 0;  // HACK: hardcode GPUSTAT's 26,27,28 bits
-    return 0;
-  }
+  if (memory::map::GPU.contains(addr, addr_rebased))
+    return m_gpu.read32(addr_rebased);
   if (memory::map::TIMERS.contains(addr, addr_rebased)) {
     LOG_WARN("Unhandled 32-bit read of Timer register at 0x{:08X}", addr);
     return 0;
@@ -123,10 +121,8 @@ void Bus::write32(u32 addr, u32 val) const {
   }
   if (memory::map::DMA.contains(addr, addr_rebased))
     return m_dma.set_reg(static_cast<memory::DmaRegister>(addr_rebased), val);
-  if (memory::map::GPU.contains(addr, addr_rebased)) {
-    LOG_WARN("Unhandled 32-bit write to {}: 0x{:08X}", addr_rebased == 0 ? "GP0" : "GP1", val);
-    return;
-  }
+  if (memory::map::GPU.contains(addr, addr_rebased))
+    return m_gpu.write32(addr_rebased, val);
   if (memory::map::TIMERS.contains(addr, addr_rebased)) {
     LOG_WARN("Unhandled 32-bit write to Timer register: 0x{:08X} at 0x{:08X}", val, addr);
     return;

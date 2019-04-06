@@ -5,4 +5,5 @@ IndentWidth: 2
 AllowShortCaseLabelsOnASingleLine: true
 Cpp11BracedListStyle: false
 ColumnLimit: 105
+AllowAllConstructorInitializersOnNextLine: false
 ...
