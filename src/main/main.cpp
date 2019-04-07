@@ -1,43 +1,50 @@
 #include <emulator/emulator.hpp>
+#include <gui/gui.hpp>
 #include <util/log.hpp>
 
 #include <cassert>
-#include <chrono>
 #include <exception>
+#include <memory>
 
-#include <spdlog/sinks/basic_file_sink.h>
-#include <spdlog/sinks/stdout_color_sinks.h>
+#include <bigg.hpp>
 
-constexpr auto LOG_FILENAME =
-#ifdef WIN32
-    L"pctation.log";
-#else
-    "pctation.log";
-#endif
+class PctationApp : public bigg::Application {
+  void initialize(s32 _argc, char** _argv) override {
+    const auto renderer = bgfx::getRendererName(bgfx::getRendererType());
+    const auto window_title = fmt::format("pctation | {}", renderer);
 
-void init_logging() {
-  // Set up sinks
-  std::vector<spdlog::sink_ptr> sinks;
-  sinks.push_back(std::make_shared<spdlog::sinks::stdout_color_sink_st>());
-  sinks.push_back(std::make_shared<spdlog::sinks::basic_file_sink_st>(LOG_FILENAME, true));
+    glfwSetWindowTitle(mWindow, window_title.c_str());
+    bgfx::setDebug(BGFX_DEBUG_TEXT);
+  }
 
-  // Set up logger
-  auto pctation_logger = std::make_shared<spdlog::logger>("pcstation", begin(sinks), end(sinks));
-  pctation_logger->flush_on(spdlog::level::err);
-  spdlog::flush_every(std::chrono::seconds(1));
+  void onReset() override {
+    bgfx::setViewClear(0, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH, 0x85144bFF, 1.0f, 0);
+    bgfx::setViewRect(0, 0, 0, uint16_t(getWidth()), uint16_t(getHeight()));
 
-  // Configure spdlog
-  spdlog::set_default_logger(pctation_logger);
-  spdlog::set_pattern("%^[--%L--] %16s:%-3# %v%$");
-}
+    m_emulator = std::make_unique<emulator::Emulator>("../../data/bios/SCPH1001.BIN");
+  }
 
-int main() {
+  void update(float dt) override {
+    bgfx::touch(0);
+
+    ImGui::ShowDemoWindow();
+    m_gui.show(*m_emulator);
+
+    m_emulator->advance_frame();
+  }
+
+ private:
+  std::unique_ptr<emulator::Emulator> m_emulator;
+  gui::Gui m_gui;
+};
+
+// Entry point
+s32 main(s32 argc, char** argv) {
   try {
-    init_logging();
+    logging::init();
 
-    emulator::Emulator emulator("../../data/bios/SCPH1001.BIN");
-    emulator.run();
-
+    PctationApp app;
+    return app.run(argc, argv);
   } catch (const std::exception& e) {
     LOG_CRITICAL("{}", e.what());
     assert(0);

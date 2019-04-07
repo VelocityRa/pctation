@@ -14,3 +14,6 @@ if(GSL_INCLUDE_DIR STREQUAL "GSL_INCLUDE_DIR-NOTFOUND")
     message(FATAL_ERROR "Could not find Guidelines Support Library.")
 endif()
 include_directories(${GSL_INCLUDE_DIR})
+
+# bigg
+add_subdirectory(bigg)

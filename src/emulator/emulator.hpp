@@ -11,10 +11,17 @@
 
 namespace emulator {
 
+constexpr u32 CPU_CYCLES_PER_SECOND = 33'868'800;
+constexpr u32 FRAMERATE = 60;
+constexpr u32 CPU_CYCLES_PER_FRAME = CPU_CYCLES_PER_SECOND / FRAMERATE;
+
 class Emulator {
  public:
   explicit Emulator(fs::path bios_path);
-  void run();
+  // Advances the emulator state approximately one frame
+  void advance_frame();
+  const cpu::Cpu& cpu() const { return m_cpu; }
+  const memory::Ram& ram() const { return m_ram; }
 
  private:
   bios::Bios m_bios;
@@ -24,6 +31,8 @@ class Emulator {
   bus::Bus m_bus;
 
   cpu::Cpu m_cpu;
+
+  s32 m_cycles_left{ CPU_CYCLES_PER_FRAME };
 };
 
 }  // namespace emulator

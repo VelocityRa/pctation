@@ -15,6 +15,8 @@ namespace cpu {
 class Instruction;
 }
 
+#define TTY_OUTPUT true
+
 namespace cpu {
 
 constexpr auto PC_RESET_ADDR = 0xBFC00000u;
@@ -57,11 +59,16 @@ enum class ExceptionCause : u32 {
 class Cpu {
  public:
   explicit Cpu(bus::Bus& bus);
+
   bool step(u32& cycles_passed);
+
+  // Getters
+  const std::string& tty_out() const { return m_tty_out; }
+
+ private:
   void execute_instruction(const Instruction& i);
   void trigger_exception(ExceptionCause cause);
 
- private:
   // Interpreter helpers
   void op_lbu(const Instruction& i);
   void op_sb(const Instruction& i);
@@ -96,13 +103,13 @@ class Cpu {
  private:
   // Register getters/setters
   const Register& r(RegisterIndex index) const {
-    Ensures(index >= 0);
-    Ensures(index <= 32);
+    //    Ensures(index >= 0);
+    //    Ensures(index <= 32);
     return m_gpr[index];
   }
   Register& r(RegisterIndex index) {
-    Ensures(index >= 0);
-    Ensures(index <= 32);
+    //    Ensures(index >= 0);
+    //    Ensures(index <= 32);
     return m_gpr[index];
   }
 
@@ -186,6 +193,10 @@ class Cpu {
   //  #endif
 
   bus::Bus& m_bus;
+
+#ifdef TTY_OUTPUT
+  std::string m_tty_out;
+#endif
 };
 
 static const char* register_to_str(u8 reg_idx) {

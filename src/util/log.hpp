@@ -8,3 +8,9 @@
 #define LOG_WARN SPDLOG_WARN
 #define LOG_ERROR SPDLOG_ERROR
 #define LOG_CRITICAL SPDLOG_CRITICAL
+
+namespace logging {
+
+void init();
+
+}

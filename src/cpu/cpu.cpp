@@ -15,8 +15,6 @@
 
 #define TRACE_MODE TRACE_NONE
 
-#define TTY_OUTPUT 0
-
 namespace cpu {
 
 Cpu::Cpu(bus::Bus& bus) : m_bus(bus) {}
@@ -64,7 +62,7 @@ bool Cpu::step(u32& cycles_passed) {
   //  ++instr_counter;
   //#endif
 
-  cycles_passed = 0;  // TODO
+  cycles_passed = 5;  // estimated average CPI
   return false;
 }
 
@@ -128,7 +126,7 @@ void Cpu::execute_instruction(const Instruction& i) {
 
         if (next_instr.imm16_se() == 0x3D) {
           char tty_out_char = r(4);
-          std::cout << tty_out_char;
+          m_tty_out += tty_out_char;
         }
       }
 #endif
