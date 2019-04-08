@@ -20,8 +20,11 @@ class Emulator {
   explicit Emulator(fs::path bios_path);
   // Advances the emulator state approximately one frame
   void advance_frame();
+
+  // Getters
   const cpu::Cpu& cpu() const { return m_cpu; }
   const memory::Ram& ram() const { return m_ram; }
+  const gpu::Gpu& gpu() const { return m_gpu; }
 
  private:
   bios::Bios m_bios;

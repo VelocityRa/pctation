@@ -8,12 +8,18 @@
 
 #include <bigg.hpp>
 
+constexpr auto BIOS_PATH = "../../data/bios/SCPH1001.BIN";
+
 class PctationApp : public bigg::Application {
+ public:
+  PctationApp() : bigg::Application("pctation", 1280, 720) {}
+
+ private:
   void initialize(s32 _argc, char** _argv) override {
     const auto renderer = bgfx::getRendererName(bgfx::getRendererType());
     const auto window_title = fmt::format("pctation | {}", renderer);
 
-    glfwSetWindowTitle(mWindow, window_title.c_str());
+    setTitle(window_title.c_str());
     bgfx::setDebug(BGFX_DEBUG_TEXT);
   }
 
@@ -21,14 +27,14 @@ class PctationApp : public bigg::Application {
     bgfx::setViewClear(0, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH, 0x85144bFF, 1.0f, 0);
     bgfx::setViewRect(0, 0, 0, uint16_t(getWidth()), uint16_t(getHeight()));
 
-    m_emulator = std::make_unique<emulator::Emulator>("../../data/bios/SCPH1001.BIN");
+    m_emulator = std::make_unique<emulator::Emulator>(BIOS_PATH);
   }
 
   void update(float dt) override {
     bgfx::touch(0);
 
-    ImGui::ShowDemoWindow();
-    m_gui.show(*m_emulator);
+    //    ImGui::ShowDemoWindow();
+    m_gui.draw(*m_emulator);
 
     m_emulator->advance_frame();
   }

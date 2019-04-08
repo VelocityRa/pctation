@@ -1,5 +1,7 @@
 #pragma once
 
+#include <util/types.hpp>
+
 #include <imgui.h>
 #include <imgui_memory_editor/imgui_memory_editor.h>
 
@@ -9,33 +11,42 @@ namespace emulator {
 class Emulator;
 }
 
+namespace gpu {
+class Gpu;
+}
+
 namespace gui {
 
 class Gui {
  public:
-  void show(const emulator::Emulator& emulator);
+  void draw(const emulator::Emulator& emulator);
 
  private:
-  void show_overlay_fps();
-  void show_dialog_tty(const char* tty_text);
+  void draw_overlay_fps();
+  void draw_dialog_tty(const char* tty_text);
   template <size_t RamSize>
-  void show_dialog_ram(const std::array<byte, RamSize>& data);
+  void draw_dialog_ram(const std::array<byte, RamSize>& data);
+  void draw_gpu_registers(const gpu::Gpu& gpu);
 
  private:
-  // Counts times show() has been called
+  // Counts times draw() has been called
   // For updating some UI elements more rarely
-  u32 m_show_counter{};
+  u32 m_draw_counter{};
+  // Width of characters in current font (assumes it's monospaced)
 
- // FPS Overlay
- std::string m_fps_overlay_str;
+  // FPS Overlay fields
+  std::string m_fps_overlay_str;
 
-  // TTY dialog
-  bool m_show_tty{ true };
+  // TTY dialog fields
+  bool m_draw_tty{ true };
   bool m_tty_autoscroll{ true };
 
-  // RAM Memory dialog
-  bool m_show_ram{ true };
+  // RAM Memory dialog fields
+  bool m_draw_ram{ true };
   MemoryEditor m_ram_memeditor;
+
+  // GPU Registers dialog fields
+  bool m_draw_gpu_registers{ true };
 };
 
 }  // namespace gui

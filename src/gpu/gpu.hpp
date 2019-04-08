@@ -58,8 +58,8 @@ union Gp1DisplayArea {
   u32 word{};
 
   struct {
-    u32 disp_area_x : 10;  // X (0-1023)    (halfword address in VRAM)  (relative to begin of VRAM)
-    u32 disp_area_y : 9;   // Y (0-511)     (scanline number in VRAM)   (relative to begin of VRAM)
+    u32 x_coord : 10;  // X (0-1023)    (halfword address in VRAM)  (relative to begin of VRAM)
+    u32 y_coord : 9;   // Y (0-511)     (scanline number in VRAM)   (relative to begin of VRAM)
   };
 };
 

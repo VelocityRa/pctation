@@ -93,7 +93,8 @@ void Gpu::gp1_soft_reset() {
   m_hdisplay_range = Gp1HDisplayRange();
   m_vdisplay_range = Gp1VDisplayRange();
 
-  // TODO: cmd buffer
+  // TODO: flush cmd buffer
+  // TODO: flush tex cache
 }
 
 void Gpu::gp1_disp_enable(u32 cmd) {
