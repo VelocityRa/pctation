@@ -1,5 +1,6 @@
 #include <memory/dma.hpp>
 
+#include <gpu/gpu.hpp>
 #include <memory/ram.hpp>
 #include <util/log.hpp>
 
@@ -163,6 +164,10 @@ void Dma::do_block_transfer(DmaPort port) {
       case DmaChannel::TransferDirection::FromRam: {
         u32 src_word = m_ram.read32(addr_cur);
         switch (port) {
+          case DmaPort::Gpu:
+            // Send packet (which is part of a GP0 command, likely data) to the GPU
+            m_gpu.gp0(src_word);
+            break;
           default:
             LOG_WARN("DMA transfer of word 0x{:08X} to unimplemented port {} requested", src_word,
                      static_cast<u8>(port));
@@ -198,7 +203,8 @@ void Dma::do_linked_list_transfer(DmaPort port) {
       addr = (addr + 4) & RAM_ADDR_MASK;
       const u32 packet_data = m_ram.read32(addr);
 
-      LOG_DEBUG("  GPU command: {:08X}", packet_data);
+      // Send packet (which is a GP0 command) to the GPU
+      m_gpu.gp0(packet_data);
 
       packet_word_count -= 1;
     }
