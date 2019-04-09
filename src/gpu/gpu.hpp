@@ -2,7 +2,9 @@
 
 #include <util/types.hpp>
 
-#include <bitset>
+#include <gsl-lite.hpp>
+
+#include <vector>
 
 namespace gpu {
 
@@ -11,6 +13,11 @@ enum DmaDirection {
   Fifo = 1,
   CpuToGp0 = 2,
   VRamToCpu = 3,
+};
+
+enum class Gp0Mode {
+  Command,    // We're processing words that are part of a command
+  ImageLoad,  // We're processing words that are image data transferred by a Copy command
 };
 
 // GP0(E2h) - Texture Window setting
@@ -37,6 +44,7 @@ union Gp0DrawingArea {
   };
 };
 
+// TODO: This has s11's, maybe store as separate field and not in bitfield
 // GP0(E5h) - Set Drawing Offset (X,Y)
 union Gp0DrawingOffset {
   u32 word{};
@@ -106,7 +114,7 @@ union GpuStatus {
     u32 disk_color_depth : 1;      //  21    Display Area Color Depth (0=15bit, 1=24bit)
     u32 vertical_interlace : 1;    //  22    Vertical Interlace (0=Off, 1=On)
     u32 disp_disabled : 1;         //  23    Display Status (0=Enabled, 1=Disabled)
-    u32 irq_en : 1;                //  24    Interrupt Request (IRQ1) (0=Off, 1=IRQ)
+    u32 interrupt : 1;             //  24    Interrupt Request (IRQ1) (0=Off, 1=IRQ)
     u32 dma_data_req : 1;       //  25    DMA / Data Request, meaning depends on GP1(04h) DMA Direction
     u32 ready_to_recv_cmd : 1;  //  26    Ready to receive Cmd Word
     u32 ready_to_send_vram_to_cpu : 1;  // 27    Ready to send VRAM to CPU
@@ -121,6 +129,8 @@ union GpuStatus {
 
 class Gpu {
  public:
+  Gpu();
+
   GpuStatus m_gpustat{};
 
   Gp0TextureWindow m_tex_window{};
@@ -133,46 +143,58 @@ class Gpu {
   Gp1HDisplayRange m_hdisplay_range;
   Gp1VDisplayRange m_vdisplay_range;
 
-  void gpustat_update() {
-    u8 dma_req{};
-
-    switch (m_gpustat.dma_direction()) {
-      case Off: dma_req = 0; break;
-      case Fifo: dma_req = 1; break;
-      case CpuToGp0: dma_req = m_gpustat.ready_to_recv_dma_block; break;
-      case VRamToCpu: dma_req = m_gpustat.ready_to_send_vram_to_cpu; break;
-    }
-
-    std::bitset<32> gpustat_bs(m_gpustat.word);
-    gpustat_bs.set(26, dma_req);
-    m_gpustat.word = gpustat_bs.to_ulong();
-  }
-  u32 gpustat() {
-    gpustat_update();
+  GpuStatus gpustat() const {
     auto gpustat = static_cast<u32>(m_gpustat.word);
 
     // Hardcode the following for now
     gpustat |= 1 << 26;  // Ready to receive command: true
     gpustat |= 1 << 27;  // Ready to send VRAM to CPU: true
     gpustat |= 1 << 28;  // Ready to receive DMA block: true
+    // TODO: Do I need to set .19 to 0 as well?
 
-    return gpustat;
+    // Not sure what this is
+    Ensures(m_gpustat.reverse_flag == false);
+
+    return GpuStatus{ gpustat };
   }
 
   u32 read32(u32 addr);
   void write32(u32 addr, u32 val);
 
   void gp0(u32 cmd);
+
+ private:
+  void gp0_nop(u32 cmd){};
+  void gp0_clear_cache(u32 cmd){};
+  void gp0_quad_mono_opaque(u32 cmd);
+  void gp0_quad_texture_blend_opaque(u32 cmd);
+  void gp0_triangle_shaded_opaque(u32 cmd);
+  void gp0_quad_shaded_opaque(u32 cmd);
   void gp0_draw_mode(u32 cmd);
   void gp0_mask_bit(u32 cmd);
+  void gp0_gpu_irq(u32 cmd);  // rarely used
+  void gp0_copy_rect_cpu_to_vram(u32 cmd);
+  void gp0_copy_rect_vram_to_cpu(u32 cmd);
 
   void gp1(u32 cmd);
   void gp1_soft_reset();
-  void gp1_ack_gpu_interrupt() { m_gpustat.irq_en = false; }
-  void gp1_gpu_irq() { m_gpustat.irq_en = true; }  // rarely used
+  void gp1_cmd_buf_reset();
+  void gp1_ack_gpu_interrupt();
   void gp1_disp_enable(u32 cmd);
   void gp1_dma_direction(u32 cmd);
   void gp1_disp_mode(u32 cmd);
+  void gp0_texture_window(u32 cmd);
+  void gp0_drawing_area_top_left(u32 cmd);
+  void gp0_drawing_area_bottom_right(u32 cmd);
+  void gp0_drawing_offset(u32 cmd);
+
+ private:
+  // GP0 command handling
+  Gp0Mode m_gp0_mode = Gp0Mode::Command;
+  std::vector<u32> m_gp0_cmd;  // 1 to 12 words comprising a GP0 command
+  u32 m_gp0_words_left = 0;
+  using GpuGp0CmdHandler = void (Gpu::*)(u32 cmd);
+  GpuGp0CmdHandler m_gp0_handler{};
 };
 
 }  // namespace gpu

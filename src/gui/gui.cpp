@@ -159,7 +159,7 @@ void Gui::draw_gpu_registers(const gpu::Gpu& gpu) {
   // Draw GPUSTAT fields
 
   // For brevity
-  const auto gs = gpu.m_gpustat;
+  const auto gs = gpu.gpustat();
 
   // GPUSTAT fields to string tables
   const char* semi_transparency_str[] = { "B/2+F/2", "B+F", "B-F", "B+F/4" };
@@ -188,7 +188,7 @@ void Gui::draw_gpu_registers(const gpu::Gpu& gpu) {
     { "21", "Display Color Depth", disp_color_depth_str[gs.disk_color_depth] },
     { "22", "Vertical Interlace", fmt::format("{}", gs.vertical_interlace) },
     { "23", "Display Enabled", on_off_str[gs.disp_disabled] },
-    { "24", "Interrupt Request", fmt::format("{}", gs.irq_en) },
+    { "24", "Interrupt Request", fmt::format("{}", gs.interrupt) },
     { "25", "DMA / Data Request", fmt::format("{}", gs.dma_data_req) },
     { "26", "Ready to recv cmd", off_on_str[gs.ready_to_recv_cmd] },
     { "27", "Ready to send VRAM", off_on_str[gs.ready_to_send_vram_to_cpu] },
@@ -222,7 +222,7 @@ void Gui::draw_gpu_registers(const gpu::Gpu& gpu) {
 
   // Draw GP1 fields
   const RegisterTableEntries gp1_rows = {
-    { "05h.0-10", "Display area X", fmt::format("0x{:03X}", gpu.m_display_area.x_coord * 2) },
+    { "05h.0-10", "Display area X", fmt::format("{}", gpu.m_display_area.x_coord) },
     { "05h.10-18", "Display area Y", fmt::format("{}", gpu.m_display_area.y_coord) },
     { "06h.0-11", "Horiz. disp. range X1", fmt::format("{}", gpu.m_hdisplay_range.x1) },
     { "06h.12-23", "Horiz. disp. range X2", fmt::format("{}", gpu.m_hdisplay_range.x2) },

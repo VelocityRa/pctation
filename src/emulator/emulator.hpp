@@ -29,8 +29,8 @@ class Emulator {
  private:
   bios::Bios m_bios;
   memory::Ram m_ram;
-  memory::Dma m_dma;
   gpu::Gpu m_gpu;
+  memory::Dma m_dma;
   bus::Bus m_bus;
 
   cpu::Cpu m_cpu;

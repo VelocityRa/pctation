@@ -9,6 +9,10 @@ namespace memory {
 class Ram;
 }
 
+namespace gpu {
+class Gpu;
+}
+
 namespace memory {
 
 enum class DmaPort {
@@ -82,9 +86,14 @@ class DmaChannel {
     Backward = 1,
   };
   enum class SyncMode {
-    Manual = 0,      // Transfer starts when CPU writes to the manual_trigger bit and happens all at once
-    Request = 1,     // Sync blocks to DMA requests
-    LinkedList = 2,  // Used for GPU command lists
+    // Transfer starts when CPU writes to the manual_trigger bit and happens all at once
+    // Used for CDROM, OTC
+    Manual = 0,
+    // Sync blocks to DMA requests
+    // Used for MDEC, SPU, and GPU-data
+    Request = 1,
+    // Used for GPU-command-lists
+    LinkedList = 2,
   };
 
   bool active() const;
@@ -147,7 +156,7 @@ union DmaInterruptRegister {
 
 class Dma {
  public:
-  explicit Dma(memory::Ram& ram) : m_ram(ram) {}
+  explicit Dma(memory::Ram& ram, gpu::Gpu& gpu) : m_ram(ram), m_gpu(gpu) {}
 
   void set_reg(DmaRegister reg, u32 val);
   u32 read_reg(DmaRegister reg) const;
@@ -165,6 +174,7 @@ class Dma {
   u32 m_control{ 0x07654321 };
 
   memory::Ram& m_ram;
+  gpu::Gpu& m_gpu;
 };
 
 }  // namespace memory
