@@ -9,6 +9,8 @@
 #define LOG_ERROR SPDLOG_ERROR
 #define LOG_CRITICAL SPDLOG_CRITICAL
 
+#define LOG_TODO() LOG_WARN(__FUNCTION__ ": TODO")
+
 namespace logging {
 
 void init();
