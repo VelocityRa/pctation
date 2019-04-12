@@ -29,6 +29,10 @@ void Gpu::write32(u32 addr, u32 val) {
   }
 }
 
+void Gpu::draw() {
+  m_renderer.draw();
+}
+
 void Gpu::gp0(u32 cmd) {
   bool is_new_command = m_gp0_words_left == 0;
 
@@ -103,19 +107,29 @@ void Gpu::gp0(u32 cmd) {
 }
 
 void Gpu::gp0_quad_mono_opaque(u32 cmd) {
-  LOG_TODO();
+  const auto color = m_gp0_cmd[0];
+  m_renderer.push_quad(
+      renderer::Position::from_gp0(m_gp0_cmd[1], m_gp0_cmd[2], m_gp0_cmd[3], m_gp0_cmd[4]),
+      renderer::Color::from_gp0(color, color, color, color));
 }
 
 void Gpu::gp0_quad_texture_blend_opaque(u32 cmd) {
-  LOG_TODO();
+  // TODO: We don't support textures yet, so use a solid blue color for now
+  const auto color = 0x80'00'00;
+  m_renderer.push_quad(
+      renderer::Position::from_gp0(m_gp0_cmd[1], m_gp0_cmd[3], m_gp0_cmd[5], m_gp0_cmd[7]),
+      renderer::Color::from_gp0(color, color, color, color));
 }
 
 void Gpu::gp0_triangle_shaded_opaque(u32 cmd) {
-  LOG_TODO();
+  m_renderer.push_triangle(renderer::Position::from_gp0(m_gp0_cmd[1], m_gp0_cmd[3], m_gp0_cmd[5]),
+                           renderer::Color::from_gp0(m_gp0_cmd[0], m_gp0_cmd[2], m_gp0_cmd[4]));
 }
 
 void Gpu::gp0_quad_shaded_opaque(u32 cmd) {
-  LOG_TODO();
+  m_renderer.push_quad(
+      renderer::Position::from_gp0(m_gp0_cmd[1], m_gp0_cmd[3], m_gp0_cmd[5], m_gp0_cmd[7]),
+      renderer::Color::from_gp0(m_gp0_cmd[0], m_gp0_cmd[2], m_gp0_cmd[4], m_gp0_cmd[6]));
 }
 
 void Gpu::gp0_draw_mode(u32 cmd) {
@@ -191,6 +205,7 @@ void Gpu::gp0_drawing_area_bottom_right(u32 cmd) {
 
 void Gpu::gp0_drawing_offset(u32 cmd) {
   m_drawing_offset.word = cmd;
+  m_frame = true;
 }
 
 void Gpu::gp1(u32 cmd) {

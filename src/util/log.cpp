@@ -24,7 +24,7 @@ void init() {
   //  sinks.push_back(std::make_shared<spdlog::sinks::basic_file_sink_st>(LOG_FILENAME, true));
 
   // Set up logger
-  auto pctation_logger = std::make_shared<spdlog::logger>("pcstation", begin(sinks), end(sinks));
+  auto pctation_logger = std::make_shared<spdlog::logger>("pctation", begin(sinks), end(sinks));
   pctation_logger->flush_on(spdlog::level::err);
   spdlog::flush_every(std::chrono::seconds(1));
 

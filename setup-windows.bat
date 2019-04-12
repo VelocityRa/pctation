@@ -6,10 +6,9 @@ set "VCPKG_DEFAULT_TRIPLET=x64-windows"
 if not exist "vcpkg.exe" (
     bootstrap-vcpkg.bat
 )
-vcpkg install fmt spdlog gsl-lite
-popd
 
-REM Setting up bigg...
-pushd "external/bigg"
-git submodule update --init --recursive
+REM Installing dependencies...
+vcpkg install fmt spdlog gsl-lite sdl2 imgui glbinding
+
+REM Done.
 popd

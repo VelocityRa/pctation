@@ -14,14 +14,23 @@ Emulator::Emulator(fs::path bios_path)
 void Emulator::advance_frame() {
   m_cycles_left += CPU_CYCLES_PER_FRAME;
 
-  while (m_cycles_left > 0) {
+  //  while (m_cycles_left > 0) {
+  while (true) {
     u32 cycles_passed;
 
     if (m_cpu.step(cycles_passed))
       break;
 
+    // HACK
+    if (m_gpu.frame())
+      break;
+
     m_cycles_left -= cycles_passed;
   }
+}
+
+void Emulator::draw() {
+  m_gpu.draw();
 }
 
 }  // namespace emulator

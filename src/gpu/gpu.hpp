@@ -1,5 +1,6 @@
 #pragma once
 
+#include <renderer/renderer.hpp>
 #include <util/types.hpp>
 
 #include <gsl-lite.hpp>
@@ -151,6 +152,7 @@ class Gpu {
     gpustat |= 1 << 27;  // Ready to send VRAM to CPU: true
     gpustat |= 1 << 28;  // Ready to receive DMA block: true
     // TODO: Do I need to set .19 to 0 as well?
+    //    gpustat &= ~(1 << 19);
 
     // Not sure what this is
     Ensures(m_gpustat.reverse_flag == false);
@@ -160,6 +162,17 @@ class Gpu {
 
   u32 read32(u32 addr);
   void write32(u32 addr, u32 val);
+
+  void draw();
+
+  // HACK
+  bool m_frame;
+  // signals that a new frame just rendered
+  bool frame() {
+    const bool frame_temp = m_frame;
+    m_frame = false;  // reset m_frame
+    return frame_temp;
+  }
 
   void gp0(u32 cmd);
 
@@ -189,6 +202,8 @@ class Gpu {
   void gp0_drawing_offset(u32 cmd);
 
  private:
+  renderer::Renderer m_renderer;
+
   // GP0 command handling
   Gp0Mode m_gp0_mode = Gp0Mode::Command;
   std::vector<u32> m_gp0_cmd;  // 1 to 12 words comprising a GP0 command

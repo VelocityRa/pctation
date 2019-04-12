@@ -2,23 +2,149 @@
 
 #include <cpu/cpu.hpp>
 #include <gpu/gpu.hpp>
+#include <util/log.hpp>
 
 #include <emulator/emulator.hpp>
 
-#include <bgfx/bgfx.h>
+#include <SDL2/SDL.h>
+#pragma warning(disable : 4251)  // hide some glbinding warnings
+#include <glbinding-aux/types_to_string.h>
+#include <glbinding/Binding.h>
+#include <glbinding/gl/gl.h>
+#include <glbinding/glbinding.h>
+#pragma warning(default : 4251)
 #include <imgui.h>
+#include <imgui_sdl2_gl3_backend/imgui_impl_opengl3.h>
+#include <imgui_sdl2_gl3_backend/imgui_impl_sdl.h>
+
+#include <cassert>
+#include <sstream>
 
 #define RGBA_TO_FLOAT(r, g, b, a) ImVec4(r / 255.f, g / 255.f, b / 255.f, a / 255.f)
 
+using namespace gl;
+
+const auto GUI_CLEAR_COLOR = RGBA_TO_FLOAT(133, 20, 75, 255);
 const auto GUI_COLOR_TTY_TEXT = RGBA_TO_FLOAT(170, 170, 170, 255);
 const auto GUI_COLOR_BLACK_HALF_TRANSPARENT = RGBA_TO_FLOAT(0, 0, 0, 128);
 const auto GUI_TABLE_COLUMN_TITLES_COL = ImColor(255, 255, 255);
 const auto GUI_TABLE_COLUMN_ROWS_NAME_COL = IM_COL32(200, 200, 200, 255);
 const auto GUI_TABLE_COLUMN_ROWS_OTHER_COL = IM_COL32(150, 150, 150, 255);
 
+#define SDL_ERROR(msg)                                                      \
+  do {                                                                      \
+    LOG_ERROR(msg##": {}", SDL_GetError());                                 \
+    SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Error", msg, m_window); \
+    throw;                                                                  \
+  } while (0);
+
+// Use a discrete GPU if available
+extern "C" {
+// http://developer.download.nvidia.com/devzone/devcenter/gamegraphics/files/OptimusRenderingPolicies.pdf
+__declspec(dllexport) uint32_t NvOptimusEnablement = 1;
+
+// https://gpuopen.com/amdpowerxpressrequesthighperformance/
+__declspec(dllexport) uint32_t AmdPowerXpressRequestHighPerformance = 1;
+}
+
 namespace gui {
 
+static void gl_after_callback(const glbinding::FunctionCall& fn) {
+  for (GLenum error = glGetError(); error != GL_NO_ERROR; error = glGetError()) {
+    std::stringstream gl_error;
+    gl_error << error;
+    LOG_ERROR("OpenGL: {} set error {}.", fn.function->name(), gl_error.str());
+    assert(0);
+  }
+}
+
+void Gui::init() {
+  if (SDL_Init(SDL_INIT_VIDEO) != 0)
+    SDL_ERROR("Unable to initialize SDL");
+
+  SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
+  SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1);
+  SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
+
+  SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
+  SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
+  SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
+
+  m_window = SDL_CreateWindow("Pctation | OpenGL", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 1024,
+                              512, SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE);
+
+  if (!m_window)
+    SDL_ERROR("Unable to create window");
+
+  m_gl_context = SDL_GL_CreateContext(m_window);
+
+  if (!m_gl_context)
+    SDL_ERROR("Unable to create GL context");
+
+  // Try adaptive vsync first, falling back to regular vsync.
+  if (SDL_GL_SetSwapInterval(-1) < 0) {
+    SDL_GL_SetSwapInterval(1);
+  }
+
+  const glbinding::GetProcAddress get_proc_address = [](const char* name) {
+    return reinterpret_cast<glbinding::ProcAddress>(SDL_GL_GetProcAddress(name));
+  };
+  glbinding::initialize(get_proc_address, false);
+  //  glbinding::setCallbackMaskExcept(glbinding::CallbackMask::Before | glbinding::CallbackMask::After,
+  //                                   { "glGetError" });
+  glbinding::setAfterCallback(gl_after_callback);
+
+  // Set-up imgui context
+  IMGUI_CHECKVERSION();
+  ImGui::CreateContext();
+
+  // Setup platform/renderer bindings
+  ImGui_ImplSDL2_InitForOpenGL(m_window, m_gl_context);
+  ImGui_ImplOpenGL3_Init("#version 330 core");
+}
+
+bool Gui::poll_events() {
+  return SDL_PollEvent(&m_event);
+}
+
+bool Gui::process_events() {
+  bool should_exit = false;
+
+  ImGui_ImplSDL2_ProcessEvent(&m_event);
+  if (m_event.type == SDL_QUIT)
+    should_exit = true;
+  if (m_event.type == SDL_WINDOWEVENT && m_event.window.event == SDL_WINDOWEVENT_CLOSE &&
+      m_event.window.windowID == SDL_GetWindowID(m_window))
+    should_exit = true;
+
+  return should_exit;
+}
+
 void Gui::draw(const emulator::Emulator& emulator) {
+  // Start the Dear ImGui frame
+  ImGui_ImplOpenGL3_NewFrame();
+  ImGui_ImplSDL2_NewFrame(m_window);
+  ImGui::NewFrame();
+
+  draw_imgui(emulator);
+
+  // Render
+  ImGui::Render();
+  SDL_GL_MakeCurrent(m_window, m_gl_context);
+  ImGuiIO& io = ImGui::GetIO();
+  glViewport(0, 0, (int)io.DisplaySize.x, (int)io.DisplaySize.y);
+  glClearColor(GUI_CLEAR_COLOR.x, GUI_CLEAR_COLOR.y, GUI_CLEAR_COLOR.z, GUI_CLEAR_COLOR.w);
+  glClear(GL_COLOR_BUFFER_BIT);
+  ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+
+  m_draw_counter++;
+}
+
+void Gui::swap() {
+  SDL_GL_SwapWindow(m_window);
+}
+
+void Gui::draw_imgui(const emulator::Emulator& emulator) {
   if (ImGui::BeginMainMenuBar()) {
     if (ImGui::BeginMenu("Debug")) {
       ImGui::MenuItem("TTY Output", "Ctrl+T", &m_draw_tty, TTY_OUTPUT);
@@ -37,8 +163,12 @@ void Gui::draw(const emulator::Emulator& emulator) {
     draw_dialog_ram(emulator.ram().data());
   if (m_draw_gpu_registers)
     draw_gpu_registers(emulator.gpu());
+}
 
-  m_draw_counter++;
+void Gui::deinit() {
+  SDL_GL_DeleteContext(m_gl_context);
+
+  SDL_Quit();
 }
 
 // Dialogs
@@ -105,7 +235,7 @@ static void draw_register_table(const char* title, const RegisterTableEntries ro
     // Draw headers
     ImGui::Columns(column_count, title);
     for (auto i = 0; i < column_count; ++i) {
-      ImGui::SetColumnWidth(i, column_max_chars[i] * g_char_width + 25);
+      ImGui::SetColumnWidth(i, column_max_chars[i] * g_char_width);
     }
 
     ImGui::Separator();
@@ -115,6 +245,7 @@ static void draw_register_table(const char* title, const RegisterTableEntries ro
     }
     ImGui::Separator();
 
+    // Draw rows
     char text[50];
 
     ImGui::PushStyleColor(ImGuiCol_Text, GUI_TABLE_COLUMN_ROWS_NAME_COL);
@@ -241,12 +372,12 @@ void Gui::draw_gpu_registers(const gpu::Gpu& gpu) {
 }
 
 void Gui::draw_overlay_fps() {
+  // TODO: this broke after the swith to SDL
+  return;
   // Don't want to deal with time, just update FPS overlay every X frames
   if (m_draw_counter % 20 == 0) {
-    const bgfx::Stats* stats = bgfx::getStats();
-    const double toMsCpu = 1000.0 / stats->cpuTimerFreq;
-    const double frameMs = double(stats->cpuTimeFrame) * toMsCpu;
-    m_fps_overlay_str = fmt::format("FPS: {:0.2f}", 1000.0 / frameMs);
+    // TODO: implement FPS counter
+    //    m_fps_overlay_str = fmt::format("FPS: {:0.2f}", );
   }
 
   const auto imgui_flags_overlay = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize |

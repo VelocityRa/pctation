@@ -13,7 +13,12 @@ if(NOT WIN32)
     link_libraries(stdc++fs)
 endif()
 
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+
 include_directories(src)
+include_directories(external)
 
 # vcpkg setup
 set(VCPKG_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/external/vcpkg")
@@ -29,9 +34,50 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 if(MSVC)
-	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /MP")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /MP")
 endif()
 
+### vcpkg dependencies
+
+# spdlog
+find_package(spdlog CONFIG REQUIRED)
+target_compile_definitions(spdlog::spdlog INTERFACE SPDLOG_WCHAR_FILENAMES=1 SPDLOG_NO_THREAD_ID=1 SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_TRACE
+                                                    _SILENCE_CXX17_CODECVT_HEADER_DEPRECATION_WARNING)
+
+# GSL
+find_path(GSL_INCLUDE_DIR gsl-lite.hpp)
+if(GSL_INCLUDE_DIR STREQUAL "GSL_INCLUDE_DIR-NOTFOUND")
+    message(FATAL_ERROR "Could not find Guidelines Support Library.")
+endif()
+include_directories(${GSL_INCLUDE_DIR})
+
+# SDL2
+find_package(SDL2 CONFIG REQUIRED)
+
+# fmt
+find_package(fmt CONFIG REQUIRED)
+
+# imgui
+find_package(imgui CONFIG REQUIRED)
+
+# glbinding
+find_package(glbinding CONFIG REQUIRED)
+
+### Add source tree
+add_subdirectory(src)
+
+### Add externals directory for additional externals
 add_subdirectory(external)
 
-add_subdirectory(src)
+### Main executable
+add_executable(pctation src/main/main.cpp)
+target_link_libraries(pctation PRIVATE main)
+
+set_property(TARGET pctation PROPERTY VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}")
+set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT pctation)
+
+add_custom_command(
+    TARGET pctation
+    POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory "${CMAKE_CURRENT_SOURCE_DIR}/data" "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/data"
+)

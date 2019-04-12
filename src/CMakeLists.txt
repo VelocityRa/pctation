@@ -6,8 +6,5 @@ add_subdirectory(bus)
 add_subdirectory(bios)
 add_subdirectory(gpu)
 add_subdirectory(gui)
+add_subdirectory(renderer)
 add_subdirectory(util)
-
-# Main executable
-add_executable(pcstation main/main.cpp)
-target_link_libraries(pcstation PRIVATE main)

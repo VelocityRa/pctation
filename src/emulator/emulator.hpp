@@ -25,6 +25,7 @@ class Emulator {
   const cpu::Cpu& cpu() const { return m_cpu; }
   const memory::Ram& ram() const { return m_ram; }
   const gpu::Gpu& gpu() const { return m_gpu; }
+  void draw();
 
  private:
   bios::Bios m_bios;
