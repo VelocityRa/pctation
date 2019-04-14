@@ -13,6 +13,8 @@ u32 Bus::read32(u32 addr) const {
 
   address addr_rebased;
 
+  if (memory::map::SCRATCHPAD.contains(addr, addr_rebased))
+    return m_ram.read32_scratch(addr_rebased);
   if (memory::map::RAM.contains(addr, addr_rebased))
     return m_ram.read32(addr_rebased);
   if (memory::map::IRQ_CONTROL.contains(addr, addr_rebased)) {
@@ -40,6 +42,8 @@ u16 Bus::read16(u32 addr) const {
 
   address addr_rebased;
 
+  if (memory::map::SCRATCHPAD.contains(addr, addr_rebased))
+    return m_ram.read16_scratch(addr_rebased);
   if (memory::map::RAM.contains(addr, addr_rebased))
     return m_ram.read16(addr_rebased);
   if (memory::map::SPU.contains(addr, addr_rebased)) {
@@ -49,6 +53,10 @@ u16 Bus::read16(u32 addr) const {
   }
   if (memory::map::IRQ_CONTROL.contains(addr, addr_rebased)) {
     LOG_WARN("Unhandled 16-bit read of {}", addr_rebased == 0 ? "I_STAT" : "I_MASK");
+    return 0;
+  }
+  if (memory::map::JOYPAD.contains(addr, addr_rebased)) {
+    LOG_WARN("Unhandled 16-bit read of Joypad register at 0x{:08X}", addr);
     return 0;
   }
 
@@ -62,6 +70,8 @@ u8 Bus::read8(u32 addr) const {
 
   address addr_rebased;
 
+  if (memory::map::SCRATCHPAD.contains(addr, addr_rebased))
+    return m_ram.read8_scratch(addr_rebased);
   if (memory::map::RAM.contains(addr, addr_rebased))
     return m_ram.read8(addr_rebased);
   if (memory::map::BIOS.contains(addr, addr_rebased))
@@ -70,6 +80,10 @@ u8 Bus::read8(u32 addr) const {
     LOG_WARN("Unhandled 8-bit read of EXPANSION 1 memory at 0x{:08X}", addr);
     // No expansion unimplemented
     return 0xFF;
+  }
+  if (memory::map::JOYPAD.contains(addr, addr_rebased)) {
+    LOG_WARN("Unhandled 8-bit read of Joypad register at 0x{:08X}", addr);
+    return 0;
   }
 
   LOG_ERROR("Unknown 8-bit read at 0x{:08X} ", addr);
@@ -82,6 +96,8 @@ void Bus::write32(u32 addr, u32 val) const {
 
   address addr_rebased;
 
+  if (memory::map::SCRATCHPAD.contains(addr, addr_rebased))
+    return m_ram.write32_scratch(addr_rebased, val);
   if (memory::map::RAM.contains(addr, addr_rebased))
     return m_ram.write32(addr_rebased, val);
   if (memory::map::IRQ_CONTROL.contains(addr, addr_rebased)) {
@@ -137,6 +153,8 @@ void Bus::write16(u32 addr, u16 val) const {
 
   address addr_rebased;
 
+  if (memory::map::SCRATCHPAD.contains(addr, addr_rebased))
+    return m_ram.write16_scratch(addr_rebased, val);
   if (memory::map::RAM.contains(addr, addr_rebased))
     return m_ram.write16(addr_rebased, val);
   if (memory::map::TIMERS.contains(addr, addr_rebased)) {
@@ -152,6 +170,10 @@ void Bus::write16(u32 addr, u16 val) const {
     LOG_WARN("Unhandled 16-bit write of 0x{:04X} to {}", val, addr_rebased == 0 ? "I_STAT" : "I_MASK");
     return;
   }
+  if (memory::map::JOYPAD.contains(addr, addr_rebased)) {
+    LOG_WARN("Unhandled 16-bit write to Joypad register: 0x{:04X} at 0x{:08X}", val, addr);
+    return;
+  }
 
   LOG_ERROR("Unknown 16-bit write of 0x{:04X} at 0x{:08X} ", val, addr);
   assert(0);
@@ -162,6 +184,8 @@ void Bus::write8(u32 addr, u8 val) const {
 
   address addr_rebased;
 
+  if (memory::map::SCRATCHPAD.contains(addr, addr_rebased))
+    return m_ram.write8_scratch(addr_rebased, val);
   if (memory::map::RAM.contains(addr, addr_rebased))
     return m_ram.write8(addr_rebased, val);
   if (memory::map::EXPANSION_2.contains(addr, addr_rebased)) {

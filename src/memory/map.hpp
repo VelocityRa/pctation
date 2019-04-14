@@ -7,6 +7,7 @@ namespace memory {
 // Memory sizes
 static constexpr u32 BIOS_SIZE = 512 * 1024;      // All BIOS images are 512KB
 static constexpr u32 RAM_SIZE = 2 * 1024 * 1024;  // Main RAM, 2 MB
+static constexpr u32 SCRATCHPAD_SIZE = 1024;      // Scratch pad, 1KB
 
 namespace map {
 
@@ -23,6 +24,8 @@ static constexpr Range IRQ_CONTROL{ 0x1F801070, 8 };
 static constexpr Range TIMERS{ 0x1F801100, 0x2C };
 static constexpr Range DMA{ 0x1F801080, 0x80 };
 static constexpr Range GPU{ 0x1F801810, 8 };
+static constexpr Range SCRATCHPAD{ 0x1F800000, SCRATCHPAD_SIZE };
+static constexpr Range JOYPAD{ 0x1F801040, 5 * 4 };
 
 }  // namespace map
 
