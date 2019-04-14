@@ -32,13 +32,14 @@ s32 main(s32 argc, char** argv) {
 
       emulator->advance_frame();
 
-      gui.draw(*emulator);
+      gui.clear();
       emulator->draw();
+      gui.draw(*emulator);
 
       gui.swap();
     }
   } catch (const std::exception& e) {
-    LOG_CRITICAL("{}", e.what());
+    LOG_CRITICAL("Exception: {}", e.what());
     gui.deinit();
     assert(0);
   }

@@ -14,6 +14,8 @@ namespace renderer {
 struct Position;
 struct Color;
 
+using Color2 = std::array<Color, 2>;
+using Position2 = std::array<Position, 2>;
 using Color3 = std::array<Color, 3>;
 using Position3 = std::array<Position, 3>;
 using Color4 = std::array<Color, 4>;
@@ -51,23 +53,29 @@ class Renderer {
   Renderer();
   ~Renderer();
 
-  void push_triangle(Position3 posistions, Color3 colors);
-  void push_quad(Position4 posistions, Color4 colors);
   void draw();
 
+  void draw_pixel(Position position, Color color);
+  void draw_triangle_shaded(Position3 posistions, Color3 colors);
+  void draw_quad_shaded(Position4 posistions, Color4 colors);
+  void draw_quad_mono(Position4 positions, Color color);
+  //  void draw_rect_mono(Position2 array, Color color);
+
  private:
-  static constexpr u32 VERTEX_BUFFER_LEN = 64 * 1024;
-  // Vertex buffers
-  renderer::PersistentMappedBuffer<Position, VERTEX_BUFFER_LEN> m_vb_positions;
-  renderer::PersistentMappedBuffer<Color, VERTEX_BUFFER_LEN> m_vb_colors;
-  // Vertex count in the buffers, the index we use to write to them
-  u32 m_vertex_count{};
+  inline void set_vram_color(u32 vram_idx, Color color);
+  static inline Color get_shaded_color(Color3 colors, u32 w0, u32 w1, u32 w2);
 
+ private:
   // Shaders
-  GLuint m_shader_program_gouraud{};
+  GLuint m_shader_program_screen{};
 
-  // VAO
+  // Other OpenGL objects
   GLuint m_vao;
+  GLuint m_vbo;
+  GLuint m_tex_screen;
+
+  // VRAM
+  std::array<u8, 1024 * 512 * 3> m_vram_fb;
 };
 
 }  // namespace renderer

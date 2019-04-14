@@ -27,6 +27,7 @@ class Gui {
   void draw(const emulator::Emulator& emulator);
   void swap();
   void deinit();
+  void clear();
 
  private:
   void draw_imgui(const emulator::Emulator& emulator);  // Draws all imgui GUI elements

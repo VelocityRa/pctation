@@ -3,8 +3,8 @@ add_library(renderer STATIC renderer.cpp
                             shader.cpp
                             shader.hpp
                             buffer.hpp
-                            shaders/gouraud.fs.glsl
-                            shaders/gouraud.vs.glsl)
+                            shaders/screen.fs.glsl
+                            shaders/screen.vs.glsl)
 
 target_link_libraries(renderer PUBLIC util)
 target_link_libraries(renderer PRIVATE SDL2::SDL2 glbinding::glbinding imgui::imgui)

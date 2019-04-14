@@ -18,6 +18,7 @@
 #include <imgui_sdl2_gl3_backend/imgui_impl_sdl.h>
 
 #include <cassert>
+#include <exception>
 #include <sstream>
 
 #define RGBA_TO_FLOAT(r, g, b, a) ImVec4(r / 255.f, g / 255.f, b / 255.f, a / 255.f)
@@ -35,7 +36,7 @@ const auto GUI_TABLE_COLUMN_ROWS_OTHER_COL = IM_COL32(150, 150, 150, 255);
   do {                                                                      \
     LOG_ERROR(msg##": {}", SDL_GetError());                                 \
     SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Error", msg, m_window); \
-    throw;                                                                  \
+    throw std::runtime_error(#msg);                                         \
   } while (0);
 
 // Use a discrete GPU if available
@@ -63,15 +64,15 @@ void Gui::init() {
     SDL_ERROR("Unable to initialize SDL");
 
   SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
-  SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1);
+  SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 2);
   SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
 
   SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
   SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
   SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
 
-  m_window = SDL_CreateWindow("Pctation | OpenGL", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 1024,
-                              512, SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE);
+  m_window = SDL_CreateWindow("Pctation | OpenGL", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
+                              1024 * 1.5, 512 * 1.5, SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE);
 
   if (!m_window)
     SDL_ERROR("Unable to create window");
@@ -128,13 +129,11 @@ void Gui::draw(const emulator::Emulator& emulator) {
 
   draw_imgui(emulator);
 
-  // Render
+  // Render imgui
   ImGui::Render();
   SDL_GL_MakeCurrent(m_window, m_gl_context);
   ImGuiIO& io = ImGui::GetIO();
   glViewport(0, 0, (int)io.DisplaySize.x, (int)io.DisplaySize.y);
-  glClearColor(GUI_CLEAR_COLOR.x, GUI_CLEAR_COLOR.y, GUI_CLEAR_COLOR.z, GUI_CLEAR_COLOR.w);
-  glClear(GL_COLOR_BUFFER_BIT);
   ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
   m_draw_counter++;
@@ -171,6 +170,11 @@ void Gui::deinit() {
   SDL_Quit();
 }
 
+void Gui::clear() {
+  glClearColor(GUI_CLEAR_COLOR.x, GUI_CLEAR_COLOR.y, GUI_CLEAR_COLOR.z, GUI_CLEAR_COLOR.w);
+  glClear(GL_COLOR_BUFFER_BIT);
+}
+
 // Dialogs
 
 void Gui::draw_dialog_tty(const char* tty_text) {
@@ -205,7 +209,7 @@ void Gui::draw_dialog_ram(const std::array<byte, RamSize>& ram_data) {
   // Window style
   ImGui::SetNextWindowSize(ImVec2(500, 411), ImGuiCond_FirstUseEver);
 
-  m_ram_memeditor.DrawWindow("RAM Contents", (void*)ram_data.data(), RamSize, 0);
+  m_ram_memeditor.DrawWindow("RAM Contents", (MemoryEditor::u8*)ram_data.data(), RamSize, 0);
 }
 
 struct RegisterTableEntry {

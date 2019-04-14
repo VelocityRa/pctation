@@ -58,8 +58,8 @@ union Gp0DrawingOffset {
 
 struct Gp0DrawMode {
   // The rest of the fields are set to GPUSTAT
-  bool rect_textured_x_flip;
-  bool rect_textured_y_flip;
+  bool rect_textured_x_flip{};
+  bool rect_textured_y_flip{};
 };
 
 // GP1(05h) - Start of Display area (in VRAM)
@@ -166,9 +166,9 @@ class Gpu {
   void draw();
 
   // HACK
-  bool m_frame;
+  bool m_frame{};
   // signals that a new frame just rendered
-  bool frame() {
+  bool trigger_frame() {
     const bool frame_temp = m_frame;
     m_frame = false;  // reset m_frame
     return frame_temp;
@@ -186,6 +186,7 @@ class Gpu {
   void gp0_draw_mode(u32 cmd);
   void gp0_mask_bit(u32 cmd);
   void gp0_gpu_irq(u32 cmd);  // rarely used
+  void gp0_mono_rect_1x1_opaque(u32 cmd);
   void gp0_copy_rect_cpu_to_vram(u32 cmd);
   void gp0_copy_rect_vram_to_cpu(u32 cmd);
 
