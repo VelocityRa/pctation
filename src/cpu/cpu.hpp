@@ -161,10 +161,10 @@ class Cpu {
     m_gpr[0] = 0;
   }
 
-  // Branch delay slot helpers
+  // Branch delay slot helper
   bool is_in_branch_delay_slot() const {
     // TODO: Would miss an edge case where there's a jump for 4 bytes ahead
-    return m_pc + 4 == m_pc_next;
+    return m_pc + 4 != m_pc_next;
   }
 
  private:
