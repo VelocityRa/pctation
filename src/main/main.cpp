@@ -17,7 +17,12 @@ s32 main(s32 argc, char** argv) {
 
     gui.init();
 
-    auto emulator = std::make_unique<emulator::Emulator>(BIOS_PATH);
+    std::string psxexe_path;
+
+    if (argc > 1)
+      psxexe_path = argv[1];
+
+    auto emulator = std::make_unique<emulator::Emulator>(BIOS_PATH, psxexe_path);
 
     bool running = true;
     while (running) {

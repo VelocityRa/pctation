@@ -30,9 +30,10 @@ class Bus {
   void write16(u32 addr, u16 val) const;
   void write8(u32 addr, u8 val) const;
 
+  memory::Ram& m_ram;
+
  private:
   bios::Bios const& m_bios;
-  memory::Ram& m_ram;
   memory::Dma& m_dma;
   gpu::Gpu& m_gpu;
 };

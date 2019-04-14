@@ -2,6 +2,7 @@
 #include <cpu/cpu.hpp>
 #include <cpu/instruction.hpp>
 #include <cpu/opcode.hpp>
+#include <memory/ram.hpp>
 #include <util/log.hpp>
 
 #include <climits>
@@ -15,11 +16,27 @@
 
 #define TRACE_MODE TRACE_NONE
 
+#define LOAD_EXE_HOOK 0
+
 namespace cpu {
 
 Cpu::Cpu(bus::Bus& bus) : m_bus(bus) {}
 
 bool Cpu::step(u32& cycles_passed) {
+#if LOAD_EXE_HOOK
+  // mid-boot hook to load an executable
+  if (m_pc == 0x80030000) {
+    memory::PSEXELoadInfo psxexe_load_info;
+    if (m_bus.m_ram.load_executable(psxexe_load_info)) {
+      m_pc = psxexe_load_info.pc;
+      m_pc_next = m_pc + 4;
+      m_gpr[28] = psxexe_load_info.r28;
+      m_gpr[29] = psxexe_load_info.r29_r30;
+      m_gpr[30] = psxexe_load_info.r29_r30;
+    }
+  }
+#endif
+
   // Fetch current instruction
   const u32 cur_instr = m_bus.read32(m_pc);
 
@@ -33,7 +50,7 @@ bool Cpu::step(u32& cycles_passed) {
     debug_str +=
         fmt::format("{}:{:X} ", reinterpret_cast<const char*>(register_to_str(i)) + 1, m_gpr[i]);
   debug_str += fmt::format("hi:{:X} lo:{:X}", m_hi, m_lo);
-  LOG_TRACE("[{:08X}]: {:08X} {}\n  {}", m_previous_pc, cur_instr, instr.disassemble(), debug_str);
+  LOG_TRACE("[{:08X}]: {:08X} {}\n  {}", m_pc, cur_instr, instr.disassemble(), debug_str);
 #elif TRACE_MODE == TRACE_INST
   LOG_TRACE("[{:08X}]: {:08X} {}", m_pc, cur_instr, instr.disassemble());
 #endif
@@ -49,6 +66,10 @@ bool Cpu::step(u32& cycles_passed) {
   // Advance PC
   m_pc = m_pc_next;
   m_pc_next += 4;
+
+  // HACK: This is for psx cpu test, end the frame here
+  //  if (m_pc_current == 0x80016858)
+  //    return true;
 
   // Execute instruction
   execute_instruction(instr);
@@ -127,6 +148,7 @@ void Cpu::execute_instruction(const Instruction& i) {
         if (next_instr.imm16_se() == 0x3D) {
           char tty_out_char = r(4);
           m_tty_out += tty_out_char;
+          //          std::cout << tty_out_char;
         }
       }
 #endif

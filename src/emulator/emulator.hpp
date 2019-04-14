@@ -17,7 +17,7 @@ constexpr u32 CPU_CYCLES_PER_FRAME = CPU_CYCLES_PER_SECOND / FRAMERATE;
 
 class Emulator {
  public:
-  explicit Emulator(fs::path bios_path);
+  explicit Emulator(fs::path bios_path, fs::path psx_exe_path);
   // Advances the emulator state approximately one frame
   void advance_frame();
 
