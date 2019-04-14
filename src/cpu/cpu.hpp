@@ -15,7 +15,7 @@ namespace cpu {
 class Instruction;
 }
 
-#define TTY_OUTPUT true
+#define TTY_OUTPUT 1
 
 namespace cpu {
 
@@ -24,6 +24,8 @@ constexpr auto PC_RESET_ADDR = 0xBFC00000u;
 // Interrupt vectors for general interrupts and exceptions
 constexpr auto EXCEPTION_VECTOR_GENERAL_RAM = 0x80000080u;
 constexpr auto EXCEPTION_VECTOR_GENERAL_ROM = 0xBFC00180u;
+// Interrupt vector for breakpoints
+constexpr auto EXCEPTION_VECTOR_BREAKPOINT = 0x80000040u;
 
 // Co-processor 0 registers
 enum class Cop0Register : u32 {
@@ -53,6 +55,7 @@ enum class ExceptionCause : u32 {
   LoadAddressError = 0x4,
   StoreAddressError = 0x5,
   Syscall = 0x8,
+  Breakpoint = 0x9,
   Overflow = 0xC,
 };
 
@@ -67,7 +70,7 @@ class Cpu {
 
  private:
   void execute_instruction(const Instruction& i);
-  void trigger_exception(ExceptionCause cause);
+  void trigger_exception(ExceptionCause cause, bool is_break = false);
 
   // Interpreter helpers
   void op_lbu(const Instruction& i);
@@ -180,6 +183,7 @@ class Cpu {
   Register m_lo{};                 // Division quotient and multiplication low result
 
   // Cop0 registers
+  Register m_cop0_dcic{};   // Breakpoint control (r7)
   Register m_cop0_sr{};     // Status Register (r12)
   Register m_cop0_cause{};  // Cause Register (r13)
   Register m_cop0_epc{};    // EPC (r14)

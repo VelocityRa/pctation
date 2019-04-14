@@ -170,12 +170,14 @@ void Cpu::execute_instruction(const Instruction& i) {
       }
       break;
     }
-    // Syscall
+    // Syscall/Breakpoint
     case Opcode::SYSCALL: trigger_exception(ExceptionCause::Syscall); break;
+    case Opcode::BREAK: trigger_exception(ExceptionCause::Breakpoint, true); break;
     // Co-processor 0
     case Opcode::MTC0: {
       const auto cop_dst_reg = static_cast<Cop0Register>(i.rd());
       switch (cop_dst_reg) {
+        case Cop0Register::COP0_DCIC: m_cop0_dcic = rt(i); break;
         case Cop0Register::COP0_SR: m_cop0_sr = rt(i); break;
         case Cop0Register::COP0_CAUSE: m_cop0_cause = rt(i); break;
         case Cop0Register::COP0_EPC: m_cop0_epc = rt(i); break;
@@ -186,6 +188,7 @@ void Cpu::execute_instruction(const Instruction& i) {
     case Opcode::MFC0: {
       const auto cop_dst_reg = static_cast<Cop0Register>(i.rd());
       switch (cop_dst_reg) {
+        case Cop0Register::COP0_DCIC: issue_pending_load(i.rt(), m_cop0_dcic); break;
         case Cop0Register::COP0_SR: issue_pending_load(i.rt(), m_cop0_sr); break;
         case Cop0Register::COP0_CAUSE: issue_pending_load(i.rt(), m_cop0_cause); break;
         case Cop0Register::COP0_EPC: issue_pending_load(i.rt(), m_cop0_epc); break;
@@ -204,9 +207,12 @@ void Cpu::execute_instruction(const Instruction& i) {
   check_pending_load();
 }
 
-void Cpu::trigger_exception(ExceptionCause cause) {
-  const u32 handler_addr =
-      m_cop0_sr & COP0_SR_BEV ? EXCEPTION_VECTOR_GENERAL_ROM : EXCEPTION_VECTOR_GENERAL_RAM;
+void Cpu::trigger_exception(ExceptionCause cause, bool is_break) {
+  u32 handler_addr;
+  if (is_break)
+    handler_addr = EXCEPTION_VECTOR_BREAKPOINT;
+  else
+    handler_addr = m_cop0_sr & COP0_SR_BEV ? EXCEPTION_VECTOR_GENERAL_ROM : EXCEPTION_VECTOR_GENERAL_RAM;
 
   // Shift bits [5:0] of the Status Register two bits to the left.
   // This has the effect of disabling interrupts and enabling kernel mode.
@@ -224,6 +230,9 @@ void Cpu::trigger_exception(ExceptionCause cause) {
     m_cop0_epc = m_pc_next;   // need to set this to the branch target if we're in a branch delay slot
     m_cop0_sr |= COP0_SR_BD;  // also set this SR bit which indicates this edge case
   }
+
+  if (is_break)
+    m_cop0_dcic |= 1;
 
   // Exceptions don't have a branch delay, jump directly to the handler
   m_pc = handler_addr;
