@@ -9,14 +9,15 @@ Emulator::Emulator(fs::path bios_path, fs::path psx_exe_path)
       m_ram(psx_exe_path),
       m_gpu(),
       m_dma(m_ram, m_gpu),
-      m_bus(m_bios, m_ram, m_dma, m_gpu),
+      m_bus(m_bios, m_scratchpad, m_ram, m_dma, m_gpu),
       m_cpu(m_bus) {}
 
 void Emulator::advance_frame() {
-  //  m_cycles_left += CPU_CYCLES_PER_FRAME;
+  constexpr auto ARBITRARY_FRAME_CYCLE_MULTIPLIER = 10;  // HACK: Improves performance
 
-  //  while (m_cycles_left > 0) {
-  while (true) {
+  m_cycles_left += CPU_CYCLES_PER_FRAME * ARBITRARY_FRAME_CYCLE_MULTIPLIER;
+
+  while (m_cycles_left > 0) {
     u32 cycles_passed;
 
     if (m_cpu.step(cycles_passed))
@@ -26,7 +27,7 @@ void Emulator::advance_frame() {
     if (m_gpu.trigger_frame())
       break;
 
-    //    m_cycles_left -= cycles_passed;
+    m_cycles_left -= cycles_passed;
   }
 }
 

@@ -29,6 +29,7 @@ class Emulator {
 
  private:
   bios::Bios m_bios;
+  memory::Scratchpad m_scratchpad;
   memory::Ram m_ram;
   gpu::Gpu m_gpu;
   memory::Dma m_dma;
@@ -36,7 +37,7 @@ class Emulator {
 
   cpu::Cpu m_cpu;
 
-  s32 m_cycles_left{ CPU_CYCLES_PER_FRAME };
+  s32 m_cycles_left{};
 };
 
 }  // namespace emulator

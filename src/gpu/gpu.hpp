@@ -160,8 +160,8 @@ class Gpu {
     return GpuStatus{ gpustat };
   }
 
-  u32 read32(u32 addr);
-  void write32(u32 addr, u32 val);
+  u32 read_reg(u32 addr);
+  void write_reg(u32 addr, u32 val);
 
   void draw();
 

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <memory/addressable.hpp>
 #include <memory/map.hpp>
 #include <util/fs.hpp>
 #include <util/types.hpp>
@@ -9,14 +10,9 @@
 
 namespace bios {
 
-class Bios {
+class Bios : public memory::Addressable<memory::BIOS_SIZE> {
  public:
   explicit Bios(fs::path const& path);
-  u32 read32(u32 addr) const;
-  u8 read8(u32 addr) const;
-
- private:
-  std::unique_ptr<std::array<byte, memory::BIOS_SIZE>> m_data;
 };
 
 }  // namespace bios

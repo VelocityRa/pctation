@@ -158,11 +158,11 @@ void Dma::do_block_transfer(DmaPort port) {
             break;
           default: LOG_WARN("DMA transfer to unimplemented port {} requested", static_cast<u8>(port));
         }
-        m_ram.write32(addr_cur, src_word);
+        m_ram.write<u32>(addr_cur, src_word);
         break;
       }
       case DmaChannel::TransferDirection::FromRam: {
-        u32 src_word = m_ram.read32(addr_cur);
+        u32 src_word = m_ram.read<u32>(addr_cur);
         switch (port) {
           case DmaPort::Gpu:
             // Send packet (which is part of a GP0 command, likely data) to the GPU
@@ -193,7 +193,7 @@ void Dma::do_linked_list_transfer(DmaPort port) {
   LOG_DEBUG("Starting DMA linked list transfer: RAM to GPU");
 
   while (true) {  // for each packet in the linked list
-    const u32 packet_header = m_ram.read32(addr);
+    const u32 packet_header = m_ram.read<u32>(addr);
     auto packet_word_count = packet_header >> 24;
 
     if (packet_word_count > 0)
@@ -201,7 +201,7 @@ void Dma::do_linked_list_transfer(DmaPort port) {
 
     while (packet_word_count > 0) {
       addr = (addr + 4) & RAM_ADDR_MASK;
-      const u32 packet_data = m_ram.read32(addr);
+      const u32 packet_data = m_ram.read<u32>(addr);
 
       // Send packet (which is a GP0 command) to the GPU
       m_gpu.gp0(packet_data);

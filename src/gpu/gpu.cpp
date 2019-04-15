@@ -13,7 +13,7 @@ Gpu::Gpu() {
   m_gp0_cmd.reserve(12);  // Max command size
 }
 
-u32 Gpu::read32(u32 addr) {
+u32 Gpu::read_reg(u32 addr) {
   switch (addr) {
     case 0: LOG_WARN("Unhandled 32-bit read of GPUREAD"); return 0;
     case 4: return gpustat().word;
@@ -22,7 +22,7 @@ u32 Gpu::read32(u32 addr) {
   return 0;
 }
 
-void Gpu::write32(u32 addr, u32 val) {
+void Gpu::write_reg(u32 addr, u32 val) {
   switch (addr) {
     case 0: gp0(val); break;
     case 4: gp1(val); break;
