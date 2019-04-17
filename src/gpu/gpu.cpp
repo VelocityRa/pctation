@@ -30,7 +30,7 @@ void Gpu::write_reg(u32 addr, u32 val) {
 }
 
 void Gpu::draw() {
-  m_renderer.draw();
+  m_renderer.render();
 }
 
 void Gpu::gp0(u32 cmd) {
@@ -95,14 +95,33 @@ void Gpu::gp0(u32 cmd) {
         std::invoke(m_gp0_handler, this, cmd);
       }
       break;
-    case Gp0Mode::ImageLoad:
-      // TODO: copy to vram
+    case Gp0Mode::ImageLoad: {
+      for (auto i = 0; i < 2; ++i) {
+        const u16 vram_x = m_vram_transfer_x + m_gpustat.tex_page_x_base * 64;
+        const u16 vram_y = m_vram_transfer_y + m_gpustat.tex_page_y_base * 256;
 
+        u16 src_word;
+        if (i == 0)
+          src_word = cmd & 0xFFFF;
+        else
+          src_word = cmd >> 16;
+
+        LOG_ERROR("X: {:>4X} Y: {:>4X} SRC: 0x{:04X}", vram_x, vram_y, src_word);
+
+        m_renderer.vram_write(vram_x, vram_y, src_word);
+
+        const auto rect_x = m_vram_transfer_x - m_vram_transfer_x_start;
+        if (rect_x == m_vram_transfer_width - 1) {
+          m_vram_transfer_x = m_vram_transfer_x_start;
+          m_vram_transfer_y++;
+        } else
+          m_vram_transfer_x++;
+      }
       if (transfer_finished) {
         // Load done, switch back to command mode
         m_gp0_mode = Gp0Mode::Command;
       }
-      break;
+    } break;
     default: LOG_ERROR("Invalid Gp0Mode"); assert(0);
   }
 }
@@ -168,19 +187,26 @@ void Gpu::gp0_copy_rect_cpu_to_vram(u32 cmd) {
   const auto pos_word = m_gp0_cmd[1];
   const auto size_word = m_gp0_cmd[2];
 
-  const auto width = size_word & 0xFFFF;
-  const auto height = size_word >> 16;
+  m_vram_transfer_x = pos_word & 0x3FF;
+  m_vram_transfer_y = pos_word >> 16;
+
+  m_vram_transfer_width = size_word & 0x3FF;
+  m_vram_transfer_height = size_word >> 16;
+
+  m_vram_transfer_x_start = m_vram_transfer_x;
 
   // Size of image in 16-bit pixels, rounded up to nearest 32-bit value
-  const auto size = (width * height + 1) & ~1;
+  const auto size = (m_vram_transfer_width * m_vram_transfer_height + 1) & ~1u;
 
   m_gp0_words_left = size / 2;  // Divide by two since packets are 32-bit and we have a 16-bit size
 
   // Next GP0 packets will contain image data
   m_gp0_mode = Gp0Mode::ImageLoad;
 
-  // TODO: impl VRAM
-  // TODO: copy data to VRAM
+  m_vram_transfer_x = pos_word;
+
+  LOG_DEBUG("Copying rect (x:{} y:{} w:{} h:{} size:{} hw) from CPU to VRAM", m_vram_transfer_x,
+            m_vram_transfer_y, m_vram_transfer_width, m_vram_transfer_height, size);
 }
 
 void Gpu::gp0_copy_rect_vram_to_cpu(u32 cmd) {

@@ -25,7 +25,7 @@ struct Position {
   s16 x;
   s16 y;
 
-  static Position from_gp0(u32 cmd) { return { (s16)cmd, (s16)(cmd >> 16) }; }
+  static Position from_gp0(u32 cmd) { return { (s16)cmd & 0x7FF, (s16)(cmd >> 16) & 0x7FF }; }
   static Position3 from_gp0(u32 cmd, u32 cmd2, u32 cmd3) {
     return { from_gp0(cmd), from_gp0(cmd2), from_gp0(cmd3) };
   }
@@ -48,18 +48,32 @@ struct Color {
   }
 };
 
+// TODO: move VRAM stuff to own file?
+union Framebuffer15bitColor {
+  u16 word{};
+
+  struct {
+    u16 r : 5;
+    u16 g : 5;
+    u16 b : 5;
+    u16 mask : 1;
+  };
+};
+
 class Renderer {
  public:
   Renderer();
   ~Renderer();
 
-  void draw();
+  void render();
 
   void draw_pixel(Position position, Color color);
   void draw_triangle_shaded(Position3 posistions, Color3 colors);
   void draw_quad_shaded(Position4 posistions, Color4 colors);
   void draw_quad_mono(Position4 positions, Color color);
   //  void draw_rect_mono(Position2 array, Color color);
+
+  void vram_write(u16 x, u16 y, u16 val);
 
  private:
   inline void set_vram_color(u32 vram_idx, Color color);

@@ -3,6 +3,7 @@
 #include <renderer/shader.hpp>
 
 #include <glbinding/gl/gl.h>
+#include <gsl-lite.hpp>
 
 #include <algorithm>
 #include <string>
@@ -83,7 +84,7 @@ void Renderer::draw_pixel(Position position, Color color) {
 Color Renderer::get_shaded_color(Color3 colors, u32 w0, u32 w1, u32 w2) {
   // https://codeplea.com/triangular-interpolation
 
-  float w = w0 + w1 + w2;
+  auto w = (float)(w0 + w1 + w2);
   u8 r = (u8)((colors[0].r * w0 + colors[1].r * w1 + colors[2].r * w2) / w);
   u8 g = (u8)((colors[0].g * w0 + colors[1].g * w1 + colors[2].g * w2) / w);
   u8 b = (u8)((colors[0].b * w0 + colors[1].b * w1 + colors[2].b * w2) / w);
@@ -176,13 +177,21 @@ void Renderer::draw_quad_mono(Position4 positions, Color color) {
 //  }
 //}
 
+void Renderer::vram_write(u16 x, u16 y, u16 val) {
+  Ensures(x <= 1024);
+  Ensures(y <= 512);
+  const Framebuffer15bitColor color{ val };
+
+  draw_pixel({ (s16)x, (s16)y }, { (u8)(color.r * 8), (u8)(color.g * 8), (u8)(color.b * 8) });
+}
+
 void Renderer::set_vram_color(u32 vram_idx, Color color) {
   m_vram_fb[vram_idx + 0] = color.r;
   m_vram_fb[vram_idx + 1] = color.g;
   m_vram_fb[vram_idx + 2] = color.b;
 }
 
-void Renderer::draw() {
+void Renderer::render() {
   // Bind needed state
   glBindVertexArray(m_vao);
   glActiveTexture(GL_TEXTURE0);

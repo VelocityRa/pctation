@@ -132,17 +132,27 @@ class Gpu {
  public:
   Gpu();
 
+  // GPUSTAT register
   GpuStatus m_gpustat{};
 
+  // GP0 register
   Gp0TextureWindow m_tex_window{};
   Gp0DrawingArea m_drawing_area_top_left{};
   Gp0DrawingArea m_drawing_area_bottom_right{};
   Gp0DrawingOffset m_drawing_offset;
   Gp0DrawMode m_draw_mode;
 
+  // GP1 register
   Gp1DisplayArea m_display_area;
   Gp1HDisplayRange m_hdisplay_range;
   Gp1VDisplayRange m_vdisplay_range;
+
+  // VRAM transfers
+  u16 m_vram_transfer_x{};
+  u16 m_vram_transfer_y{};
+  u16 m_vram_transfer_x_start{};
+  u16 m_vram_transfer_width{};
+  u16 m_vram_transfer_height{};
 
   GpuStatus gpustat() const {
     auto gpustat = static_cast<u32>(m_gpustat.word);
