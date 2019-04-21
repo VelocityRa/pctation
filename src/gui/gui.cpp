@@ -71,8 +71,8 @@ void Gui::init() {
   SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
   SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
 
-  m_window = SDL_CreateWindow("Pctation | OpenGL", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-                              1024 * 1.5, 512 * 1.5, SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE);
+  m_window = SDL_CreateWindow("Pctation | OpenGL", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 1024,
+                              512, SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE);
 
   if (!m_window)
     SDL_ERROR("Unable to create window");
@@ -144,7 +144,7 @@ void Gui::swap() {
 }
 
 void Gui::draw_imgui(const emulator::Emulator& emulator) {
-  if (ImGui::BeginMainMenuBar()) {
+  if (false && ImGui::BeginMainMenuBar()) { // TODO: Enable when it doesn't overlay with screen
     if (ImGui::BeginMenu("Debug")) {
       ImGui::MenuItem("TTY Output", "Ctrl+T", &m_draw_tty, TTY_OUTPUT);
       ImGui::MenuItem("RAM Contents", "Ctrl+R", &m_draw_ram);

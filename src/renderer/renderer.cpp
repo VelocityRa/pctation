@@ -33,12 +33,15 @@ Renderer::Renderer() {
   glGenBuffers(1, &m_vbo);
   glBindBuffer(GL_ARRAY_BUFFER, m_vbo);
 
+  const auto x = 1.f;
+  const auto y = 1.f;
+
   const float vertices[] = {
-    //  Position      Texcoords
-    -1.f, 1.f,  0.0f, 0.0f,  // Top-left
-    -1.f, -.5f, 0.0f, 1.0f,  // Bottom-left
-    .5f,  1.f,  1.0f, 0.0f,  // Top-right
-    .5f,  -.5f, 1.0f, 1.0f,  // Bottom-right
+    // Position Texcoords
+    -1.f, 1.f, 0.0f, 0.0f,  // Top-left
+    -1.f, -y,  0.0f, 1.0f,  // Bottom-left
+    x,    1.f, 1.0f, 0.0f,  // Top-right
+    x,    -y,  1.0f, 1.0f,  // Bottom-right
   };
 
   glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
