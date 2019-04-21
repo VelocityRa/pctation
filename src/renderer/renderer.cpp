@@ -5,8 +5,8 @@
 #include <glbinding/gl/gl.h>
 #include <gsl-lite.hpp>
 
-#include <algorithm>
 #include <string>
+#include <algorithm>
 
 using namespace gl;
 
@@ -109,8 +109,8 @@ void Renderer::draw_triangle_shaded(Position3 positions, Color3 colors) {
   auto v2 = p[2];
 
   // If CCW order, swap vertices to make it CW
-  const auto order = orient_2d(p[0], p[1], p[2]);
-  if (order < 0)
+  const auto is_ccw = orient_2d(p[0], p[1], p[2]) < 0;
+  if (is_ccw)
     std::swap(v1, v2);
 
   // Compute triangle bounding box
@@ -132,11 +132,13 @@ void Renderer::draw_triangle_shaded(Position3 positions, Color3 colors) {
     for (p_iter.x = min_x; p_iter.x <= max_x; p_iter.x++) {
       // Determine barycentric coordinates
       const auto w0 = orient_2d(v1, v2, p_iter);
-      const auto w1 = orient_2d(v2, v0, p_iter);
-      const auto w2 = orient_2d(v0, v1, p_iter);
+      auto w1 = orient_2d(v2, v0, p_iter);
+      auto w2 = orient_2d(v0, v1, p_iter);
 
       // If p is on or inside all edges, render pixel
       if (w0 >= 0 && w1 >= 0 && w2 >= 0) {
+        if (is_ccw)
+          std::swap(w1, w2);
         const auto shaded_color = get_shaded_color(colors, w0, w1, w2);
         draw_pixel(p_iter, shaded_color);  // todo
       }
