@@ -8,13 +8,14 @@ namespace memory {
 static constexpr u32 BIOS_SIZE = 512 * 1024;      // All BIOS images are 512KB
 static constexpr u32 RAM_SIZE = 2 * 1024 * 1024;  // Main RAM, 2 MB
 static constexpr u32 SCRATCHPAD_SIZE = 1024;      // Scratch pad, 1KB
+static constexpr u32 SPU_SIZE = 0x280;
 
 namespace map {
 
 // Memory map (physical addresses)
 static constexpr Range RAM{ 0x00000000, RAM_SIZE };
 static constexpr Range BIOS{ 0x1FC00000, BIOS_SIZE };
-static constexpr Range SPU{ 0x1F801C00, 0x280 };
+static constexpr Range SPU{ 0x1F801C00, SPU_SIZE };
 static constexpr Range MEM_CONTROL1{ 0x1F801000, 0x24 };
 static constexpr Range MEM_CONTROL2{ 0x1F801060, 4 };
 static constexpr Range MEM_CONTROL3{ 0xFFFE0130, 4 };

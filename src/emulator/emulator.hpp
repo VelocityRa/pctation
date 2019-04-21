@@ -6,6 +6,7 @@
 #include <gpu/gpu.hpp>
 #include <memory/dma.hpp>
 #include <memory/ram.hpp>
+#include <spu/spu.hpp>
 
 #include <util/fs.hpp>
 
@@ -32,6 +33,7 @@ class Emulator {
   memory::Scratchpad m_scratchpad;
   memory::Ram m_ram;
   gpu::Gpu m_gpu;
+  spu::Spu m_spu;
   memory::Dma m_dma;
   bus::Bus m_bus;
 

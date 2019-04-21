@@ -4,6 +4,7 @@
 #include <memory/dma.hpp>
 #include <memory/map.hpp>
 #include <memory/ram.hpp>
+#include <spu/spu.hpp>
 #include <util/log.hpp>
 
 namespace bus {
@@ -19,7 +20,10 @@ u32 Bus::read32(u32 addr) const {
     return m_ram.read<u32>(addr_rebased);
   if (memory::map::IRQ_CONTROL.contains(addr, addr_rebased)) {
     LOG_WARN("Unhandled 32-bit read of {}", addr_rebased == 0 ? "I_STAT" : "I_MASK");
-    return 0;
+    if (addr == 0)
+      return m_istat;
+    else
+      return m_imask;
   }
   if (memory::map::BIOS.contains(addr, addr_rebased))
     return m_bios.read<u32>(addr_rebased);
@@ -48,12 +52,15 @@ u16 Bus::read16(u32 addr) const {
     return m_ram.read<u16>(addr_rebased);
   if (memory::map::SPU.contains(addr, addr_rebased)) {
     // NOTE: TRACE level because it's used a lot in BIOS init.
-    LOG_TRACE("Unhandled 16-bit read of SPU register at 0x{:08X}", addr);
-    return 0;
+    LOG_TRACE("Stubbed 16-bit read of SPU register at 0x{:08X}", addr);
+    return m_spu.read<u16>(addr_rebased);
   }
   if (memory::map::IRQ_CONTROL.contains(addr, addr_rebased)) {
     LOG_WARN("Unhandled 16-bit read of {}", addr_rebased == 0 ? "I_STAT" : "I_MASK");
-    return 0;
+    if (addr == 0)
+      return (u16)m_istat;
+    else
+      return (u16)m_imask;
   }
   if (memory::map::JOYPAD.contains(addr, addr_rebased)) {
     LOG_WARN("Unhandled 16-bit read of Joypad register at 0x{:08X}", addr);
@@ -91,7 +98,7 @@ u8 Bus::read8(u32 addr) const {
   return 0;
 }
 
-void Bus::write32(u32 addr, u32 val) const {
+void Bus::write32(u32 addr, u32 val) {
   addr = memory::mask_region(addr);
 
   address addr_rebased;
@@ -101,7 +108,11 @@ void Bus::write32(u32 addr, u32 val) const {
   if (memory::map::RAM.contains(addr, addr_rebased))
     return m_ram.write<u32>(addr_rebased, val);
   if (memory::map::IRQ_CONTROL.contains(addr, addr_rebased)) {
-    LOG_WARN("Unhandled 32-bit write of 0x{:08X} to {}", val, addr_rebased == 0 ? "I_STAT" : "I_MASK");
+    LOG_WARN("Stubbed 32-bit write of 0x{:08X} to {}", val, addr_rebased == 0 ? "I_STAT" : "I_MASK");
+    if (addr == 0)
+      m_istat = val;
+    else
+      m_imask = val;
     return;
   }
   if (memory::map::MEM_CONTROL1.contains(addr, addr_rebased)) {
@@ -148,7 +159,7 @@ void Bus::write32(u32 addr, u32 val) const {
   assert(0);
 }
 
-void Bus::write16(u32 addr, u16 val) const {
+void Bus::write16(u32 addr, u16 val) {
   addr = memory::mask_region(addr);
 
   address addr_rebased;
@@ -163,11 +174,15 @@ void Bus::write16(u32 addr, u16 val) const {
   }
   if (memory::map::SPU.contains(addr, addr_rebased)) {
     // NOTE: TRACE level because it's used a lot in BIOS init.
-    LOG_TRACE("Unhandled 16-bit write to SPU register: 0x{:04X} at 0x{:08X}", val, addr);
-    return;
+    LOG_TRACE("Stubbed 16-bit write to SPU register: 0x{:04X} at 0x{:08X}", val, addr);
+    return m_spu.write<u16>(addr_rebased, val);
   }
   if (memory::map::IRQ_CONTROL.contains(addr, addr_rebased)) {
     LOG_WARN("Unhandled 16-bit write of 0x{:04X} to {}", val, addr_rebased == 0 ? "I_STAT" : "I_MASK");
+    if (addr == 0)
+      m_istat = (u32)val;
+    else
+      m_imask = (u32)val;
     return;
   }
   if (memory::map::JOYPAD.contains(addr, addr_rebased)) {
@@ -179,7 +194,7 @@ void Bus::write16(u32 addr, u16 val) const {
   assert(0);
 }
 
-void Bus::write8(u32 addr, u8 val) const {
+void Bus::write8(u32 addr, u8 val) {
   addr = memory::mask_region(addr);
 
   address addr_rebased;

@@ -9,7 +9,8 @@ Emulator::Emulator(fs::path bios_path, fs::path psx_exe_path)
       m_ram(psx_exe_path),
       m_gpu(),
       m_dma(m_ram, m_gpu),
-      m_bus(m_bios, m_scratchpad, m_ram, m_dma, m_gpu),
+      m_spu(),
+      m_bus(m_bios, m_scratchpad, m_ram, m_dma, m_gpu, m_spu),
       m_cpu(m_bus) {}
 
 void Emulator::advance_frame() {

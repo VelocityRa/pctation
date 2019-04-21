@@ -15,6 +15,10 @@ namespace gpu {
 class Gpu;
 }
 
+namespace spu {
+class Spu;
+}
+
 namespace bus {
 
 class Bus {
@@ -23,18 +27,25 @@ class Bus {
                memory::Scratchpad& scratchpad,
                memory::Ram& ram,
                memory::Dma& dma,
-               gpu::Gpu& gpu)
+               gpu::Gpu& gpu,
+               spu::Spu& spu)
       : m_ram(ram),
         m_scratchpad(scratchpad),
         m_bios(bios),
         m_dma(dma),
-        m_gpu(gpu) {}
+        m_gpu(gpu),
+        m_spu(spu) {}
   u32 read32(u32 addr) const;
   u16 read16(u32 addr) const;
   u8 read8(u32 addr) const;
-  void write32(u32 addr, u32 val) const;
-  void write16(u32 addr, u16 val) const;
-  void write8(u32 addr, u8 val) const;
+  void write32(u32 addr, u32 val);
+  void write16(u32 addr, u16 val);
+  void write8(u32 addr, u8 val);
+
+  // TODO: Move elsewhere
+  // Interrupts
+  u32 m_istat{};
+  u32 m_imask{};
 
   memory::Ram& m_ram;
 
@@ -43,6 +54,7 @@ class Bus {
   bios::Bios const& m_bios;
   memory::Dma& m_dma;
   gpu::Gpu& m_gpu;
+  spu::Spu& m_spu;
 };
 
 }  // namespace bus
