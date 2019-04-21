@@ -120,7 +120,7 @@ void Cpu::execute_instruction(const Instruction& i) {
     case Opcode::AND: set_rd(i, rs(i) & rt(i)); break;
     case Opcode::OR: set_rd(i, rs(i) | rt(i)); break;
     case Opcode::XOR: set_rd(i, rs(i) ^ rt(i)); break;
-    case Opcode::NOR: set_rd(i, !(rs(i) | rt(i))); break;
+    case Opcode::NOR: set_rd(i, ~(rs(i) | rt(i))); break;
     // Memory operations (loads)
     case Opcode::LBU: op_lbu(i); break;
     case Opcode::LB: op_lb(i); break;
