@@ -97,18 +97,15 @@ void Gpu::gp0(u32 cmd) {
       break;
     case Gp0Mode::ImageLoad: {
       for (auto i = 0; i < 2; ++i) {
-        const u16 vram_x = m_vram_transfer_x + m_gpustat.tex_page_x_base * 64;
-        const u16 vram_y = m_vram_transfer_y + m_gpustat.tex_page_y_base * 256;
-
         u16 src_word;
         if (i == 0)
-          src_word = cmd & 0xFFFF;
+          src_word = (u16)cmd;
         else
-          src_word = cmd >> 16;
+          src_word = (u16)(cmd >> 16);
 
-        LOG_ERROR("X: {:>4X} Y: {:>4X} SRC: 0x{:04X}", vram_x, vram_y, src_word);
+//        LOG_TRACE("X: {:>4X} Y: {:>4X} SRC: 0x{:04X}", m_vram_transfer_x, m_vram_transfer_y, src_word);
 
-        m_renderer.vram_write(vram_x, vram_y, src_word);
+        m_renderer.vram_write(m_vram_transfer_x, m_vram_transfer_y, src_word);
 
         const auto rect_x = m_vram_transfer_x - m_vram_transfer_x_start;
         if (rect_x == m_vram_transfer_width - 1) {
@@ -188,10 +185,10 @@ void Gpu::gp0_copy_rect_cpu_to_vram(u32 cmd) {
   const auto size_word = m_gp0_cmd[2];
 
   m_vram_transfer_x = pos_word & 0x3FF;
-  m_vram_transfer_y = pos_word >> 16;
+  m_vram_transfer_y = (pos_word >> 16) & 0x3FF;
 
   m_vram_transfer_width = size_word & 0x3FF;
-  m_vram_transfer_height = size_word >> 16;
+  m_vram_transfer_height = (size_word >> 16) & 0x3FF;
 
   m_vram_transfer_x_start = m_vram_transfer_x;
 
