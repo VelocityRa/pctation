@@ -101,7 +101,6 @@ class Cpu {
   void store8(u32 addr, u8 val);
   u32 checked_add(s32 op1, s32 op2);
   u32 checked_sub(s32 op1, s32 op2);
-  // u32 checked_mul(u32 op1, u32 op2);
 
  private:
   // Register getters/setters
@@ -114,6 +113,10 @@ class Cpu {
     //    Ensures(index >= 0);
     //    Ensures(index <= 32);
     return m_gpr[index];
+  }
+  void set_gpr(RegisterIndex r, u32 v) {
+    m_gpr[r] = v;
+    m_gpr[0] = 0;
   }
 
   // Instruction operand register getters
@@ -143,7 +146,7 @@ class Cpu {
   void check_pending_load() {
     if (m_pending_load.is_pending) {
       if (m_pending_load.time_left == 0) {
-        m_gpr[m_pending_load.reg] = m_pending_load.val;
+        set_gpr(m_pending_load.reg, m_pending_load.val);
         m_pending_load.is_pending = false;
       } else
         m_pending_load.time_left--;
@@ -151,18 +154,9 @@ class Cpu {
   }
 
   // Instruction operand register setters
-  void set_rs(const Instruction& i, u32 v) {
-    m_gpr[i.rs()] = v;
-    m_gpr[0] = 0;
-  }
-  void set_rt(const Instruction& i, u32 v) {
-    m_gpr[i.rt()] = v;
-    m_gpr[0] = 0;
-  }
-  void set_rd(const Instruction& i, u32 v) {
-    m_gpr[i.rd()] = v;
-    m_gpr[0] = 0;
-  }
+  void set_rs(const Instruction& i, u32 v) { set_gpr(i.rs(), v); }
+  void set_rt(const Instruction& i, u32 v) { set_gpr(i.rt(), v); }
+  void set_rd(const Instruction& i, u32 v) { set_gpr(i.rd(), v); }
 
   // Branch delay slot helper
   bool is_in_branch_delay_slot() const {
