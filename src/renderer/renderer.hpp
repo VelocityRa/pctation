@@ -9,16 +9,21 @@
 
 using namespace gl;
 
+const auto VRAM_WIDTH = 1024;
+const auto VRAM_HEIGHT = 512;
+
+namespace gpu {
+class Gpu;
+}
+
 namespace renderer {
 
 struct Position;
 struct Color;
 
-using Color2 = std::array<Color, 2>;
-using Position2 = std::array<Position, 2>;
 using Color3 = std::array<Color, 3>;
-using Position3 = std::array<Position, 3>;
 using Color4 = std::array<Color, 4>;
+using Position3 = std::array<Position, 3>;
 using Position4 = std::array<Position, 4>;
 
 struct Position {
@@ -46,23 +51,13 @@ struct Color {
   static Color4 from_gp0(u32 cmd, u32 cmd2, u32 cmd3, u32 cmd4) {
     return { from_gp0(cmd), from_gp0(cmd2), from_gp0(cmd3), from_gp0(cmd4) };
   }
-};
 
-// TODO: move VRAM stuff to own file?
-union Framebuffer15bitColor {
-  u16 word{};
-
-  struct {
-    u16 r : 5;
-    u16 g : 5;
-    u16 b : 5;
-    u16 mask : 1;
-  };
+  u32 word() const { return r | g << 8 | b << 16; }
 };
 
 class Renderer {
  public:
-  Renderer();
+  explicit Renderer(gpu::Gpu& gpu);
   ~Renderer();
 
   void render();
@@ -73,10 +68,7 @@ class Renderer {
   void draw_quad_mono(Position4 positions, Color color);
   //  void draw_rect_mono(Position2 array, Color color);
 
-  void vram_write(u16 x, u16 y, u16 val);
-
  private:
-  inline void set_vram_color(u32 vram_idx, Color color);
   static inline Color get_shaded_color(Color3 colors, u32 w0, u32 w1, u32 w2);
 
  private:
@@ -84,12 +76,12 @@ class Renderer {
   GLuint m_shader_program_screen{};
 
   // Other OpenGL objects
-  GLuint m_vao;
-  GLuint m_vbo;
-  GLuint m_tex_screen;
+  GLuint m_vao{};
+  GLuint m_vbo{};
+  GLuint m_tex_screen{};
 
-  // VRAM
-  std::array<u8, 1024 * 512 * 3> m_vram_fb;
+  // GPU reference
+  gpu::Gpu& m_gpu;
 };
 
 }  // namespace renderer

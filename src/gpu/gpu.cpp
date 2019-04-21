@@ -11,6 +11,7 @@ namespace gpu {
 
 Gpu::Gpu() {
   m_gp0_cmd.reserve(12);  // Max command size
+  m_vram = std::make_unique<std::array<u16, VRAM_WIDTH * VRAM_HEIGHT>>();
 }
 
 u32 Gpu::read_reg(u32 addr) {
@@ -31,6 +32,23 @@ void Gpu::write_reg(u32 addr, u32 val) {
 
 void Gpu::draw() {
   m_renderer.render();
+}
+
+void Gpu::vram_write(u16 x, u16 y, u16 val) {
+  Ensures(x <= 1024);
+  Ensures(y <= 512);
+
+  const RGB15 color{ val };
+
+  // Convert from 2^5 space to 2^8 space by multiplying by 2^3 (8)
+  m_renderer.draw_pixel({ (s16)x, (s16)y }, { (u8)(color.r * 8), (u8)(color.g * 8), (u8)(color.b * 8) });
+}
+
+void Gpu::set_vram_color(u32 vram_idx, renderer::Color color) {
+  RGB32 c32{ color.word() };
+  RGB15 c15;
+  c15.from32bits(c32);
+  vram()[vram_idx] = c15.word;
 }
 
 void Gpu::gp0(u32 cmd) {
@@ -103,9 +121,10 @@ void Gpu::gp0(u32 cmd) {
         else
           src_word = (u16)(cmd >> 16);
 
-//        LOG_TRACE("X: {:>4X} Y: {:>4X} SRC: 0x{:04X}", m_vram_transfer_x, m_vram_transfer_y, src_word);
+        //        LOG_TRACE("X: {:>4X} Y: {:>4X} SRC: 0x{:04X}", m_vram_transfer_x, m_vram_transfer_y,
+        //        src_word);
 
-        m_renderer.vram_write(m_vram_transfer_x, m_vram_transfer_y, src_word);
+        vram_write(m_vram_transfer_x, m_vram_transfer_y, src_word);
 
         const auto rect_x = m_vram_transfer_x - m_vram_transfer_x_start;
         if (rect_x == m_vram_transfer_width - 1) {

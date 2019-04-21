@@ -144,7 +144,7 @@ void Gui::swap() {
 }
 
 void Gui::draw_imgui(const emulator::Emulator& emulator) {
-  if (false && ImGui::BeginMainMenuBar()) { // TODO: Enable when it doesn't overlay with screen
+  if (false && ImGui::BeginMainMenuBar()) {  // TODO: Enable when it doesn't overlay with screen
     if (ImGui::BeginMenu("Debug")) {
       ImGui::MenuItem("TTY Output", "Ctrl+T", &m_draw_tty, TTY_OUTPUT);
       ImGui::MenuItem("RAM Contents", "Ctrl+R", &m_draw_ram);
@@ -342,11 +342,10 @@ void Gui::draw_gpu_registers(const gpu::Gpu& gpu) {
     { "E2h.5-9", "Texture window Mask Y", fmt::format("{}", gpu.m_tex_window.tex_window_mask_y * 8) },
     { "E2h.10-14", "Text. wind. offset X", fmt::format("{}", gpu.m_tex_window.tex_window_off_x * 8) },
     { "E2h.15-19", "Text. wind. offset Y", fmt::format("{}", gpu.m_tex_window.tex_window_off_y * 8) },
-    { "E3h.0-9", "Draw Area top left X", fmt::format("{}", gpu.m_drawing_area_top_left.x_coord) },
-    { "E3h.10-18", "Draw Area top left Y", fmt::format("{}", gpu.m_drawing_area_top_left.y_coord) },
-    { "E4h.0-9", "Draw Area bott. right X", fmt::format("{}", gpu.m_drawing_area_bottom_right.x_coord) },
-    { "E4h.10-18", "Draw Area bott. right Y",
-      fmt::format("{}", gpu.m_drawing_area_bottom_right.y_coord) },
+    { "E3h.0-9", "Draw Area top left X", fmt::format("{}", gpu.m_drawing_area_top_left.x) },
+    { "E3h.10-18", "Draw Area top left Y", fmt::format("{}", gpu.m_drawing_area_top_left.y) },
+    { "E4h.0-9", "Draw Area bott. right X", fmt::format("{}", gpu.m_drawing_area_bottom_right.x) },
+    { "E4h.10-18", "Draw Area bott. right Y", fmt::format("{}", gpu.m_drawing_area_bottom_right.y) },
     { "E5h.0-10", "Drawing offset X", fmt::format("{}", gpu.m_drawing_offset.x_off) },
     { "E5h.10-19", "Drawing offset Y", fmt::format("{}", gpu.m_drawing_offset.y_off) },
   };
@@ -357,8 +356,8 @@ void Gui::draw_gpu_registers(const gpu::Gpu& gpu) {
 
   // Draw GP1 fields
   const RegisterTableEntries gp1_rows = {
-    { "05h.0-10", "Display area X", fmt::format("{}", gpu.m_display_area.x_coord) },
-    { "05h.10-18", "Display area Y", fmt::format("{}", gpu.m_display_area.y_coord) },
+    { "05h.0-10", "Display area X", fmt::format("{}", gpu.m_display_area.x) },
+    { "05h.10-18", "Display area Y", fmt::format("{}", gpu.m_display_area.y) },
     { "06h.0-11", "Horiz. disp. range X1", fmt::format("{}", gpu.m_hdisplay_range.x1) },
     { "06h.12-23", "Horiz. disp. range X2", fmt::format("{}", gpu.m_hdisplay_range.x2) },
     { "07h.0-9", "Vert. disp. range Y1", fmt::format("{}", gpu.m_vdisplay_range.y1) },

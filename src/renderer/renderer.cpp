@@ -1,12 +1,13 @@
 #include <renderer/renderer.hpp>
 
+#include <gpu/gpu.hpp>
 #include <renderer/shader.hpp>
 
 #include <glbinding/gl/gl.h>
 #include <gsl-lite.hpp>
 
-#include <string>
 #include <algorithm>
+#include <string>
 
 using namespace gl;
 
@@ -15,7 +16,7 @@ namespace renderer {
 const GLuint ATTRIB_INDEX_POSITION = 0;
 const GLuint ATTRIB_INDEX_TEXCOORD = 1;
 
-Renderer::Renderer() {
+Renderer::Renderer(gpu::Gpu& gpu) : m_gpu(gpu) {
   // Load and compile shaders
 
   m_shader_program_screen = renderer::load_shaders("screen");
@@ -50,13 +51,13 @@ Renderer::Renderer() {
   const auto position_offset = 0 * sizeof(float);
   const auto texcoord_offset = 2 * sizeof(float);
 
+  glEnableVertexAttribArray(ATTRIB_INDEX_POSITION);
   glVertexAttribPointer(ATTRIB_INDEX_POSITION, 2, GL_FLOAT, GL_FALSE, vertex_stride,
                         (const void*)position_offset);
-  glEnableVertexAttribArray(ATTRIB_INDEX_POSITION);
 
+  glEnableVertexAttribArray(ATTRIB_INDEX_TEXCOORD);
   glVertexAttribPointer(ATTRIB_INDEX_TEXCOORD, 2, GL_FLOAT, GL_FALSE, vertex_stride,
                         (const void*)texcoord_offset);
-  glEnableVertexAttribArray(ATTRIB_INDEX_TEXCOORD);
 
   // Generate and configure screen texture
   glGenTextures(1, &m_tex_screen);
@@ -66,7 +67,8 @@ Renderer::Renderer() {
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
-  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 1024, 512, 0, GL_RGB, GL_UNSIGNED_BYTE, nullptr);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, VRAM_WIDTH, VRAM_HEIGHT, 0, GL_RGBA,
+               GL_UNSIGNED_SHORT_1_5_5_5_REV, nullptr);
 
   glBindVertexArray(0);
 }
@@ -76,12 +78,6 @@ Renderer::~Renderer() {
   glDeleteBuffers(1, &m_vbo);
   glDeleteVertexArrays(1, &m_vao);
   glDeleteProgram(m_shader_program_screen);
-}
-
-void Renderer::draw_pixel(Position position, Color color) {
-  const auto idx = (position.x + position.y * 1024) * 3;
-
-  set_vram_color(idx, color);
 }
 
 Color Renderer::get_shaded_color(Color3 colors, u32 w0, u32 w1, u32 w2) {
@@ -95,8 +91,15 @@ Color Renderer::get_shaded_color(Color3 colors, u32 w0, u32 w1, u32 w2) {
   return { r, g, b };
 }
 
+void Renderer::draw_pixel(Position position, Color color) {
+  const auto idx = (position.x + position.y * VRAM_WIDTH);
+
+  m_gpu.set_vram_color(idx, color);
+}
+
 void Renderer::draw_triangle_shaded(Position3 positions, Color3 colors) {
   // Algorithm from https://fgiesen.wordpress.com/2013/02/08/triangle-rasterization-in-practice/
+  // TODO: optimize
 
   auto orient_2d = [](Position a, Position b, Position c) -> s32 {
     return ((s32)b.x - (s32)a.x) * ((s32)c.y - (s32)a.y) - ((s32)b.y - (s32)a.y) * ((s32)c.x - (s32)a.x);
@@ -113,18 +116,13 @@ void Renderer::draw_triangle_shaded(Position3 positions, Color3 colors) {
   if (is_ccw)
     std::swap(v1, v2);
 
-  // Compute triangle bounding box
-  auto min_x = std::min({ v0.x, v1.x, v2.x });
-  auto min_y = std::min({ v0.y, v1.y, v2.y });
-  auto max_x = std::max({ v0.x, v1.x, v2.x });
-  auto max_y = std::max({ v0.y, v1.y, v2.y });
-
-  // Clip against screen bounds
-  // TODO: implement display area
-  min_x = std::max(min_x, (s16)0);
-  min_y = std::max(min_y, (s16)0);
-  max_x = std::min(max_x, (s16)(1024 - 1));
-  max_y = std::min(max_y, (s16)(512 - 1));
+  // Compute triangle bounding box and clip against drawing area bounds
+  const auto da_tl = m_gpu.m_drawing_area_top_left;
+  const auto da_br = m_gpu.m_drawing_area_bottom_right;
+  s16 min_x = std::max((s16)da_tl.x, std::max((s16)0, std::min({ v0.x, v1.x, v2.x })));
+  s16 min_y = std::max((s16)da_tl.y, std::max((s16)0, std::min({ v0.y, v1.y, v2.y })));
+  s16 max_x = std::max((s16)da_br.x, std::min((s16)VRAM_WIDTH, std::min({ v0.x, v1.x, v2.x })));
+  s16 max_y = std::max((s16)da_br.y, std::min((s16)VRAM_HEIGHT, std::min({ v0.y, v1.y, v2.y })));
 
   // Rasterize
   Position p_iter;
@@ -168,9 +166,9 @@ void Renderer::draw_quad_mono(Position4 positions, Color color) {
 }
 
 // void Renderer::draw_rect_mono(Position4 positions, Color color) {
-//  const auto first_row_idx = (positions[0].x + positions[0].y * 1024) * 3;
-//  const auto last_row_idx = (positions[2].x + positions[2].y * 1024) * 3;
-//  const auto row_distance = 1024 * 3;
+//  const auto first_row_idx = (positions[0].x + positions[0].y * VRAM_WIDTH) * 3;
+//  const auto last_row_idx = (positions[2].x + positions[2].y * VRAM_WIDTH) * 3;
+//  const auto row_distance = VRAM_WIDTH * 3;
 //  const auto row_size = (positions[1].x - positions[0].x) * 3;
 //
 //  for (auto row_start_idx = first_row_idx; row_start_idx < last_row_idx; row_start_idx += row_distance)
@@ -182,20 +180,6 @@ void Renderer::draw_quad_mono(Position4 positions, Color color) {
 //  }
 //}
 
-void Renderer::vram_write(u16 x, u16 y, u16 val) {
-  Ensures(x <= 1024);
-  Ensures(y <= 512);
-  const Framebuffer15bitColor color{ val };
-
-  draw_pixel({ (s16)x, (s16)y }, { (u8)(color.r * 8), (u8)(color.g * 8), (u8)(color.b * 8) });
-}
-
-void Renderer::set_vram_color(u32 vram_idx, Color color) {
-  m_vram_fb[vram_idx + 0] = color.r;
-  m_vram_fb[vram_idx + 1] = color.g;
-  m_vram_fb[vram_idx + 2] = color.b;
-}
-
 void Renderer::render() {
   // Bind needed state
   glBindVertexArray(m_vao);
@@ -204,7 +188,8 @@ void Renderer::render() {
   glUseProgram(m_shader_program_screen);
 
   // Upload screen texture
-  glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 1024, 512, GL_RGB, GL_UNSIGNED_BYTE, m_vram_fb.data());
+  glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, VRAM_WIDTH, VRAM_HEIGHT, GL_RGBA,
+                  GL_UNSIGNED_SHORT_1_5_5_5_REV, (const void*)m_gpu.vram().data());
 
   // Draw screen
   glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);

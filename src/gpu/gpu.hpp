@@ -5,6 +5,7 @@
 
 #include <gsl-lite.hpp>
 
+#include <memory>
 #include <vector>
 
 namespace gpu {
@@ -19,6 +20,35 @@ enum DmaDirection {
 enum class Gp0Mode {
   Command,    // We're processing words that are part of a command
   ImageLoad,  // We're processing words that are image data transferred by a Copy command
+};
+
+union RGB32 {
+  u32 word{};
+
+  struct {
+    u8 r;
+    u8 g;
+    u8 b;
+    u8 a;
+  };
+};
+
+union RGB15 {
+  u16 word{};
+
+  struct {
+    u16 r : 5;
+    u16 g : 5;
+    u16 b : 5;
+    u16 mask : 1;
+  };
+
+  void from32bits(RGB32 c32) {
+    r = c32.r >> 3;
+    g = c32.g >> 3;
+    b = c32.b >> 3;
+    mask = 0;
+  }
 };
 
 // GP0(E2h) - Texture Window setting
@@ -39,9 +69,9 @@ union Gp0DrawingArea {
   u32 word{};
 
   struct {
-    u32 x_coord : 10;  // 0-9    X-coordinate (0..1023)
-    u32 y_coord : 10;  // 10-18  Y-coordinate (0..511)   ;\on Old 160pin GPU (max 1MB VRAM)
-    u32 _19 : 1;       // 19-23  Not used (zero)         ; TODO: Used for y on new GPU
+    u32 x : 10;   // 0-9    X-coordinate (0..1023)
+    u32 y : 10;   // 10-18  Y-coordinate (0..511)   ;\on Old 160pin GPU (max 1MB VRAM)
+    u32 _19 : 1;  // 19-23  Not used (zero)         ; TODO: Used for y on new GPU
   };
 };
 
@@ -67,8 +97,8 @@ union Gp1DisplayArea {
   u32 word{};
 
   struct {
-    u32 x_coord : 10;  // X (0-1023)    (halfword address in VRAM)  (relative to begin of VRAM)
-    u32 y_coord : 9;   // Y (0-511)     (scanline number in VRAM)   (relative to begin of VRAM)
+    u32 x : 10;  // X (0-1023)    (halfword address in VRAM)  (relative to begin of VRAM)
+    u32 y : 9;   // Y (0-511)     (scanline number in VRAM)   (relative to begin of VRAM)
   };
 };
 
@@ -147,12 +177,18 @@ class Gpu {
   Gp1HDisplayRange m_hdisplay_range;
   Gp1VDisplayRange m_vdisplay_range;
 
+  // VRAM
+  std::unique_ptr<std::array<u16, VRAM_WIDTH * VRAM_HEIGHT>> m_vram;
+
   // VRAM transfers
   u16 m_vram_transfer_x{};
   u16 m_vram_transfer_y{};
   u16 m_vram_transfer_x_start{};
   u16 m_vram_transfer_width{};
   u16 m_vram_transfer_height{};
+
+  std::array<u16, VRAM_WIDTH * VRAM_HEIGHT> const& vram() const { return *m_vram.get(); }
+  std::array<u16, VRAM_WIDTH * VRAM_HEIGHT>& vram() { return *m_vram.get(); }
 
   GpuStatus gpustat() const {
     auto gpustat = static_cast<u32>(m_gpustat.word);
@@ -174,6 +210,10 @@ class Gpu {
   void write_reg(u32 addr, u32 val);
 
   void draw();
+
+  // VRAM
+  void vram_write(u16 x, u16 y, u16 val);
+  void set_vram_color(u32 vram_idx, renderer::Color color);
 
   // HACK
   bool m_frame{};
@@ -213,7 +253,7 @@ class Gpu {
   void gp0_drawing_offset(u32 cmd);
 
  private:
-  renderer::Renderer m_renderer;
+  renderer::Renderer m_renderer{ *this };
 
   // GP0 command handling
   Gp0Mode m_gp0_mode = Gp0Mode::Command;
