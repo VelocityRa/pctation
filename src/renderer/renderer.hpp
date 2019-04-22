@@ -1,5 +1,6 @@
 #pragma once
 
+#include <gpu/colors.hpp>
 #include <renderer/buffer.hpp>
 #include <util/types.hpp>
 
@@ -8,9 +9,6 @@
 #include <array>
 
 using namespace gl;
-
-const auto VRAM_WIDTH = 1024;
-const auto VRAM_HEIGHT = 512;
 
 namespace gpu {
 class Gpu;
@@ -55,6 +53,15 @@ struct Color {
   u32 word() const { return r | g << 8 | b << 16; }
 };
 
+enum class PixelRenderType {
+  SHADED,
+  TEXTURED_PALETTED_4BIT,
+  TEXTURED_PALETTED_8BIT,
+  TEXTURED_16BIT,
+};
+
+using BarycentricCoords = std::array<s32, 3>;
+
 class Renderer {
  public:
   explicit Renderer(gpu::Gpu& gpu);
@@ -62,14 +69,18 @@ class Renderer {
 
   void render();
 
-  void draw_pixel(Position position, Color color);
-  void draw_triangle_shaded(Position3 posistions, Color3 colors);
+  template <PixelRenderType RenderType>
+  void draw_triangle(Position3 positions, Color3 colors);
+
+  template <PixelRenderType RenderType>
+  void draw_pixel(Position position, Color3 colors, BarycentricCoords bar);
+
   void draw_quad_shaded(Position4 posistions, Color4 colors);
   void draw_quad_mono(Position4 positions, Color color);
   //  void draw_rect_mono(Position2 array, Color color);
 
  private:
-  static inline Color get_shaded_color(Color3 colors, u32 w0, u32 w1, u32 w2);
+  static gpu::RGB16 calculate_pixel_shaded(Color3 colors, BarycentricCoords bar);
 
  private:
   // Shaders

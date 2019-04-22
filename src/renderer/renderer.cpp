@@ -7,6 +7,7 @@
 #include <gsl-lite.hpp>
 
 #include <algorithm>
+#include <cassert>
 #include <string>
 
 using namespace gl;
@@ -67,7 +68,7 @@ Renderer::Renderer(gpu::Gpu& gpu) : m_gpu(gpu) {
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
-  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, VRAM_WIDTH, VRAM_HEIGHT, 0, GL_RGBA,
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, gpu::VRAM_WIDTH, gpu::VRAM_HEIGHT, 0, GL_RGBA,
                GL_UNSIGNED_SHORT_1_5_5_5_REV, nullptr);
 
   glBindVertexArray(0);
@@ -80,24 +81,38 @@ Renderer::~Renderer() {
   glDeleteProgram(m_shader_program_screen);
 }
 
-Color Renderer::get_shaded_color(Color3 colors, u32 w0, u32 w1, u32 w2) {
+gpu::RGB16 Renderer::calculate_pixel_shaded(Color3 colors, BarycentricCoords bar) {
   // https://codeplea.com/triangular-interpolation
+
+  const auto w0 = bar[0];
+  const auto w1 = bar[1];
+  const auto w2 = bar[2];
 
   auto w = (float)(w0 + w1 + w2);
   u8 r = (u8)((colors[0].r * w0 + colors[1].r * w1 + colors[2].r * w2) / w);
   u8 g = (u8)((colors[0].g * w0 + colors[1].g * w1 + colors[2].g * w2) / w);
   u8 b = (u8)((colors[0].b * w0 + colors[1].b * w1 + colors[2].b * w2) / w);
 
-  return { r, g, b };
+  return gpu::RGB16::fromRGB(r, g, b);
 }
 
-void Renderer::draw_pixel(Position position, Color color) {
-  const auto idx = (position.x + position.y * VRAM_WIDTH);
+template <PixelRenderType RenderType>
+void Renderer::draw_pixel(Position position, Color3 colors, BarycentricCoords bar) {
+  gpu::RGB16 psx_color;
 
-  m_gpu.set_vram_color(idx, color);
+  switch (RenderType) {
+    case PixelRenderType::SHADED: psx_color = calculate_pixel_shaded(colors, bar); break;
+    case PixelRenderType::TEXTURED_PALETTED_4BIT: assert(0); break;
+    case PixelRenderType::TEXTURED_PALETTED_8BIT: assert(0); break;
+    case PixelRenderType::TEXTURED_16BIT: assert(0); break;
+    default: assert(0);
+  }
+
+  m_gpu.set_vram_pos(position.x, position.y, psx_color.word);
 }
 
-void Renderer::draw_triangle_shaded(Position3 positions, Color3 colors) {
+template <PixelRenderType RenderType>
+void Renderer::draw_triangle(Position3 positions, Color3 colors) {
   // Algorithm from https://fgiesen.wordpress.com/2013/02/08/triangle-rasterization-in-practice/
   // TODO: optimize
 
@@ -121,8 +136,8 @@ void Renderer::draw_triangle_shaded(Position3 positions, Color3 colors) {
   const auto da_br = m_gpu.m_drawing_area_bottom_right;
   s16 min_x = std::max((s16)da_tl.x, std::max((s16)0, std::min({ v0.x, v1.x, v2.x })));
   s16 min_y = std::max((s16)da_tl.y, std::max((s16)0, std::min({ v0.y, v1.y, v2.y })));
-  s16 max_x = std::max((s16)da_br.x, std::min((s16)VRAM_WIDTH, std::min({ v0.x, v1.x, v2.x })));
-  s16 max_y = std::max((s16)da_br.y, std::min((s16)VRAM_HEIGHT, std::min({ v0.y, v1.y, v2.y })));
+  s16 max_x = std::max((s16)da_br.x, std::min((s16)gpu::VRAM_WIDTH, std::min({ v0.x, v1.x, v2.x })));
+  s16 max_y = std::max((s16)da_br.y, std::min((s16)gpu::VRAM_HEIGHT, std::min({ v0.y, v1.y, v2.y })));
 
   // Rasterize
   Position p_iter;
@@ -137,8 +152,7 @@ void Renderer::draw_triangle_shaded(Position3 positions, Color3 colors) {
       if (w0 >= 0 && w1 >= 0 && w2 >= 0) {
         if (is_ccw)
           std::swap(w1, w2);
-        const auto shaded_color = get_shaded_color(colors, w0, w1, w2);
-        draw_pixel(p_iter, shaded_color);  // todo
+        draw_pixel<RenderType>(p_iter, colors, { w0, w1, w2 });
       }
     }
 }
@@ -150,8 +164,8 @@ void Renderer::draw_quad_shaded(Position4 positions, Color4 colors) {
   const auto p1 = Position3{ positions[1], positions[2], positions[3] };
   const auto c1 = Color3{ colors[1], colors[2], colors[3] };
 
-  draw_triangle_shaded(p0, c0);
-  draw_triangle_shaded(p1, c1);
+  draw_triangle<PixelRenderType::SHADED>(p0, c0);
+  draw_triangle<PixelRenderType::SHADED>(p1, c1);
 }
 
 void Renderer::draw_quad_mono(Position4 positions, Color color) {
@@ -161,8 +175,8 @@ void Renderer::draw_quad_mono(Position4 positions, Color color) {
   const auto p1 = Position3{ positions[1], positions[2], positions[3] };
   const auto c1 = Color3{ color, color, color };
 
-  draw_triangle_shaded(p0, c0);
-  draw_triangle_shaded(p1, c1);
+  draw_triangle<PixelRenderType::SHADED>(p0, c0);
+  draw_triangle<PixelRenderType::SHADED>(p1, c1);
 }
 
 // void Renderer::draw_rect_mono(Position4 positions, Color color) {
@@ -188,7 +202,7 @@ void Renderer::render() {
   glUseProgram(m_shader_program_screen);
 
   // Upload screen texture
-  glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, VRAM_WIDTH, VRAM_HEIGHT, GL_RGBA,
+  glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, gpu::VRAM_WIDTH, gpu::VRAM_HEIGHT, GL_RGBA,
                   GL_UNSIGNED_SHORT_1_5_5_5_REV, (const void*)m_gpu.vram().data());
 
   // Draw screen

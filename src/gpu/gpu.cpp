@@ -34,21 +34,17 @@ void Gpu::draw() {
   m_renderer.render();
 }
 
-void Gpu::vram_write(u16 x, u16 y, u16 val) {
+void Gpu::set_vram_pos(u16 x, u16 y, u16 val) {
   Ensures(x <= 1024);
   Ensures(y <= 512);
 
-  const RGB15 color{ val };
+  const auto idx = x + y * VRAM_WIDTH;
 
-  // Convert from 2^5 space to 2^8 space by multiplying by 2^3 (8)
-  m_renderer.draw_pixel({ (s16)x, (s16)y }, { (u8)(color.r * 8), (u8)(color.g * 8), (u8)(color.b * 8) });
+  set_vram_idx(idx, val);
 }
 
-void Gpu::set_vram_color(u32 vram_idx, renderer::Color color) {
-  RGB32 c32{ color.word() };
-  RGB15 c15;
-  c15.from32bits(c32);
-  vram()[vram_idx] = c15.word;
+void Gpu::set_vram_idx(u32 vram_idx, u16 val) {
+  vram()[vram_idx] = val;
 }
 
 void Gpu::gp0(u32 cmd) {
@@ -124,7 +120,7 @@ void Gpu::gp0(u32 cmd) {
         //        LOG_TRACE("X: {:>4X} Y: {:>4X} SRC: 0x{:04X}", m_vram_transfer_x, m_vram_transfer_y,
         //        src_word);
 
-        vram_write(m_vram_transfer_x, m_vram_transfer_y, src_word);
+        set_vram_pos(m_vram_transfer_x, m_vram_transfer_y, src_word);
 
         const auto rect_x = m_vram_transfer_x - m_vram_transfer_x_start;
         if (rect_x == m_vram_transfer_width - 1) {
@@ -157,8 +153,9 @@ void Gpu::gp0_quad_texture_blend_opaque(u32 cmd) {
 }
 
 void Gpu::gp0_triangle_shaded_opaque(u32 cmd) {
-  m_renderer.draw_triangle_shaded(renderer::Position::from_gp0(m_gp0_cmd[1], m_gp0_cmd[3], m_gp0_cmd[5]),
-                                  renderer::Color::from_gp0(m_gp0_cmd[0], m_gp0_cmd[2], m_gp0_cmd[4]));
+  m_renderer.draw_triangle<renderer::PixelRenderType::SHADED>(
+      renderer::Position::from_gp0(m_gp0_cmd[1], m_gp0_cmd[3], m_gp0_cmd[5]),
+      renderer::Color::from_gp0(m_gp0_cmd[0], m_gp0_cmd[2], m_gp0_cmd[4]));
 }
 
 void Gpu::gp0_quad_shaded_opaque(u32 cmd) {
@@ -195,8 +192,12 @@ void Gpu::gp0_gpu_irq(u32 cmd) {
 }
 
 void Gpu::gp0_mono_rect_1x1_opaque(u32 cmd) {
-  m_renderer.draw_pixel(renderer::Position::from_gp0(m_gp0_cmd[1]),
-                        renderer::Color::from_gp0(m_gp0_cmd[0]));
+  // TODO: handle in renderer (draw_rect_mono?)
+  const auto pos = renderer::Position::from_gp0(m_gp0_cmd[1]);
+  const auto col = renderer::Color::from_gp0(m_gp0_cmd[0]);
+  const auto c16 = RGB16::fromRGB(col.r, col.g, col.b);
+
+  set_vram_pos(pos.x, pos.y, c16.word);
 }
 
 void Gpu::gp0_copy_rect_cpu_to_vram(u32 cmd) {

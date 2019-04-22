@@ -1,5 +1,6 @@
 #pragma once
 
+#include <gpu/colors.hpp>
 #include <renderer/renderer.hpp>
 #include <util/types.hpp>
 
@@ -9,6 +10,9 @@
 #include <vector>
 
 namespace gpu {
+
+const u32 VRAM_WIDTH = 1024;
+const u32 VRAM_HEIGHT = 512;
 
 enum DmaDirection {
   Off = 0,
@@ -20,35 +24,6 @@ enum DmaDirection {
 enum class Gp0Mode {
   Command,    // We're processing words that are part of a command
   ImageLoad,  // We're processing words that are image data transferred by a Copy command
-};
-
-union RGB32 {
-  u32 word{};
-
-  struct {
-    u8 r;
-    u8 g;
-    u8 b;
-    u8 a;
-  };
-};
-
-union RGB15 {
-  u16 word{};
-
-  struct {
-    u16 r : 5;
-    u16 g : 5;
-    u16 b : 5;
-    u16 mask : 1;
-  };
-
-  void from32bits(RGB32 c32) {
-    r = c32.r >> 3;
-    g = c32.g >> 3;
-    b = c32.b >> 3;
-    mask = 0;
-  }
 };
 
 // GP0(E2h) - Texture Window setting
@@ -212,8 +187,8 @@ class Gpu {
   void draw();
 
   // VRAM
-  void vram_write(u16 x, u16 y, u16 val);
-  void set_vram_color(u32 vram_idx, renderer::Color color);
+  void set_vram_pos(u16 x, u16 y, u16 val);
+  void set_vram_idx(u32 vram_idx, u16 val);
 
   // HACK
   bool m_frame{};
@@ -253,7 +228,7 @@ class Gpu {
   void gp0_drawing_offset(u32 cmd);
 
  private:
-  renderer::Renderer m_renderer{ *this };
+  renderer::Renderer m_renderer = renderer::Renderer(*this);
 
   // GP0 command handling
   Gp0Mode m_gp0_mode = Gp0Mode::Command;
