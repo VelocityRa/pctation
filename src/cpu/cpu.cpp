@@ -69,12 +69,16 @@ bool Cpu::step(u32& cycles_passed) {
   m_pc = m_pc_next;
   m_pc_next += 4;
 
+#ifdef LOAD_EXE_HOOK
   // HACK: This is for psx cpu test, end the frame here
-  //  if (m_pc_current == 0x80016858)
-  //    return true;
+  if (m_pc_current == 0x80016858)
+    return true;
+#endif
 
+  //  Ensures(m_gpr[0] == 0);
   // Execute instruction
   execute_instruction(instr);
+  //  Ensures(m_gpr[0] == 0);
 
   // In PC_ONLY mode we print the PC-4 for branch delay slot instructions (to match no$psx's output)
 #if TRACE_MODE == TRACE_PC_ONLY
@@ -246,6 +250,7 @@ void Cpu::trigger_exception(ExceptionCause cause, bool is_break) {
   m_cop0_sr &= ~0b111111u;
   m_cop0_sr |= (mode << 2) & 0b111111;
 
+  // TODO: .10 needs to be updated when we implement interrupts
   m_cop0_cause = (static_cast<u32>(cause) << 2);
 
   // Update EPC with the return address (PC) from the exception
@@ -311,15 +316,17 @@ void Cpu::op_swl(const Instruction& i) {
   const auto aligned_addr = addr & ~0b11u;
   const auto cur_mem = load32(aligned_addr);
 
+  const Register t = rt(i);
+
   // Depending on the alignment, fetch different number of bytes
   u32 val{};
   switch (addr & 0b11u) {
-    case 0: val = cur_mem & 0xFFFFFF00 | rt(i) >> 24; break;
-    case 1: val = cur_mem & 0xFFFF0000 | rt(i) >> 16; break;
-    case 2: val = cur_mem & 0xFF000000 | rt(i) >> 8; break;
-    case 3: val = cur_mem & 0x00000000 | rt(i) >> 0; break;
+    case 0: val = cur_mem & 0xFFFFFF00 | t >> 24; break;
+    case 1: val = cur_mem & 0xFFFF0000 | t >> 16; break;
+    case 2: val = cur_mem & 0xFF000000 | t >> 8; break;
+    case 3: val = cur_mem & 0x00000000 | t >> 0; break;
   }
-  m_bus.write32(addr, val);
+  m_bus.write32(aligned_addr, val);
 }
 
 void Cpu::op_swr(const Instruction& i) {
@@ -329,15 +336,17 @@ void Cpu::op_swr(const Instruction& i) {
   const auto aligned_addr = addr & ~0b11u;
   const auto cur_mem = load32(aligned_addr);
 
+  const Register t = rt(i);
+
   // Depending on the alignment, fetch different number of bytes
   u32 val{};
   switch (addr & 0b11u) {
-    case 0: val = cur_mem & 0x00000000 | rt(i) << 0; break;
-    case 1: val = cur_mem & 0x000000FF | rt(i) << 8; break;
-    case 2: val = cur_mem & 0x0000FFFF | rt(i) << 16; break;
-    case 3: val = cur_mem & 0x00FFFFFF | rt(i) << 24; break;
+    case 0: val = cur_mem & 0x00000000 | t << 0; break;
+    case 1: val = cur_mem & 0x000000FF | t << 8; break;
+    case 2: val = cur_mem & 0x0000FFFF | t << 16; break;
+    case 3: val = cur_mem & 0x00FFFFFF | t << 24; break;
   }
-  m_bus.write32(addr, val);
+  m_bus.write32(aligned_addr, val);
 }
 
 void Cpu::op_lbu(const Instruction& i) {
