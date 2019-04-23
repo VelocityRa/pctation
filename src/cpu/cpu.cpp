@@ -92,11 +92,11 @@ bool Cpu::step(u32& cycles_passed) {
 void Cpu::execute_instruction(const Instruction& i) {
   switch (i.opcode()) {
       // Arithmetic
-    case Opcode::ADD: set_rd(i, checked_add(rs(i), rt(i))); break;
+    case Opcode::ADD: op_add(i); break;
     case Opcode::ADDU: set_rd(i, rs(i) + rt(i)); break;
-    case Opcode::SUB: set_rd(i, checked_sub(rs(i), rt(i))); break;
+    case Opcode::SUB: op_sub(i); break;
     case Opcode::SUBU: set_rd(i, rs(i) - rt(i)); break;
-    case Opcode::ADDI: set_rt(i, checked_add(rs(i), i.imm16_se())); break;
+    case Opcode::ADDI: op_addi(i); break;
     case Opcode::ADDIU: set_rt(i, rs(i) + i.imm16_se()); break;
     case Opcode::DIV: op_sdiv(i); break;
     case Opcode::DIVU: op_udiv(i); break;
@@ -261,6 +261,24 @@ void Cpu::trigger_exception(ExceptionCause cause, bool is_break) {
   // Exceptions don't have a branch delay, jump directly to the handler
   m_pc = handler_addr;
   m_pc_next = m_pc + 4;
+}
+
+void Cpu::op_add(const Instruction& i) {
+  u32 res;
+  if (checked_add(rs(i), rt(i), res))
+    set_rd(i, res);
+}
+
+void Cpu::op_sub(const Instruction& i) {
+  u32 res;
+  if (checked_sub(rs(i), rt(i), res))
+    set_rd(i, res);
+}
+
+void Cpu::op_addi(const Instruction& i) {
+  u32 res;
+  if (checked_add(rs(i), i.imm16_se(), res))
+    set_rt(i, res);
 }
 
 void Cpu::op_sb(const Instruction& i) {
@@ -463,16 +481,24 @@ void Cpu::op_rfe(const Instruction& i) {
   m_cop0_sr |= mode >> 2;
 }
 
-u32 Cpu::checked_add(s32 op1, s32 op2) {
-  if (op1 > 0 && op2 > 0 && op1 > INT_MAX - op2 || op1 < 0 && op2 < 0 && op1 < INT_MIN - op2)
+bool Cpu::checked_add(u32 op1, u32 op2, u32& out) {
+  u32 result = op1 + op2;
+  if (~(op1 ^ op2) & (op1 ^ result) & 0x80000000) {
     trigger_exception(ExceptionCause::Overflow);
-  return op1 + op2;
+    return false;
+  }
+  out = result;
+  return true;
 }
 
-u32 Cpu::checked_sub(s32 op1, s32 op2) {
-  if (op1 < 0 && op2 > INT_MAX + op1 || op1 > 0 && op2 < INT_MIN + op1)
+bool Cpu::checked_sub(u32 op1, u32 op2, u32& out) {
+  u32 result = op1 - op2;
+  if ((op1 ^ op2) & (op1 ^ result) & 0x80000000) {
     trigger_exception(ExceptionCause::Overflow);
-  return op1 - op2;
+    return false;
+  }
+  out = result;
+  return true;
 }
 
 // u32 Cpu::checked_mul(u32 op1, u32 op2) {

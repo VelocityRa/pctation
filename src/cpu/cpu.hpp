@@ -73,6 +73,9 @@ class Cpu {
   void trigger_exception(ExceptionCause cause, bool is_break = false);
 
   // Interpreter helpers
+  void op_add(const Instruction& i);
+  void op_sub(const Instruction& i);
+  void op_addi(const Instruction& i);
   void op_lbu(const Instruction& i);
   void op_sb(const Instruction& i);
   void op_sh(const Instruction& i);
@@ -99,8 +102,8 @@ class Cpu {
   void store32(u32 addr, u32 val);
   void store16(u32 addr, u16 val);
   void store8(u32 addr, u8 val);
-  u32 checked_add(s32 op1, s32 op2);
-  u32 checked_sub(s32 op1, s32 op2);
+  bool checked_add(u32 op1, u32 op2, u32& out);  // returns false on overflow
+  bool checked_sub(u32 op1, u32 op2, u32& out);  // returns false on overflow
 
  private:
   // Register getters/setters
