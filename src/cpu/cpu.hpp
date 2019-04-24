@@ -179,11 +179,18 @@ class Cpu {
   Register m_hi{};                 // Division remainder and multiplication high result
   Register m_lo{};                 // Division quotient and multiplication low result
 
-  // Cop0 registers
-  Register m_cop0_dcic{};   // Breakpoint control (r7)
-  Register m_cop0_sr{};     // Status Register (r12)
-  Register m_cop0_cause{};  // Cause Register (r13)
-  Register m_cop0_epc{};    // EPC (r14)
+  // Cop0 registers (see Cop0Register for descriptions)
+  Register m_cop0_bpc{};
+  Register m_cop0_bda{};
+  Register m_cop0_jumpdest{};
+  Register m_cop0_dcic{};
+  Register m_cop0_bad_vaddr{};
+  Register m_cop0_bdam{};
+  Register m_cop0_bpcm{};
+  Register m_cop0_sr{};
+  Register m_cop0_cause{};
+  Register m_cop0_epc{};
+  Register m_cop0_prid{};
 
   // For emulating Load delay
   DelayedLoadInfo m_pending_load{};

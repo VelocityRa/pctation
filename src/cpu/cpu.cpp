@@ -205,10 +205,17 @@ void Cpu::execute_instruction(const Instruction& i) {
     case Opcode::MTC0: {
       const auto cop_dst_reg = static_cast<Cop0Register>(i.rd());
       switch (cop_dst_reg) {
+        case Cop0Register::COP0_BPC: m_cop0_bpc = rt(i); goto unhandled_mtc;
+        case Cop0Register::COP0_BDA: m_cop0_bda = rt(i); goto unhandled_mtc;
         case Cop0Register::COP0_DCIC: m_cop0_dcic = rt(i); break;
+        case Cop0Register::COP0_BDAM: m_cop0_bdam = rt(i); goto unhandled_mtc;
+        case Cop0Register::COP0_BPCM: m_cop0_bpcm = rt(i); goto unhandled_mtc;
         case Cop0Register::COP0_SR: m_cop0_sr = rt(i); break;
         case Cop0Register::COP0_CAUSE: m_cop0_cause = rt(i); break;
-        case Cop0Register::COP0_EPC: m_cop0_epc = rt(i); break;
+        case Cop0Register::COP0_EPC:
+          m_cop0_epc = rt(i);
+          break;
+        unhandled_mtc:
         default: LOG_WARN("Unhandled Cop1 register {} write", static_cast<u32>(cop_dst_reg));
       }
       break;
@@ -216,10 +223,24 @@ void Cpu::execute_instruction(const Instruction& i) {
     case Opcode::MFC0: {
       const auto cop_dst_reg = static_cast<Cop0Register>(i.rd());
       switch (cop_dst_reg) {
+        case Cop0Register::COP0_BPC: issue_pending_load(i.rt(), m_cop0_bpc); goto unhandled_mfc;
+        case Cop0Register::COP0_BDA: issue_pending_load(i.rt(), m_cop0_bda); goto unhandled_mfc;
+        case Cop0Register::COP0_JUMPDEST:
+          issue_pending_load(i.rt(), m_cop0_jumpdest);
+          goto unhandled_mfc;
         case Cop0Register::COP0_DCIC: issue_pending_load(i.rt(), m_cop0_dcic); break;
+        case Cop0Register::COP0_BAD_VADDR:
+          issue_pending_load(i.rt(), m_cop0_bad_vaddr);
+          goto unhandled_mfc;
+        case Cop0Register::COP0_BDAM: issue_pending_load(i.rt(), m_cop0_bdam); goto unhandled_mfc;
+        case Cop0Register::COP0_BPCM: issue_pending_load(i.rt(), m_cop0_bpcm); goto unhandled_mfc;
         case Cop0Register::COP0_SR: issue_pending_load(i.rt(), m_cop0_sr); break;
         case Cop0Register::COP0_CAUSE: issue_pending_load(i.rt(), m_cop0_cause); break;
         case Cop0Register::COP0_EPC: issue_pending_load(i.rt(), m_cop0_epc); break;
+        case Cop0Register::COP0_PRID:
+          issue_pending_load(i.rt(), m_cop0_prid);
+          goto unhandled_mfc;
+        unhandled_mfc:
         default: LOG_WARN("Unhandled Cop1 register {} read", static_cast<u32>(cop_dst_reg));
       }
       break;
