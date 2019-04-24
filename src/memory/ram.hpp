@@ -26,6 +26,9 @@ class Ram : public Addressable<memory::RAM_SIZE> {
   fs::path m_psxexe_path;
 };
 
-class Scratchpad : public Addressable<memory::SCRATCHPAD_SIZE> {};
+class Scratchpad : public Addressable<memory::SCRATCHPAD_SIZE> {
+ public:
+  explicit Scratchpad();
+};
 
 }  // namespace memory

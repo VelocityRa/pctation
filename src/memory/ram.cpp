@@ -10,7 +10,9 @@
 
 namespace memory {
 
-Ram::Ram(fs::path psxexe_path) : m_psxexe_path(psxexe_path) {}
+Ram::Ram(fs::path psxexe_path) : m_psxexe_path(psxexe_path) {
+  std::fill(m_data->begin(), m_data->end(), 0);
+}
 
 bool Ram::load_executable(PSEXELoadInfo& out_psx_load_info) const {
   if (m_psxexe_path.empty())
@@ -60,6 +62,10 @@ bool Ram::load_executable(PSEXELoadInfo& out_psx_load_info) const {
   std::copy(copy_src_begin, copy_src_end, copy_dest_begin);
 
   return true;
+}
+
+Scratchpad::Scratchpad() {
+  std::fill(m_data->begin(), m_data->end(), 0);
 }
 
 }  // namespace memory
