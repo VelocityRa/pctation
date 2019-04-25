@@ -29,8 +29,7 @@ bool Cpu::step(u32& cycles_passed) {
   if (m_pc == 0x80030000) {
     memory::PSEXELoadInfo psxexe_load_info;
     if (m_bus.m_ram.load_executable(psxexe_load_info)) {
-      m_pc = psxexe_load_info.pc;
-      m_pc_next = m_pc + 4;
+      set_pc(psxexe_load_info.pc);
       m_gpr[28] = psxexe_load_info.r28;
       m_gpr[29] = psxexe_load_info.r29_r30;
       m_gpr[30] = psxexe_load_info.r29_r30;
@@ -38,13 +37,16 @@ bool Cpu::step(u32& cycles_passed) {
   }
 #endif
 
+  // Store state for potential exceptions
+  save_exception_state();
+
   // Fetch current instruction
   const u32 cur_instr = m_bus.read32(m_pc);
 
   // Decode current instruction
   const Instruction instr(cur_instr);
 
-  // Log instruction disassembly
+// Log instruction disassembly
 #if TRACE_MODE == TRACE_REGS
   char debug_str[512];
   // This is ugly but much faster than a loop
@@ -57,39 +59,28 @@ bool Cpu::step(u32& cycles_passed) {
   LOG_CPU("[{:08X}]: {:08X} {}", m_pc, cur_instr, instr.disassemble());
 #endif
 
-  // Check PC alignment
-  if (m_pc % 4 != 0) {
-    trigger_exception(ExceptionCause::LoadAddressError);
-    return false;
-  }
-
-  // Save current PC
-  m_pc_current = m_pc;
   // Advance PC
-  m_pc = m_pc_next;
-  m_pc_next += 4;
+  set_pc(m_pc_next);
 
-#ifdef LOAD_EXE_HOOK
-  // HACK: This is for psx cpu test, end the frame here
-  if (m_pc_current == 0x80016858)
-    return true;
-#endif
-
-  //  Ensures(m_gpr[0] == 0);
+  // Ensures(m_gpr[0] == 0);
   // Execute instruction
   execute_instruction(instr);
   //  Ensures(m_gpr[0] == 0);
+
+  do_pending_load();
 
   // In PC_ONLY mode we print the PC-4 for branch delay slot instructions (to match no$psx's output)
 #if TRACE_MODE == TRACE_PC_ONLY
   LOG_CPU("{:08X}", m_pc - 4);
 #endif
 
-  //#ifndef NDEBUG
-  //  ++instr_counter;
-  //#endif
-
   cycles_passed = 5;  // estimated average CPI
+
+  // HACK: This is for psx cpu test, end the frame here
+#if LOAD_EXE_HOOK
+  if (m_pc_current == 0x80016858)
+    return true;
+#endif
   return false;
 }
 
@@ -142,8 +133,8 @@ void Cpu::execute_instruction(const Instruction& i) {
     case Opcode::SWL: op_swl(i); break;
     case Opcode::SWR: op_swr(i); break;
     // Jumps/Branches
-    case Opcode::J: op_jump(i); break;
-    case Opcode::JR: m_pc_next = rs(i);
+    case Opcode::J: op_j(i); break;
+    case Opcode::JR: op_jr(i);
 #if TTY_OUTPUT
       // Hook std_out_putchar function in the B0 kernel table. Assumes there's an ADDIU/"LI" instruction
       // right after the JR, containing the kernel procedure vector.
@@ -152,38 +143,44 @@ void Cpu::execute_instruction(const Instruction& i) {
         Ensures(next_instr.opcode() == Opcode::ADDIU);
 
         if (next_instr.imm16_se() == 0x3D) {
-          char tty_out_char = r(4);
-          m_tty_out += tty_out_char;
-          //          std::cout << tty_out_char;
+          char tty_out_char = gpr(4);
+          //          m_tty_out += tty_out_char;
+          std::cout << tty_out_char;
         }
       }
 #endif
       break;
     case Opcode::JAL:
-      r(31) = m_pc_next;
-      op_jump(i);
+      gpr(31) = m_pc_next;
+      op_j(i);
       break;
     case Opcode::JALR:
       set_rd(i, m_pc_next);
-      m_pc_next = rs(i);
+      op_jr(i);
       break;
     case Opcode::BEQ:
+      m_in_branch_delay_slot = true;
       if (rs(i) == rt(i))
         op_branch(i);
       break;
     case Opcode::BNE:
+      m_in_branch_delay_slot = true;
       if (rs(i) != rt(i))
         op_branch(i);
       break;
     case Opcode::BGTZ:
+      m_in_branch_delay_slot = true;
       if ((s32)rs(i) > 0)
         op_branch(i);
       break;
     case Opcode::BLEZ:
+      m_in_branch_delay_slot = true;
       if ((s32)rs(i) <= 0)
         op_branch(i);
       break;
     case Opcode::BCONDZ: {  // TODO: make separate opcodes?
+      m_in_branch_delay_slot = true;
+
       const u8 opcode_2 = i.rt();
       const bool is_bgez = opcode_2 & 0b1;
       const bool is_link = opcode_2 & 0b10000;
@@ -192,7 +189,7 @@ void Cpu::execute_instruction(const Instruction& i) {
       const auto test = (u32)((s32)rs(i) < 0) ^ is_bgez;
       if (test) {
         if (is_link) {
-          r(31) = m_pc_next;
+          gpr(31) = m_pc_next;
         }
         op_branch(i);
       }
@@ -200,7 +197,7 @@ void Cpu::execute_instruction(const Instruction& i) {
     }
     // Syscall/Breakpoint
     case Opcode::SYSCALL: trigger_exception(ExceptionCause::Syscall); break;
-    case Opcode::BREAK: trigger_exception(ExceptionCause::Breakpoint, true); break;
+    case Opcode::BREAK: trigger_exception(ExceptionCause::Breakpoint); break;
     // Co-processor 0
     case Opcode::MTC0: {
       const auto cop_dst_reg = static_cast<Cop0Register>(i.rd());
@@ -223,22 +220,18 @@ void Cpu::execute_instruction(const Instruction& i) {
     case Opcode::MFC0: {
       const auto cop_dst_reg = static_cast<Cop0Register>(i.rd());
       switch (cop_dst_reg) {
-        case Cop0Register::COP0_BPC: issue_pending_load(i.rt(), m_cop0_bpc); goto unhandled_mfc;
-        case Cop0Register::COP0_BDA: issue_pending_load(i.rt(), m_cop0_bda); goto unhandled_mfc;
-        case Cop0Register::COP0_JUMPDEST:
-          issue_pending_load(i.rt(), m_cop0_jumpdest);
-          goto unhandled_mfc;
-        case Cop0Register::COP0_DCIC: issue_pending_load(i.rt(), m_cop0_dcic); break;
-        case Cop0Register::COP0_BAD_VADDR:
-          issue_pending_load(i.rt(), m_cop0_bad_vaddr);
-          goto unhandled_mfc;
-        case Cop0Register::COP0_BDAM: issue_pending_load(i.rt(), m_cop0_bdam); goto unhandled_mfc;
-        case Cop0Register::COP0_BPCM: issue_pending_load(i.rt(), m_cop0_bpcm); goto unhandled_mfc;
-        case Cop0Register::COP0_SR: issue_pending_load(i.rt(), m_cop0_sr); break;
-        case Cop0Register::COP0_CAUSE: issue_pending_load(i.rt(), m_cop0_cause); break;
-        case Cop0Register::COP0_EPC: issue_pending_load(i.rt(), m_cop0_epc); break;
+        case Cop0Register::COP0_BPC: issue_delayed_load(i.rt(), m_cop0_bpc); goto unhandled_mfc;
+        case Cop0Register::COP0_BDA: issue_delayed_load(i.rt(), m_cop0_bda); goto unhandled_mfc;
+        case Cop0Register::COP0_JUMPDEST: issue_delayed_load(i.rt(), m_cop0_jumpdest);
+        case Cop0Register::COP0_DCIC: issue_delayed_load(i.rt(), m_cop0_dcic); break;
+        case Cop0Register::COP0_BAD_VADDR: issue_delayed_load(i.rt(), m_cop0_bad_vaddr);
+        case Cop0Register::COP0_BDAM: issue_delayed_load(i.rt(), m_cop0_bdam); goto unhandled_mfc;
+        case Cop0Register::COP0_BPCM: issue_delayed_load(i.rt(), m_cop0_bpcm); goto unhandled_mfc;
+        case Cop0Register::COP0_SR: issue_delayed_load(i.rt(), m_cop0_sr); break;
+        case Cop0Register::COP0_CAUSE: issue_delayed_load(i.rt(), m_cop0_cause); break;
+        case Cop0Register::COP0_EPC: issue_delayed_load(i.rt(), m_cop0_epc); break;
         case Cop0Register::COP0_PRID:
-          issue_pending_load(i.rt(), m_cop0_prid);
+          issue_delayed_load(i.rt(), m_cop0_prid);
           goto unhandled_mfc;
         unhandled_mfc:
         default: LOG_WARN("Unhandled Cop1 register {} read", static_cast<u32>(cop_dst_reg));
@@ -253,12 +246,20 @@ void Cpu::execute_instruction(const Instruction& i) {
 
     default: LOG_ERROR("Unimplemented instruction executed"); assert(0);
   }
-  check_pending_load();
 }
 
-void Cpu::trigger_exception(ExceptionCause cause, bool is_break) {
+void Cpu::save_exception_state() {
+  m_pc_current = m_pc;
+  m_in_branch_delay_slot_prev = m_in_branch_delay_slot;
+  m_branch_taken_prev = m_branch_taken;
+
+  m_in_branch_delay_slot = false;
+  m_branch_taken = false;
+}
+
+void Cpu::trigger_exception(ExceptionCause cause) {
   u32 handler_addr;
-  if (is_break)
+  if (cause == ExceptionCause::Breakpoint)
     handler_addr = EXCEPTION_VECTOR_BREAKPOINT;
   else
     handler_addr = m_cop0_sr & COP0_SR_BEV ? EXCEPTION_VECTOR_GENERAL_ROM : EXCEPTION_VECTOR_GENERAL_RAM;
@@ -267,26 +268,43 @@ void Cpu::trigger_exception(ExceptionCause cause, bool is_break) {
   // This has the effect of disabling interrupts and enabling kernel mode.
   // The last two bits in [5:4] are discarded, it's up to the kernel to handle more exception recursion
   // levels.
-  const u8 mode = m_cop0_sr & 0b111111;
-  m_cop0_sr &= ~0b111111u;
-  m_cop0_sr |= (mode << 2) & 0b111111;
+  m_cop0_sr = (m_cop0_sr & ~0b111111u) | ((m_cop0_sr << 2) & 0b111111);
+
+  // Clear CAUSE except for the pending interrupt bit
+  m_cop0_cause &= ~0xFFFF00FF;
 
   // TODO: .10 needs to be updated when we implement interrupts
   m_cop0_cause = (static_cast<u32>(cause) << 2);
 
   // Update EPC with the return address (PC) from the exception
+  // TODO: On interrupt needs to set to next PC
   m_cop0_epc = m_pc_current;
-  if (is_in_branch_delay_slot()) {
-    m_cop0_epc = m_pc_next;   // need to set this to the branch target if we're in a branch delay slot
-    m_cop0_sr |= COP0_SR_BD;  // also set this SR bit which indicates this edge case
+
+  if (m_in_branch_delay_slot) {
+    m_cop0_epc = m_pc_next;  // need to set this to the branch target if we're in a branch delay slot
+    m_cop0_cause |= COP0_CAUSE_BD;  // also set this CAUSE bit which indicates this edge case
+
+    if (m_branch_taken)
+      m_cop0_cause |= COP0_CAUSE_BDT;
+
+    m_cop0_jumpdest = m_pc;
   }
 
-  if (is_break)
+  if (cause == ExceptionCause::Breakpoint)
     m_cop0_dcic |= 1;
 
   // Exceptions don't have a branch delay, jump directly to the handler
-  m_pc = handler_addr;
-  m_pc_next = m_pc + 4;
+  set_pc(handler_addr);
+}
+
+void Cpu::trigger_load_exception(const address addr) {
+  m_cop0_bad_vaddr = addr;
+  trigger_exception(ExceptionCause::LoadAddressError);
+}
+
+void Cpu::trigger_store_exception(const address addr) {
+  m_cop0_bad_vaddr = addr;
+  trigger_exception(ExceptionCause::StoreAddressError);
 }
 
 void Cpu::op_add(const Instruction& i) {
@@ -315,7 +333,7 @@ void Cpu::op_sb(const Instruction& i) {
 void Cpu::op_sh(const Instruction& i) {
   const address addr = i.imm16_se() + rs(i);
   if (addr % 2 != 0) {
-    trigger_exception(ExceptionCause::StoreAddressError);
+    trigger_store_exception(addr);
     return;
   }
   store16(addr, (u16)rt(i));
@@ -324,7 +342,7 @@ void Cpu::op_sh(const Instruction& i) {
 void Cpu::op_sw(const Instruction& i) {
   const address addr = i.imm16_se() + rs(i);
   if (addr % 4 != 0) {
-    trigger_exception(ExceptionCause::StoreAddressError);
+    trigger_store_exception(addr);
     return;
   }
   store32(addr, rt(i));
@@ -372,39 +390,39 @@ void Cpu::op_swr(const Instruction& i) {
 
 void Cpu::op_lbu(const Instruction& i) {
   const address addr = i.imm16_se() + rs(i);
-  issue_pending_load(i.rt(), load8(addr));
+  issue_delayed_load(i.rt(), load8(addr));
 }
 
 void Cpu::op_lb(const Instruction& i) {
   const address addr = i.imm16_se() + rs(i);
-  issue_pending_load(i.rt(), (s8)load8(addr));
+  issue_delayed_load(i.rt(), (s8)load8(addr));
 }
 
 void Cpu::op_lhu(const Instruction& i) {
   const address addr = i.imm16_se() + rs(i);
   if (addr % 2 != 0) {
-    trigger_exception(ExceptionCause::LoadAddressError);
+    trigger_load_exception(addr);
     return;
   }
-  issue_pending_load(i.rt(), load16(addr));
+  issue_delayed_load(i.rt(), load16(addr));
 }
 
 void Cpu::op_lh(const Instruction& i) {
   const address addr = i.imm16_se() + rs(i);
   if (addr % 2 != 0) {
-    trigger_exception(ExceptionCause::LoadAddressError);
+    trigger_load_exception(addr);
     return;
   }
-  issue_pending_load(i.rt(), (s16)load16(addr));
+  issue_delayed_load(i.rt(), (s16)load16(addr));
 }
 
 void Cpu::op_lw(const Instruction& i) {
   const address addr = i.imm16_se() + rs(i);
   if (addr % 4 != 0) {
-    trigger_exception(ExceptionCause::LoadAddressError);
+    trigger_load_exception(addr);
     return;
   }
-  issue_pending_load(i.rt(), load32(addr));
+  issue_delayed_load(i.rt(), load32(addr));
 }
 
 void Cpu::op_lwl(const Instruction& i) {
@@ -424,7 +442,7 @@ void Cpu::op_lwl(const Instruction& i) {
     case 2: val = cur_v & 0x000000FF | aligned_word << 8; break;
     case 3: val = cur_v & 0x00000000 | aligned_word << 0; break;
   }
-  issue_pending_load(i.rt(), val);
+  issue_delayed_load(i.rt(), val);
 }
 
 void Cpu::op_lwr(const Instruction& i) {
@@ -444,11 +462,25 @@ void Cpu::op_lwr(const Instruction& i) {
     case 2: val = cur_v & 0xFFFF0000 | aligned_word >> 16; break;
     case 3: val = cur_v & 0xFFFFFF00 | aligned_word >> 24; break;
   }
-  issue_pending_load(i.rt(), val);
+  issue_delayed_load(i.rt(), val);
 }
 
-void Cpu::op_jump(const Instruction& i) {
-  m_pc_next = m_pc_next & 0xF0000000 | (i.imm26() << 2);
+void Cpu::op_j(const Instruction& i) {
+  m_in_branch_delay_slot = true;
+
+  const address addr = m_pc_next & 0xF0000000 | (i.imm26() << 2);
+
+  set_pc_next(addr);
+}
+
+void Cpu::op_jr(const Instruction& i) {
+  const address addr = rs(i);
+
+  if (addr % 4 != 0) {
+    trigger_load_exception(addr);
+    return;
+  }
+  set_pc_next(addr);
 }
 
 void Cpu::op_mult(const Instruction& i) {
@@ -467,7 +499,11 @@ void Cpu::op_multu(const Instruction& i) {
 }
 
 void Cpu::op_branch(const Instruction& i) {
-  m_pc_next += (i.imm16_se() << 2) - 4;
+  m_in_branch_delay_slot = true;
+
+  const address addr = m_pc + (i.imm16_se() << 2);
+
+  set_pc_next(addr);
 }
 
 void Cpu::op_udiv(const Instruction& i) {
@@ -539,7 +575,7 @@ bool Cpu::checked_sub(u32 op1, u32 op2, u32& out) {
 
 u32 Cpu::load32(u32 addr) {
   if (addr % 4 != 0) {
-    trigger_exception(ExceptionCause::LoadAddressError);
+    trigger_load_exception(addr);
     return 0;
   }
   return m_bus.read32(addr);
@@ -547,7 +583,7 @@ u32 Cpu::load32(u32 addr) {
 
 u16 Cpu::load16(u32 addr) {
   if (addr % 2 != 0) {
-    trigger_exception(ExceptionCause::LoadAddressError);
+    trigger_load_exception(addr);
     return 0;
   }
   return m_bus.read16(addr);
@@ -559,7 +595,7 @@ u8 Cpu::load8(u32 addr) {
 
 void Cpu::store32(u32 addr, u32 val) {
   if (addr % 4 != 0) {
-    trigger_exception(ExceptionCause::StoreAddressError);
+    trigger_store_exception(addr);
     return;
   }
   if (m_cop0_sr & COP0_SR_ISOLATE_CACHE) {
@@ -570,7 +606,7 @@ void Cpu::store32(u32 addr, u32 val) {
 }
 void Cpu::store16(u32 addr, u16 val) {
   if (addr % 2 != 0) {
-    trigger_exception(ExceptionCause::StoreAddressError);
+    trigger_store_exception(addr);
     return;
   }
   if (m_cop0_sr & COP0_SR_ISOLATE_CACHE) {

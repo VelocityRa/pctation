@@ -42,13 +42,18 @@ enum class Cop0Register : u32 {
   COP0_PRID = 15,      // PRID - Processor ID (R)
 };
 
+// Co-processor 0 Cause Register fields
+enum Cop0CauseRegister {
+  COP0_CAUSE_BDT = 1 << 30,  // Branch delay taken
+  COP0_CAUSE_BD = 1 << 31,   // Branch delay
+};
+
 // Co-processor 0 Status Register fields
 // See usages for details
 enum Cop0StatusRegister {
   // First 6 bits are used directly in Cpu::trigger_excption
   COP0_SR_ISOLATE_CACHE = 1 << 16,
   COP0_SR_BEV = 1 << 22,
-  COP0_SR_BD = 1 << 31,
 };
 
 enum class ExceptionCause : u32 {
@@ -70,7 +75,11 @@ class Cpu {
 
  private:
   void execute_instruction(const Instruction& i);
-  void trigger_exception(ExceptionCause cause, bool is_break = false);
+
+  void save_exception_state();
+  void trigger_exception(ExceptionCause cause);
+  void trigger_load_exception(const address addr);
+  void trigger_store_exception(const address addr);
 
   // Interpreter helpers
   void op_add(const Instruction& i);
@@ -89,7 +98,8 @@ class Cpu {
   void op_lwl(const Instruction& i);
   void op_lwr(const Instruction& i);
   void op_branch(const Instruction& i);
-  void op_jump(const Instruction& i);
+  void op_j(const Instruction& i);
+  void op_jr(const Instruction& i);
   void op_mult(const Instruction& i);
   void op_multu(const Instruction& i);
   void op_udiv(const Instruction& i);
@@ -107,64 +117,75 @@ class Cpu {
 
  private:
   // Register getters/setters
-  const Register& r(RegisterIndex index) const {
+  Register gpr(RegisterIndex index) const {
     //    Ensures(index >= 0);
-    //    Ensures(index <= 32);
+    //    Ensures(index <= 31);
     return m_gpr[index];
   }
-  Register& r(RegisterIndex index) {
+  Register& gpr(RegisterIndex index) {
     //    Ensures(index >= 0);
-    //    Ensures(index <= 32);
+    //    Ensures(index <= 31);
     return m_gpr[index];
   }
-  void set_gpr(RegisterIndex r, u32 v) {
-    m_gpr[r] = v;
+  void set_gpr(RegisterIndex index, u32 v) {
+    m_gpr[index] = v;
     m_gpr[0] = 0;
+  }
+  void set_pc(address addr) {
+    m_pc = addr;
+    m_pc_next = m_pc + 4;
+  }
+  void set_pc_next(address addr) {
+    m_pc_next = addr;
+    m_branch_taken = true;
   }
 
   // Instruction operand register getters
-  const Register& rs(const Instruction& i) const { return r(i.rs()); }
-  const Register& rt(const Instruction& i) const { return r(i.rt()); }
-  const Register& rd(const Instruction& i) const { return r(i.rd()); }
-
-  // Load delay emulation
-
-  struct DelayedLoadInfo {
-    bool is_pending;
-    u8 time_left;
-    RegisterIndex reg;
-    u32 val;
-  };
-
-  void issue_pending_load(RegisterIndex reg, u32 val) {
-    // Commit the pending load if any
-    check_pending_load();
-
-    m_pending_load.reg = reg;
-    m_pending_load.val = val;
-    m_pending_load.time_left = 1;
-    m_pending_load.is_pending = true;
-  }
-
-  void check_pending_load() {
-    if (m_pending_load.is_pending) {
-      if (m_pending_load.time_left == 0) {
-        set_gpr(m_pending_load.reg, m_pending_load.val);
-        m_pending_load.is_pending = false;
-      } else
-        m_pending_load.time_left--;
-    }
-  }
+  Register rs(const Instruction& i) const { return gpr(i.rs()); }
+  Register rt(const Instruction& i) const { return gpr(i.rt()); }
+  Register rd(const Instruction& i) const { return gpr(i.rd()); }
 
   // Instruction operand register setters
-  void set_rs(const Instruction& i, u32 v) { set_gpr(i.rs(), v); }
-  void set_rt(const Instruction& i, u32 v) { set_gpr(i.rt(), v); }
-  void set_rd(const Instruction& i, u32 v) { set_gpr(i.rd(), v); }
+  void set_rs(const Instruction& i, u32 v) {
+    set_gpr(i.rs(), v);
+    invalidate_reg(i.rs());
+  }
+  void set_rt(const Instruction& i, u32 v) {
+    set_gpr(i.rt(), v);
+    invalidate_reg(i.rt());
+  }
+  void set_rd(const Instruction& i, u32 v) {
+    set_gpr(i.rd(), v);
+    invalidate_reg(i.rd());
+  }
 
-  // Branch delay slot helper
-  bool is_in_branch_delay_slot() const {
-    // TODO: Would miss an edge case where there's a jump for 4 bytes ahead
-    return m_pc + 4 != m_pc_next;
+ private:
+  // Load delay emulation
+  void issue_delayed_load(RegisterIndex reg, u32 val) {
+    if (reg == 0)
+      return;
+    invalidate_reg(reg);
+
+    m_slot_next.reg = reg;
+    m_slot_next.val = val;
+    m_slot_next.val_prev = gpr(reg);
+  }
+
+  void do_pending_load() {
+    if (m_slot_current.is_valid()) {
+      const auto cur_reg = m_slot_current.reg;
+
+      if (gpr(cur_reg) == m_slot_current.val_prev)
+        set_gpr(cur_reg, m_slot_current.val);
+    }
+
+    m_slot_current = m_slot_next;
+    m_slot_next.invalidate();
+  }
+
+  void invalidate_reg(RegisterIndex r) {
+    if (m_slot_current.reg == r)
+      m_slot_current.invalidate();
   }
 
  private:
@@ -172,8 +193,8 @@ class Cpu {
   std::array<Register, 32> m_gpr{};
 
   // Special purpose registers
-  Register
-      m_pc_current{};  // Previous program counter. Used when an exception happens (saved to COP0_EPC).
+  Register m_pc_current{};         // Previous program counter. Used when an exception happens
+                                   // (saved to COP0_EPC).
   Register m_pc{ PC_RESET_ADDR };  // Current PC
   Register m_pc_next{ m_pc + 4 };  // Next PC we'll execute (used for branch delay emulation)
   Register m_hi{};                 // Division remainder and multiplication high result
@@ -193,7 +214,22 @@ class Cpu {
   Register m_cop0_prid{};
 
   // For emulating Load delay
-  DelayedLoadInfo m_pending_load{};
+  struct DelayedLoad {
+    RegisterIndex reg{};
+    u32 val{};
+    u32 val_prev{};
+
+    void invalidate() { reg = 0; }
+    bool is_valid() const { return reg != 0; }
+  };
+  DelayedLoad m_slot_current{};
+  DelayedLoad m_slot_next{};
+
+  // For emulating exceptions
+  bool m_branch_taken{};
+  bool m_branch_taken_prev{};
+  bool m_in_branch_delay_slot{};
+  bool m_in_branch_delay_slot_prev{};
 
   //  #ifndef NDEBUG
   //  // For debugging
