@@ -3,6 +3,7 @@ add_library(util STATIC util.cpp
                         load_file.hpp
                         types.hpp
                         log.hpp
-                        log.cpp)
+                        log.cpp
+                        bit_utils.hpp)
 
 target_link_libraries(util PUBLIC spdlog::spdlog)
