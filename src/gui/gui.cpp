@@ -346,8 +346,8 @@ void Gui::draw_gpu_registers(const gpu::Gpu& gpu) {
     { "E3h.10-18", "Draw Area top left Y", fmt::format("{}", gpu.m_drawing_area_top_left.y) },
     { "E4h.0-9", "Draw Area bott. right X", fmt::format("{}", gpu.m_drawing_area_bottom_right.x) },
     { "E4h.10-18", "Draw Area bott. right Y", fmt::format("{}", gpu.m_drawing_area_bottom_right.y) },
-    { "E5h.0-10", "Drawing offset X", fmt::format("{}", gpu.m_drawing_offset.x_off) },
-    { "E5h.10-19", "Drawing offset Y", fmt::format("{}", gpu.m_drawing_offset.y_off) },
+    { "E5h.0-10", "Drawing offset X", fmt::format("{}", gpu.m_drawing_offset.x) },
+    { "E5h.10-19", "Drawing offset Y", fmt::format("{}", gpu.m_drawing_offset.y) },
   };
 
   ImGui::NextColumn();

@@ -1,4 +1,6 @@
 #include <gpu/gpu.hpp>
+
+#include <util/bit_utils.hpp>
 #include <util/log.hpp>
 
 #include <gsl-lite.hpp>
@@ -32,6 +34,19 @@ void Gpu::write_reg(u32 addr, u32 val) {
 
 void Gpu::draw() {
   m_renderer.render();
+}
+
+u16 Gpu::get_vram_pos(u16 x, u16 y) const {
+  Ensures(x <= 1024);
+  Ensures(y <= 512);
+
+  const auto idx = x + y * VRAM_WIDTH;
+
+  return get_vram_idx(idx);
+}
+
+u16 Gpu::get_vram_idx(u32 vram_idx) const {
+  return vram()[vram_idx];
 }
 
 void Gpu::set_vram_pos(u16 x, u16 y, u16 val) {
@@ -146,16 +161,15 @@ void Gpu::gp0_quad_mono_opaque(u32 cmd) {
 }
 
 void Gpu::gp0_quad_texture_blend_opaque(u32 cmd) {
-  // TODO: We don't support textures yet, so use a solid blue color for now
-  m_renderer.draw_quad_mono(
+  m_renderer.draw_quad_textured(
       renderer::Position::from_gp0(m_gp0_cmd[1], m_gp0_cmd[3], m_gp0_cmd[5], m_gp0_cmd[7]),
-      renderer::Color{ 0, 0, 255 });
+      renderer::TextureInfo::from_gp0(m_gp0_cmd[0], m_gp0_cmd[2], m_gp0_cmd[4], m_gp0_cmd[6],
+                                      m_gp0_cmd[8]));
 }
 
 void Gpu::gp0_triangle_shaded_opaque(u32 cmd) {
-  m_renderer.draw_triangle<renderer::PixelRenderType::SHADED>(
-      renderer::Position::from_gp0(m_gp0_cmd[1], m_gp0_cmd[3], m_gp0_cmd[5]),
-      renderer::Color::from_gp0(m_gp0_cmd[0], m_gp0_cmd[2], m_gp0_cmd[4]));
+  m_renderer.draw_triangle_shaded(renderer::Position::from_gp0(m_gp0_cmd[1], m_gp0_cmd[3], m_gp0_cmd[5]),
+                                  renderer::Color::from_gp0(m_gp0_cmd[0], m_gp0_cmd[2], m_gp0_cmd[4]));
 }
 
 void Gpu::gp0_quad_shaded_opaque(u32 cmd) {
@@ -195,7 +209,7 @@ void Gpu::gp0_mono_rect_1x1_opaque(u32 cmd) {
   // TODO: handle in renderer (draw_rect_mono?)
   const auto pos = renderer::Position::from_gp0(m_gp0_cmd[1]);
   const auto col = renderer::Color::from_gp0(m_gp0_cmd[0]);
-  const auto c16 = RGB16::fromRGB(col.r, col.g, col.b);
+  const auto c16 = RGB16::from_RGB(col.r, col.g, col.b);
 
   set_vram_pos(pos.x, pos.y, c16.word);
 }
@@ -253,6 +267,8 @@ void Gpu::gp0_drawing_area_bottom_right(u32 cmd) {
 
 void Gpu::gp0_drawing_offset(u32 cmd) {
   m_drawing_offset.word = cmd;
+  m_drawing_offset.x = util::sign_extend<11, u32>(m_drawing_offset.x);
+  m_drawing_offset.y = util::sign_extend<11, u32>(m_drawing_offset.y);
 
   // HACK: trigger frame render
   m_frame = true;

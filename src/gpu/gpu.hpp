@@ -131,6 +131,8 @@ union GpuStatus {
 
   // methods
   DmaDirection dma_direction() const { return static_cast<DmaDirection>(dma_direction_); }
+  s32 tex_base_x() const { return tex_page_x_base * 64; }
+  s32 tex_base_y() const { return tex_page_y_base * 256; }
 };
 
 class Gpu {
@@ -169,10 +171,10 @@ class Gpu {
     auto gpustat = static_cast<u32>(m_gpustat.word);
 
     // Hardcode the following for now
-    gpustat |= 1 << 26;  // Ready to receive command: true
-    gpustat |= 1 << 27;  // Ready to send VRAM to CPU: true
-    gpustat |= 1 << 28;  // Ready to receive DMA block: true
-    gpustat &= ~(1 << 19); // Vertical Resolution: 240
+    gpustat |= 1 << 26;     // Ready to receive command: true
+    gpustat |= 1 << 27;     // Ready to send VRAM to CPU: true
+    gpustat |= 1 << 28;     // Ready to receive DMA block: true
+    gpustat &= ~(1 << 19);  // Vertical Resolution: 240
 
     // Not sure what this is
     Ensures(m_gpustat.reverse_flag == false);
@@ -186,6 +188,8 @@ class Gpu {
   void draw();
 
   // VRAM
+  u16 get_vram_pos(u16 x, u16 y) const;
+  u16 get_vram_idx(u32 vram_idx) const;
   void set_vram_pos(u16 x, u16 y, u16 val);
   void set_vram_idx(u32 vram_idx, u16 val);
 
@@ -197,6 +201,8 @@ class Gpu {
     m_frame = false;  // reset m_frame
     return frame_temp;
   }
+
+  std::vector<u32> const& get_gp0_cmd() const { return m_gp0_cmd; }
 
   void gp0(u32 cmd);
 
