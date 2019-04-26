@@ -45,7 +45,7 @@ union Gp0DrawingArea {
 
   struct {
     u32 x : 10;   // 0-9    X-coordinate (0..1023)
-    u32 y : 10;   // 10-18  Y-coordinate (0..511)   ;\on Old 160pin GPU (max 1MB VRAM)
+    u32 y : 9;    // 10-18  Y-coordinate (0..511)   ;\on Old 160pin GPU (max 1MB VRAM)
     u32 _19 : 1;  // 19-23  Not used (zero)         ; TODO: Used for y on new GPU
   };
 };
@@ -56,8 +56,8 @@ union Gp0DrawingOffset {
   u32 word{};
 
   struct {
-    u32 x_off : 10;  // 0-10   X-offset (-1024..+1023) (usually within X1,X2 of Drawing Area)
-    u32 y_off : 10;  // 11-21  Y-offset (-1024..+1023) (usually within Y1,Y2 of Drawing Area)
+    u32 x : 11;  // 0-10   X-offset (-1024..+1023) (usually within X1,X2 of Drawing Area)
+    u32 y : 11;  // 11-21  Y-offset (-1024..+1023) (usually within Y1,Y2 of Drawing Area)
   };
 };
 
@@ -172,8 +172,7 @@ class Gpu {
     gpustat |= 1 << 26;  // Ready to receive command: true
     gpustat |= 1 << 27;  // Ready to send VRAM to CPU: true
     gpustat |= 1 << 28;  // Ready to receive DMA block: true
-    // TODO: Do I need to set .19 to 0 as well?
-    //    gpustat &= ~(1 << 19);
+    gpustat &= ~(1 << 19); // Vertical Resolution: 240
 
     // Not sure what this is
     Ensures(m_gpustat.reverse_flag == false);
