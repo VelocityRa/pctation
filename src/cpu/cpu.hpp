@@ -42,18 +42,28 @@ enum class Cop0Register : u32 {
   COP0_PRID = 15,      // PRID - Processor ID (R)
 };
 
-// Co-processor 0 Cause Register fields
-enum Cop0CauseRegister {
-  COP0_CAUSE_BDT = 1 << 30,  // Branch delay taken
-  COP0_CAUSE_BD = 1 << 31,   // Branch delay
+union Cop0CauseRegister {
+  u32 word;
+  struct {
+    u32 _0_7 : 8;
+    u32 interrupt_pending : 8;
+    u32 _16_30 : 14;
+    u32 branch_delay_taken : 1;
+    u32 branch_delay : 1;
+  };
 };
 
-// Co-processor 0 Status Register fields
-// See usages for details
-enum Cop0StatusRegister {
-  // First 6 bits are used directly in Cpu::trigger_excption
-  COP0_SR_ISOLATE_CACHE = 1 << 16,
-  COP0_SR_BEV = 1 << 22,
+union Cop0StatusRegister {
+  u32 word;
+  struct {
+    u32 interrupt_enable : 1;
+    u32 _1_7 : 7;
+    u32 interrupt_mask : 8;
+    u32 isolate_cache : 1;
+    u32 _17_21 : 5;
+    u32 boot_exception_vectors : 1;
+    u32 _22_31 : 9;
+  };
 };
 
 enum class ExceptionCause : u32 {
@@ -179,8 +189,8 @@ class Cpu {
   Register m_cop0_bad_vaddr{};
   Register m_cop0_bdam{};
   Register m_cop0_bpcm{};
-  Register m_cop0_sr{};
-  Register m_cop0_cause{};
+  Cop0StatusRegister m_cop0_status{};
+  Cop0CauseRegister m_cop0_cause{};
   Register m_cop0_epc{};
   Register m_cop0_prid{};
 
@@ -200,7 +210,7 @@ class Cpu {
   DelayedLoad m_slot_current{};
   DelayedLoad m_slot_next{};
 
-  // For emulating exceptions
+  // Exceptions
   bool m_branch_taken{};
   bool m_branch_taken_prev{};
   bool m_in_branch_delay_slot{};

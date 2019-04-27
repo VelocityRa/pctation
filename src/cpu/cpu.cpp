@@ -207,8 +207,8 @@ void Cpu::execute_instruction(const Instruction& i) {
         case Cop0Register::COP0_DCIC: m_cop0_dcic = rt(i); break;
         case Cop0Register::COP0_BDAM: m_cop0_bdam = rt(i); goto unhandled_mtc;
         case Cop0Register::COP0_BPCM: m_cop0_bpcm = rt(i); goto unhandled_mtc;
-        case Cop0Register::COP0_SR: m_cop0_sr = rt(i); break;
-        case Cop0Register::COP0_CAUSE: m_cop0_cause = rt(i); break;
+        case Cop0Register::COP0_SR: m_cop0_status.word = rt(i); break;
+        case Cop0Register::COP0_CAUSE: m_cop0_cause.word = rt(i); break;
         case Cop0Register::COP0_EPC:
           m_cop0_epc = rt(i);
           break;
@@ -227,8 +227,8 @@ void Cpu::execute_instruction(const Instruction& i) {
         case Cop0Register::COP0_BAD_VADDR: issue_delayed_load(i.rt(), m_cop0_bad_vaddr);
         case Cop0Register::COP0_BDAM: issue_delayed_load(i.rt(), m_cop0_bdam); goto unhandled_mfc;
         case Cop0Register::COP0_BPCM: issue_delayed_load(i.rt(), m_cop0_bpcm); goto unhandled_mfc;
-        case Cop0Register::COP0_SR: issue_delayed_load(i.rt(), m_cop0_sr); break;
-        case Cop0Register::COP0_CAUSE: issue_delayed_load(i.rt(), m_cop0_cause); break;
+        case Cop0Register::COP0_SR: issue_delayed_load(i.rt(), m_cop0_status.word); break;
+        case Cop0Register::COP0_CAUSE: issue_delayed_load(i.rt(), m_cop0_cause.word); break;
         case Cop0Register::COP0_EPC: issue_delayed_load(i.rt(), m_cop0_epc); break;
         case Cop0Register::COP0_PRID:
           issue_delayed_load(i.rt(), m_cop0_prid);
@@ -262,19 +262,20 @@ void Cpu::trigger_exception(ExceptionCause cause) {
   if (cause == ExceptionCause::Breakpoint)
     handler_addr = EXCEPTION_VECTOR_BREAKPOINT;
   else
-    handler_addr = m_cop0_sr & COP0_SR_BEV ? EXCEPTION_VECTOR_GENERAL_ROM : EXCEPTION_VECTOR_GENERAL_RAM;
+    handler_addr = m_cop0_status.boot_exception_vectors ? EXCEPTION_VECTOR_GENERAL_ROM
+                                                        : EXCEPTION_VECTOR_GENERAL_RAM;
 
   // Shift bits [5:0] of the Status Register two bits to the left.
   // This has the effect of disabling interrupts and enabling kernel mode.
   // The last two bits in [5:4] are discarded, it's up to the kernel to handle more exception recursion
   // levels.
-  m_cop0_sr = (m_cop0_sr & ~0b111111u) | ((m_cop0_sr << 2) & 0b111111);
+  m_cop0_status.word = (m_cop0_status.word & ~0b111111u) | ((m_cop0_status.word << 2) & 0b111111);
 
   // Clear CAUSE except for the pending interrupt bit
-  m_cop0_cause &= ~0xFFFF00FF;
+  m_cop0_cause.word &= ~0xFFFF00FF;
 
   // TODO: .10 needs to be updated when we implement interrupts
-  m_cop0_cause = (static_cast<u32>(cause) << 2);
+  m_cop0_cause.word = (static_cast<u32>(cause) << 2);
 
   // Update EPC with the return address (PC) from the exception
   // TODO: On interrupt needs to set to next PC
@@ -282,10 +283,10 @@ void Cpu::trigger_exception(ExceptionCause cause) {
 
   if (m_in_branch_delay_slot) {
     m_cop0_epc = m_pc_next;  // need to set this to the branch target if we're in a branch delay slot
-    m_cop0_cause |= COP0_CAUSE_BD;  // also set this CAUSE bit which indicates this edge case
+    m_cop0_cause.branch_delay = true;  // also set this CAUSE bit which indicates this edge case
 
     if (m_branch_taken)
-      m_cop0_cause |= COP0_CAUSE_BDT;
+      m_cop0_cause.branch_delay_taken = true;
 
     m_cop0_jumpdest = m_pc;
   }
@@ -541,10 +542,10 @@ void Cpu::op_sdiv(const Instruction& i) {
 void Cpu::op_rfe(const Instruction& i) {
   // Restore the mode before the exception by shifting the Interrupt Enable / User Mode stack back to its
   // original position.
-  const auto mode = m_cop0_sr & 0b111111;
+  const auto mode = m_cop0_status.word & 0b111111;
 
-  m_cop0_sr &= ~0b1111u;
-  m_cop0_sr |= mode >> 2;
+  m_cop0_status.word &= ~0b1111u;
+  m_cop0_status.word |= mode >> 2;
 }
 
 bool Cpu::checked_add(u32 op1, u32 op2, u32& out) {
@@ -566,12 +567,6 @@ bool Cpu::checked_sub(u32 op1, u32 op2, u32& out) {
   out = result;
   return true;
 }
-
-// u32 Cpu::checked_mul(u32 op1, u32 op2) {
-//  if (static_cast<u64>(op1) * static_cast<u64>(op2) > 0x100000000LL)
-//    trigger_exception(ExceptionCause::EC_OVERFLOW);
-//  return op1 - op2;
-//}
 
 u32 Cpu::load32(u32 addr) {
   if (addr % 4 != 0) {
@@ -598,7 +593,7 @@ void Cpu::store32(u32 addr, u32 val) {
     trigger_store_exception(addr);
     return;
   }
-  if (m_cop0_sr & COP0_SR_ISOLATE_CACHE) {
+  if (m_cop0_status.isolate_cache) {
     LOG_TRACE("Ignoring write 0x{:08X} to 0x{:08X} due to cache isolation", val, addr);
     return;
   }
@@ -609,7 +604,7 @@ void Cpu::store16(u32 addr, u16 val) {
     trigger_store_exception(addr);
     return;
   }
-  if (m_cop0_sr & COP0_SR_ISOLATE_CACHE) {
+  if (m_cop0_status.isolate_cache) {
     LOG_TRACE("Ignoring write 0x{:04X} to 0x{:08X} due to cache isolation", val, addr);
     return;
   }
@@ -617,7 +612,7 @@ void Cpu::store16(u32 addr, u16 val) {
 }
 
 void Cpu::store8(u32 addr, u8 val) {
-  if (m_cop0_sr & COP0_SR_ISOLATE_CACHE) {
+  if (m_cop0_status.isolate_cache) {
     LOG_TRACE("Ignoring write 0x{:02X} to 0x{:08X} due to cache isolation", val, addr);
     return;
   }
