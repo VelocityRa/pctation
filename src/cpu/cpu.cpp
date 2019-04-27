@@ -624,4 +624,32 @@ void Cpu::store8(u32 addr, u8 val) {
   m_bus.write8(addr, val);
 }
 
+void Cpu::issue_delayed_load(RegisterIndex reg, u32 val) {
+  if (reg == 0)
+    return;
+  invalidate_reg(reg);
+
+  m_slot_next.reg = reg;
+  m_slot_next.val = val;
+  m_slot_next.val_prev = gpr(reg);
+}
+
+void Cpu::do_pending_load() {
+  if (m_slot_current.is_valid()) {
+    const auto cur_reg = m_slot_current.reg;
+
+    if (gpr(cur_reg) == m_slot_current.val_prev)
+      set_gpr(cur_reg, m_slot_current.val);
+  }
+
+  m_slot_current = m_slot_next;
+  m_slot_next.invalidate();
+}
+
+void Cpu::invalidate_reg(RegisterIndex r) {
+  if (m_slot_current.reg == r)
+    // Consecutive writes to the same register results in them getting lost (except the last)
+    m_slot_current.invalidate();
+}
+
 }  // namespace cpu

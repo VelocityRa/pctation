@@ -160,35 +160,6 @@ class Cpu {
   }
 
  private:
-  // Load delay emulation
-  void issue_delayed_load(RegisterIndex reg, u32 val) {
-    if (reg == 0)
-      return;
-    invalidate_reg(reg);
-
-    m_slot_next.reg = reg;
-    m_slot_next.val = val;
-    m_slot_next.val_prev = gpr(reg);
-  }
-
-  void do_pending_load() {
-    if (m_slot_current.is_valid()) {
-      const auto cur_reg = m_slot_current.reg;
-
-      if (gpr(cur_reg) == m_slot_current.val_prev)
-        set_gpr(cur_reg, m_slot_current.val);
-    }
-
-    m_slot_current = m_slot_next;
-    m_slot_next.invalidate();
-  }
-
-  void invalidate_reg(RegisterIndex r) {
-    if (m_slot_current.reg == r)
-      m_slot_current.invalidate();
-  }
-
- private:
   // General purpose registers
   std::array<Register, 32> m_gpr{};
 
@@ -213,7 +184,11 @@ class Cpu {
   Register m_cop0_epc{};
   Register m_cop0_prid{};
 
-  // For emulating Load delay
+  // Load delay emulation
+  void issue_delayed_load(RegisterIndex reg, u32 val);
+  void do_pending_load();
+  void invalidate_reg(RegisterIndex r);
+
   struct DelayedLoad {
     RegisterIndex reg{};
     u32 val{};
