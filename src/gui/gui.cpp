@@ -25,6 +25,8 @@
 
 using namespace gl;
 
+const auto SCREEN_SCALE = 1.25;
+
 const auto GUI_CLEAR_COLOR = RGBA_TO_FLOAT(133, 20, 75, 255);
 const auto GUI_COLOR_TTY_TEXT = RGBA_TO_FLOAT(170, 170, 170, 255);
 const auto GUI_COLOR_BLACK_HALF_TRANSPARENT = RGBA_TO_FLOAT(0, 0, 0, 128);
@@ -133,8 +135,10 @@ void Gui::init() {
   SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
   SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
 
-  m_window = SDL_CreateWindow("Pctation | OpenGL", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 1024,
-                              512, SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE);
+  m_window = SDL_CreateWindow("Pctation | OpenGL", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
+                              static_cast<s32>(gpu::VRAM_WIDTH * SCREEN_SCALE),
+                              static_cast<s32>(gpu::VRAM_HEIGHT * SCREEN_SCALE),
+                              SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE);
 
   if (!m_window)
     SDL_ERROR("Unable to create window");
