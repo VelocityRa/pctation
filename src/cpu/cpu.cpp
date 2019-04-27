@@ -1,6 +1,8 @@
-#include <bus/bus.hpp>
 #include <cpu/cpu.hpp>
+
+#include <bus/bus.hpp>
 #include <cpu/instruction.hpp>
+#include <cpu/interrupt.hpp>
 #include <cpu/opcode.hpp>
 #include <memory/ram.hpp>
 #include <util/log.hpp>
@@ -23,65 +25,61 @@ namespace cpu {
 
 Cpu::Cpu(bus::Bus& bus) : m_bus(bus) {}
 
-bool Cpu::step(u32& cycles_passed) {
+void Cpu::step(u32 cycles_to_execute) {
+  for (u32 cycle = 0; cycle < cycles_to_execute; cycle += APPROX_CYCLES_PER_INSTRUCTION) {
 #if LOAD_EXE_HOOK
-  // mid-boot hook to load an executable
-  if (m_pc == 0x80030000) {
-    memory::PSEXELoadInfo psxexe_load_info;
-    if (m_bus.m_ram.load_executable(psxexe_load_info)) {
-      set_pc(psxexe_load_info.pc);
-      m_gpr[28] = psxexe_load_info.r28;
-      m_gpr[29] = psxexe_load_info.r29_r30;
-      m_gpr[30] = psxexe_load_info.r29_r30;
+    // mid-boot hook to load an executable
+    if (m_pc == 0x80030000) {
+      memory::PSEXELoadInfo psxexe_load_info;
+      if (m_bus.m_ram.load_executable(psxexe_load_info)) {
+        set_pc(psxexe_load_info.pc);
+        m_gpr[28] = psxexe_load_info.r28;
+        m_gpr[29] = psxexe_load_info.r29_r30;
+        m_gpr[30] = psxexe_load_info.r29_r30;
+      }
     }
-  }
 #endif
 
-  // Store state for potential exceptions
-  save_exception_state();
+    // Store state for potential exceptions
+    save_exception_state();
 
-  // Fetch current instruction
-  const u32 cur_instr = m_bus.read32(m_pc);
+    // Check for interrupts and trigger an exception if any
+    m_bus.m_interrupts.check();
 
-  // Decode current instruction
-  const Instruction instr(cur_instr);
+    // Fetch current instruction
+    const u32 cur_instr = m_bus.read32(m_pc);
+
+    // Decode current instruction
+    const Instruction instr(cur_instr);
 
 // Log instruction disassembly
 #if TRACE_MODE == TRACE_REGS
-  char debug_str[512];
-  // This is ugly but much faster than a loop
-  // clang-format off
+    char debug_str[512];
+    // This is ugly but much faster than a loop
+    // clang-format off
     std::snprintf(debug_str, 512, "[%08X]: at:%X v0:%X v1:%X a0:%X a1:%X a2:%X a3:%X t0:%X t2:%X t3:%X t4:%X t5:%X t6:%X t7:%X s0:%X s1:%X s2:%X s3:%X s4:%X s5:%X s6:%X s7:%X t8:%X t9:%X k0:%X k1:%X gp:%X sp:%X fp:%X ra:%X hi:%X lo:%X",
       m_pc, m_gpr[1], m_gpr[2], m_gpr[3], m_gpr[4], m_gpr[5], m_gpr[6], m_gpr[7], m_gpr[8], m_gpr[10], m_gpr[11], m_gpr[12], m_gpr[13], m_gpr[14], m_gpr[15], m_gpr[16], m_gpr[17], m_gpr[18], m_gpr[19], m_gpr[20], m_gpr[21], m_gpr[22], m_gpr[23], m_gpr[24], m_gpr[25], m_gpr[26], m_gpr[27], m_gpr[28], m_gpr[29], m_gpr[30], m_gpr[31], m_hi, m_lo);
-  // clang-format on
-  LOG_CPU_NOFMT(debug_str);
+    // clang-format on
+    LOG_CPU_NOFMT(debug_str);
 #elif TRACE_MODE == TRACE_DISASM
-  LOG_CPU("[{:08X}]: {:08X} {}", m_pc, cur_instr, instr.disassemble());
+    LOG_CPU("[{:08X}]: {:08X} {}", m_pc, cur_instr, instr.disassemble());
 #endif
 
-  // Advance PC
-  set_pc(m_pc_next);
+    // Advance PC
+    set_pc(m_pc_next);
 
-  // Ensures(m_gpr[0] == 0);
-  // Execute instruction
-  execute_instruction(instr);
-  //  Ensures(m_gpr[0] == 0);
+    // Ensures(m_gpr[0] == 0);
+    // Execute instruction
+    execute_instruction(instr);
+    //  Ensures(m_gpr[0] == 0);
 
-  do_pending_load();
+    do_pending_load();
 
-  // In PC_ONLY mode we print the PC-4 for branch delay slot instructions (to match no$psx's output)
+    // In PC_ONLY mode we print the PC-4 for branch delay slot instructions (to match no$psx's output)
 #if TRACE_MODE == TRACE_PC_ONLY
-  LOG_CPU("{:08X}", m_pc - 4);
+    LOG_CPU("{:08X}", m_pc - 4);
 #endif
-
-  cycles_passed = 5;  // estimated average CPI
-
-  // HACK: This is for psx cpu test, end the frame here
-#if LOAD_EXE_HOOK
-  if (m_pc_current == 0x80016858)
-    return true;
-#endif
-  return false;
+  }
 }
 
 void Cpu::execute_instruction(const Instruction& i) {
@@ -144,8 +142,8 @@ void Cpu::execute_instruction(const Instruction& i) {
 
         if (next_instr.imm16_se() == 0x3D) {
           char tty_out_char = gpr(4);
-          //          m_tty_out += tty_out_char;
-          std::cout << tty_out_char;
+          m_tty_out += tty_out_char;
+          //          std::cout << tty_out_char;
         }
       }
 #endif
@@ -599,6 +597,7 @@ void Cpu::store32(u32 addr, u32 val) {
   }
   m_bus.write32(addr, val);
 }
+
 void Cpu::store16(u32 addr, u16 val) {
   if (addr % 2 != 0) {
     trigger_store_exception(addr);

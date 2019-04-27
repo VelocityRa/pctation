@@ -3,6 +3,7 @@
 #include <bios/bios.hpp>
 #include <bus/bus.hpp>
 #include <cpu/cpu.hpp>
+#include <cpu/interrupt.hpp>
 #include <gpu/gpu.hpp>
 #include <memory/dma.hpp>
 #include <memory/ram.hpp>
@@ -11,10 +12,6 @@
 #include <util/fs.hpp>
 
 namespace emulator {
-
-constexpr u32 CPU_CYCLES_PER_SECOND = 33'868'800;
-constexpr u32 FRAMERATE = 60;
-constexpr u32 CPU_CYCLES_PER_FRAME = CPU_CYCLES_PER_SECOND / FRAMERATE;
 
 class Emulator {
  public:
@@ -30,6 +27,7 @@ class Emulator {
 
  private:
   bios::Bios m_bios;
+  cpu::Interrupts m_interrupts;
   memory::Scratchpad m_scratchpad;
   memory::Ram m_ram;
   gpu::Gpu m_gpu;
@@ -38,8 +36,6 @@ class Emulator {
   bus::Bus m_bus;
 
   cpu::Cpu m_cpu;
-
-  s32 m_cycles_left{};
 };
 
 }  // namespace emulator

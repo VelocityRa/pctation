@@ -1,5 +1,6 @@
 #include <bios/bios.hpp>
 #include <bus/bus.hpp>
+#include <cpu/interrupt.hpp>
 #include <gpu/gpu.hpp>
 #include <memory/dma.hpp>
 #include <memory/map.hpp>
@@ -19,11 +20,9 @@ u32 Bus::read32(u32 addr) const {
   if (memory::map::RAM.contains(addr, addr_rebased))
     return m_ram.read<u32>(addr_rebased);
   if (memory::map::IRQ_CONTROL.contains(addr, addr_rebased)) {
-    LOG_WARN("Unhandled 32-bit read of {}", addr_rebased == 0 ? "I_STAT" : "I_MASK");
-    if (addr == 0)
-      return m_istat;
-    else
-      return m_imask;
+    auto val = m_interrupts.read<u32>(addr_rebased);
+    LOG_DEBUG("{} 32-bit read of 0x{:08X}", addr_rebased == 0 ? "I_STAT" : "I_MASK", val);
+    return val;
   }
   if (memory::map::BIOS.contains(addr, addr_rebased))
     return m_bios.read<u32>(addr_rebased);
@@ -56,11 +55,9 @@ u16 Bus::read16(u32 addr) const {
     return m_spu.read<u16>(addr_rebased);
   }
   if (memory::map::IRQ_CONTROL.contains(addr, addr_rebased)) {
-    LOG_WARN("Unhandled 16-bit read of {}", addr_rebased == 0 ? "I_STAT" : "I_MASK");
-    if (addr == 0)
-      return (u16)m_istat;
-    else
-      return (u16)m_imask;
+    auto val = m_interrupts.read<u16>(addr_rebased);
+    LOG_DEBUG("{} 16-bit read of 0x{:04X}", addr_rebased == 0 ? "I_STAT" : "I_MASK", val);
+    return val;
   }
   if (memory::map::JOYPAD.contains(addr, addr_rebased)) {
     LOG_WARN("Unhandled 16-bit read of Joypad register at 0x{:08X}", addr);
@@ -108,12 +105,8 @@ void Bus::write32(u32 addr, u32 val) {
   if (memory::map::RAM.contains(addr, addr_rebased))
     return m_ram.write<u32>(addr_rebased, val);
   if (memory::map::IRQ_CONTROL.contains(addr, addr_rebased)) {
-    LOG_WARN("Stubbed 32-bit write of 0x{:08X} to {}", val, addr_rebased == 0 ? "I_STAT" : "I_MASK");
-    if (addr == 0)
-      m_istat = val;
-    else
-      m_imask = val;
-    return;
+    LOG_DEBUG("{} 32-bit write of 0x{:08X}", addr_rebased == 0 ? "I_STAT" : "I_MASK", val);
+    return m_interrupts.write<u32>(addr_rebased, val);
   }
   if (memory::map::MEM_CONTROL1.contains(addr, addr_rebased)) {
     switch (addr_rebased) {
@@ -178,12 +171,8 @@ void Bus::write16(u32 addr, u16 val) {
     return m_spu.write<u16>(addr_rebased, val);
   }
   if (memory::map::IRQ_CONTROL.contains(addr, addr_rebased)) {
-    LOG_WARN("Unhandled 16-bit write of 0x{:04X} to {}", val, addr_rebased == 0 ? "I_STAT" : "I_MASK");
-    if (addr == 0)
-      m_istat = (u32)val;
-    else
-      m_imask = (u32)val;
-    return;
+    LOG_DEBUG("{} 16-bit write of 0x{:04X}", addr_rebased == 0 ? "I_STAT" : "I_MASK", val);
+    return m_interrupts.write<u16>(addr_rebased, val);
   }
   if (memory::map::JOYPAD.contains(addr, addr_rebased)) {
     LOG_WARN("Unhandled 16-bit write to Joypad register: 0x{:04X} at 0x{:08X}", val, addr);

@@ -62,6 +62,17 @@ void Gpu::set_vram_idx(u32 vram_idx, u16 val) {
   vram()[vram_idx] = val;
 }
 
+bool Gpu::step(u32 cycles_to_emulate) {
+  m_vblank_cycles_left -= cycles_to_emulate;
+
+  bool trigger_vblank = (m_vblank_cycles_left <= 0);
+
+  if (trigger_vblank)
+    m_vblank_cycles_left += CPU_CYCLES_PER_FRAME;
+
+  return trigger_vblank;
+}
+
 void Gpu::gp0(u32 cmd) {
   bool is_new_command = m_gp0_words_left == 0;
 
@@ -269,9 +280,6 @@ void Gpu::gp0_drawing_offset(u32 cmd) {
   m_drawing_offset.word = cmd;
   m_drawing_offset.x = util::sign_extend<11, u32>(m_drawing_offset.x);
   m_drawing_offset.y = util::sign_extend<11, u32>(m_drawing_offset.y);
-
-  // HACK: trigger frame render
-  m_frame = true;
 }
 
 void Gpu::gp1(u32 cmd) {

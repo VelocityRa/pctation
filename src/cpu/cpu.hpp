@@ -19,6 +19,8 @@ class Instruction;
 
 namespace cpu {
 
+constexpr u32 APPROX_CYCLES_PER_INSTRUCTION = 2;
+
 constexpr auto PC_RESET_ADDR = 0xBFC00000u;
 
 // Interrupt vectors for general interrupts and exceptions
@@ -67,6 +69,7 @@ union Cop0StatusRegister {
 };
 
 enum class ExceptionCause : u32 {
+  Interrupt = 0x0,
   LoadAddressError = 0x4,
   StoreAddressError = 0x5,
   Syscall = 0x8,
@@ -75,10 +78,12 @@ enum class ExceptionCause : u32 {
 };
 
 class Cpu {
+  friend class Interrupts;
+
  public:
   explicit Cpu(bus::Bus& bus);
 
-  bool step(u32& cycles_passed);
+  void step(u32 cycles_to_execute);
 
   // Getters
   const std::string& tty_out() const { return m_tty_out; }

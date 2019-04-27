@@ -5,6 +5,11 @@
 namespace bios {
 class Bios;
 }
+
+namespace cpu {
+class Interrupts;
+}
+
 namespace memory {
 class Ram;
 class Scratchpad;
@@ -24,17 +29,21 @@ namespace bus {
 class Bus {
  public:
   explicit Bus(bios::Bios const& bios,
+               cpu::Interrupts& interrupts,
                memory::Scratchpad& scratchpad,
                memory::Ram& ram,
                memory::Dma& dma,
                gpu::Gpu& gpu,
                spu::Spu& spu)
-      : m_ram(ram),
+
+      : m_interrupts(interrupts),
+        m_ram(ram),
         m_scratchpad(scratchpad),
         m_bios(bios),
         m_dma(dma),
         m_gpu(gpu),
         m_spu(spu) {}
+
   u32 read32(u32 addr) const;
   u16 read16(u32 addr) const;
   u8 read8(u32 addr) const;
@@ -42,11 +51,7 @@ class Bus {
   void write16(u32 addr, u16 val);
   void write8(u32 addr, u8 val);
 
-  // TODO: Move elsewhere
-  // Interrupts
-  u32 m_istat{};
-  u32 m_imask{};
-
+  cpu::Interrupts& m_interrupts;
   memory::Ram& m_ram;
 
  private:

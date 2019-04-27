@@ -11,6 +11,10 @@
 
 namespace gpu {
 
+constexpr u32 CPU_CYCLES_PER_SECOND = 33'868'800;
+constexpr u32 FRAMERATE_NTSC = 60;
+constexpr u32 CPU_CYCLES_PER_FRAME = CPU_CYCLES_PER_SECOND / FRAMERATE_NTSC;
+
 const u32 VRAM_WIDTH = 1024;
 const u32 VRAM_HEIGHT = 512;
 
@@ -193,14 +197,8 @@ class Gpu {
   void set_vram_pos(u16 x, u16 y, u16 val);
   void set_vram_idx(u32 vram_idx, u16 val);
 
-  // HACK
-  bool m_frame{};
-  // signals that a new frame just rendered
-  bool trigger_frame() {
-    const bool frame_temp = m_frame;
-    m_frame = false;  // reset m_frame
-    return frame_temp;
-  }
+  // Returns true to signals that a frame is ready for presenting (VBLANK)
+  bool step(u32 cycles_to_emualate);
 
   std::vector<u32> const& get_gp0_cmd() const { return m_gp0_cmd; }
 
@@ -241,6 +239,9 @@ class Gpu {
   u32 m_gp0_words_left = 0;
   using GpuGp0CmdHandler = void (Gpu::*)(u32 cmd);
   GpuGp0CmdHandler m_gp0_handler{};
+
+  // VBLANK
+  s32 m_vblank_cycles_left{ CPU_CYCLES_PER_FRAME };
 };
 
 }  // namespace gpu
