@@ -40,8 +40,8 @@ void Cpu::step(u32 cycles_to_execute) {
     }
 #endif
 
-    // Store state for potential exceptions
-    save_exception_state();
+    // Store state for potential exceptions (and reset current state)
+    store_exception_state();
 
     // Check for interrupts and trigger an exception if any
     m_bus.m_interrupts.check();
@@ -52,8 +52,7 @@ void Cpu::step(u32 cycles_to_execute) {
     // Decode current instruction
     const Instruction instr(cur_instr);
 
-// Log instruction disassembly
-#if TRACE_MODE == TRACE_REGS
+#if TRACE_MODE == TRACE_REGS  // Log all registers
     char debug_str[512];
     // This is ugly but much faster than a loop
     // clang-format off
@@ -61,8 +60,11 @@ void Cpu::step(u32 cycles_to_execute) {
       m_pc, m_gpr[1], m_gpr[2], m_gpr[3], m_gpr[4], m_gpr[5], m_gpr[6], m_gpr[7], m_gpr[8], m_gpr[10], m_gpr[11], m_gpr[12], m_gpr[13], m_gpr[14], m_gpr[15], m_gpr[16], m_gpr[17], m_gpr[18], m_gpr[19], m_gpr[20], m_gpr[21], m_gpr[22], m_gpr[23], m_gpr[24], m_gpr[25], m_gpr[26], m_gpr[27], m_gpr[28], m_gpr[29], m_gpr[30], m_gpr[31], m_hi, m_lo);
     // clang-format on
     LOG_CPU_NOFMT(debug_str);
-#elif TRACE_MODE == TRACE_DISASM
+#elif TRACE_MODE == TRACE_DISASM   // Log instruction disassembly
     LOG_CPU("[{:08X}]: {:08X} {}", m_pc, cur_instr, instr.disassemble());
+    // In PC_ONLY mode we print the PC-4 for branch delay slot instructions (to match no$psx's output)
+#elif TRACE_MODE == TRACE_PC_ONLY  // Log PC register only
+    LOG_CPU("{:08X}", m_pc);
 #endif
 
     // Advance PC
@@ -74,11 +76,6 @@ void Cpu::step(u32 cycles_to_execute) {
     //  Ensures(m_gpr[0] == 0);
 
     do_pending_load();
-
-    // In PC_ONLY mode we print the PC-4 for branch delay slot instructions (to match no$psx's output)
-#if TRACE_MODE == TRACE_PC_ONLY
-    LOG_CPU("{:08X}", m_pc - 4);
-#endif
   }
 }
 
@@ -132,12 +129,10 @@ void Cpu::execute_instruction(const Instruction& i) {
     case Opcode::SWR: op_swr(i); break;
     // Jumps/Branches
     case Opcode::J:
-      m_in_branch_delay_slot = true; 
+      m_in_branch_delay_slot = true;
       op_j(i);
       break;
-    case Opcode::JR:
-      m_in_branch_delay_slot = true;
-      op_jr(i);
+    case Opcode::JR: m_in_branch_delay_slot = true; op_jr(i);
 #if TTY_OUTPUT
       // Hook std_out_putchar function in the B0 kernel table. Assumes there's an ADDIU/"LI" instruction
       // right after the JR, containing the kernel procedure vector.
@@ -253,11 +248,13 @@ void Cpu::execute_instruction(const Instruction& i) {
   }
 }
 
-void Cpu::save_exception_state() {
+void Cpu::store_exception_state() {
+  // Store state that we'll need if an exception happens
   m_pc_current = m_pc;
   m_in_branch_delay_slot_saved = m_in_branch_delay_slot;
   m_branch_taken_saved = m_branch_taken;
 
+  // Reset state so that we can use/set it appropriately on the current cycle
   m_in_branch_delay_slot = false;
   m_branch_taken = false;
 }
@@ -270,7 +267,7 @@ void Cpu::trigger_exception(ExceptionCause cause) {
     handler_addr = m_cop0_status.boot_exception_vectors ? EXCEPTION_VECTOR_GENERAL_ROM
                                                         : EXCEPTION_VECTOR_GENERAL_RAM;
 
-  // Shift bits [5:0] of the Status Register two bits to the left.
+  // Shift bits [5:0] of the Status Register two bits to the left (reverse of RFE instruction)
   // This has the effect of disabling interrupts and enabling kernel mode.
   // The last two bits in [5:4] are discarded, it's up to the kernel to handle more exception recursion
   // levels.
@@ -280,15 +277,15 @@ void Cpu::trigger_exception(ExceptionCause cause) {
   m_cop0_cause.word &= ~0xFFFF00FF;
 
   m_cop0_cause.word = (static_cast<u32>(cause) << 2);
-  
+
   // Update EPC with the return address
   if (cause == ExceptionCause::Interrupt)
-    m_cop0_epc = m_pc; // on interrupt this is the next PC
+    m_cop0_epc = m_pc;  // on interrupt this is the next PC
   else
-    m_cop0_epc = m_pc_current; // on everything else, the instruction that caused the exception
+    m_cop0_epc = m_pc_current;  // on everything else, the instruction that caused the exception
 
   if (m_in_branch_delay_slot_saved) {
-    m_cop0_epc = m_pc_next;  // need to set this to the branch target if we're in a branch delay slot
+    m_cop0_epc -= 4;  // need to set this to the branch target if we're in a branch delay slot
     m_cop0_cause.branch_delay = true;  // also set this CAUSE bit which indicates this edge case
 
     if (m_branch_taken_saved)
@@ -544,10 +541,7 @@ void Cpu::op_sdiv(const Instruction& i) {
 void Cpu::op_rfe(const Instruction& i) {
   // Restore the mode before the exception by shifting the Interrupt Enable / User Mode stack back to its
   // original position.
-  const auto mode = m_cop0_status.word & 0b111111;
-
-  m_cop0_status.word &= ~0b1111u;
-  m_cop0_status.word |= mode >> 2;
+  m_cop0_status.word = (m_cop0_status.word & ~0b1111u) | ((m_cop0_status.word >> 2) & 0xF);
 }
 
 bool Cpu::checked_add(u32 op1, u32 op2, u32& out) {

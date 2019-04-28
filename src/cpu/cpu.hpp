@@ -91,7 +91,8 @@ class Cpu {
  private:
   void execute_instruction(const Instruction& i);
 
-  void save_exception_state();
+  // Exceptions
+  void store_exception_state();
   void trigger_exception(ExceptionCause cause);
   void trigger_load_exception(const address addr);
   void trigger_store_exception(const address addr);
