@@ -131,8 +131,13 @@ void Cpu::execute_instruction(const Instruction& i) {
     case Opcode::SWL: op_swl(i); break;
     case Opcode::SWR: op_swr(i); break;
     // Jumps/Branches
-    case Opcode::J: op_j(i); break;
-    case Opcode::JR: op_jr(i);
+    case Opcode::J:
+      m_in_branch_delay_slot = true; 
+      op_j(i);
+      break;
+    case Opcode::JR:
+      m_in_branch_delay_slot = true;
+      op_jr(i);
 #if TTY_OUTPUT
       // Hook std_out_putchar function in the B0 kernel table. Assumes there's an ADDIU/"LI" instruction
       // right after the JR, containing the kernel procedure vector.
@@ -149,10 +154,12 @@ void Cpu::execute_instruction(const Instruction& i) {
 #endif
       break;
     case Opcode::JAL:
+      m_in_branch_delay_slot = true;
       gpr(31) = m_pc_next;
       op_j(i);
       break;
     case Opcode::JALR:
+      m_in_branch_delay_slot = true;
       set_rd(i, m_pc_next);
       op_jr(i);
       break;
@@ -248,8 +255,8 @@ void Cpu::execute_instruction(const Instruction& i) {
 
 void Cpu::save_exception_state() {
   m_pc_current = m_pc;
-  m_in_branch_delay_slot_prev = m_in_branch_delay_slot;
-  m_branch_taken_prev = m_branch_taken;
+  m_in_branch_delay_slot_saved = m_in_branch_delay_slot;
+  m_branch_taken_saved = m_branch_taken;
 
   m_in_branch_delay_slot = false;
   m_branch_taken = false;
@@ -272,18 +279,19 @@ void Cpu::trigger_exception(ExceptionCause cause) {
   // Clear CAUSE except for the pending interrupt bit
   m_cop0_cause.word &= ~0xFFFF00FF;
 
-  // TODO: .10 needs to be updated when we implement interrupts
   m_cop0_cause.word = (static_cast<u32>(cause) << 2);
+  
+  // Update EPC with the return address
+  if (cause == ExceptionCause::Interrupt)
+    m_cop0_epc = m_pc; // on interrupt this is the next PC
+  else
+    m_cop0_epc = m_pc_current; // on everything else, the instruction that caused the exception
 
-  // Update EPC with the return address (PC) from the exception
-  // TODO: On interrupt needs to set to next PC
-  m_cop0_epc = m_pc_current;
-
-  if (m_in_branch_delay_slot) {
+  if (m_in_branch_delay_slot_saved) {
     m_cop0_epc = m_pc_next;  // need to set this to the branch target if we're in a branch delay slot
     m_cop0_cause.branch_delay = true;  // also set this CAUSE bit which indicates this edge case
 
-    if (m_branch_taken)
+    if (m_branch_taken_saved)
       m_cop0_cause.branch_delay_taken = true;
 
     m_cop0_jumpdest = m_pc;
@@ -465,8 +473,6 @@ void Cpu::op_lwr(const Instruction& i) {
 }
 
 void Cpu::op_j(const Instruction& i) {
-  m_in_branch_delay_slot = true;
-
   const address addr = m_pc_next & 0xF0000000 | (i.imm26() << 2);
 
   set_pc_next(addr);
@@ -498,8 +504,6 @@ void Cpu::op_multu(const Instruction& i) {
 }
 
 void Cpu::op_branch(const Instruction& i) {
-  m_in_branch_delay_slot = true;
-
   const address addr = m_pc + (i.imm16_se() << 2);
 
   set_pc_next(addr);

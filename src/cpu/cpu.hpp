@@ -217,9 +217,9 @@ class Cpu {
 
   // Exceptions
   bool m_branch_taken{};
-  bool m_branch_taken_prev{};
+  bool m_branch_taken_saved{};
   bool m_in_branch_delay_slot{};
-  bool m_in_branch_delay_slot_prev{};
+  bool m_in_branch_delay_slot_saved{};
 
   //  #ifndef NDEBUG
   //  // For debugging
