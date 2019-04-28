@@ -176,21 +176,21 @@ void Cpu::execute_instruction(const Instruction& i) {
       if ((s32)rs(i) <= 0)
         op_branch(i);
       break;
-    case Opcode::BCONDZ: {  // TODO: make separate opcodes?
+    case Opcode::BCONDZ: {
       m_in_branch_delay_slot = true;
 
+      // Format of rt is "X0000Y", where:
+      // - X is set if we need to link,
+      // - Y is set to the inverse of the branch target's sign bit
       const u8 opcode_2 = i.rt();
-      const bool is_bgez = opcode_2 & 0b1;
-      const bool is_link = opcode_2 & 0b10000;
+      const bool should_link = ((opcode_2 & 0x1E) == 0x10);
+      const bool should_branch = ((s32)(rs(i) ^ (opcode_2 << 31)) < 0);
 
-      // test if <= 0. invert result (>0) if is_bgez is true
-      const auto test = (u32)((s32)rs(i) < 0) ^ is_bgez;
-      if (test) {
-        if (is_link) {
-          gpr(31) = m_pc_next;
-        }
+      if (should_link)
+        gpr(31) = m_pc_next;
+
+      if (should_branch)
         op_branch(i);
-      }
       break;
     }
     // Syscall/Breakpoint
