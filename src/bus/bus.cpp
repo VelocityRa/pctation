@@ -3,6 +3,7 @@
 #include <cpu/interrupt.hpp>
 #include <gpu/gpu.hpp>
 #include <memory/dma.hpp>
+#include <memory/expansion.hpp>
 #include <memory/map.hpp>
 #include <memory/ram.hpp>
 #include <spu/spu.hpp>
@@ -33,6 +34,11 @@ u32 Bus::read32(u32 addr) const {
   if (memory::map::TIMERS.contains(addr, addr_rebased)) {
     LOG_WARN("Unhandled 32-bit read of Timer register at 0x{:08X}", addr);
     return 0;
+  }
+  if (memory::map::EXPANSION_1.contains(addr, addr_rebased)) {
+    if (addr_rebased == 0x020018)
+      __debugbreak();
+    return m_expansion.read<u32>(addr_rebased);
   }
 
   LOG_ERROR("Unknown 32-bit read at 0x{:08X}", addr);
@@ -81,9 +87,9 @@ u8 Bus::read8(u32 addr) const {
   if (memory::map::BIOS.contains(addr, addr_rebased))
     return m_bios.read<u8>(addr_rebased);
   if (memory::map::EXPANSION_1.contains(addr, addr_rebased)) {
-    LOG_WARN("Unhandled 8-bit read of EXPANSION 1 memory at 0x{:08X}", addr);
-    // No expansion unimplemented
-    return 0xFF;
+    if (addr_rebased == 0x020018)
+      __debugbreak();
+    return m_expansion.read<u8>(addr_rebased);
   }
   if (memory::map::JOYPAD.contains(addr, addr_rebased)) {
     LOG_WARN("Unhandled 8-bit read of Joypad register at 0x{:08X}", addr);

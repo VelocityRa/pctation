@@ -5,6 +5,8 @@ add_library(memory STATIC addressable.hpp
                           ram.hpp
                           dma.cpp
                           dma.hpp
-                          map.hpp)
+                          map.hpp
+                          expansion.cpp
+                          expansion.hpp)
 
 target_link_libraries(memory PUBLIC util)

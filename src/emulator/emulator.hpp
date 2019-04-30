@@ -6,6 +6,7 @@
 #include <cpu/interrupt.hpp>
 #include <gpu/gpu.hpp>
 #include <memory/dma.hpp>
+#include <memory/expansion.hpp>
 #include <memory/ram.hpp>
 #include <spu/spu.hpp>
 
@@ -15,7 +16,7 @@ namespace emulator {
 
 class Emulator {
  public:
-  explicit Emulator(fs::path bios_path, fs::path psx_exe_path);
+  explicit Emulator(fs::path bios_path, fs::path psx_exe_path, fs::path bootstrap_path);
   // Advances the emulator state approximately one frame
   void advance_frame();
 
@@ -27,6 +28,7 @@ class Emulator {
 
  private:
   bios::Bios m_bios;
+  memory::Expansion m_expansion;
   cpu::Interrupts m_interrupts;
   memory::Scratchpad m_scratchpad;
   memory::Ram m_ram;

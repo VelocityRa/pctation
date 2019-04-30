@@ -14,6 +14,7 @@ namespace memory {
 class Ram;
 class Scratchpad;
 class Dma;
+class Expansion;
 }  // namespace memory
 
 namespace gpu {
@@ -29,6 +30,7 @@ namespace bus {
 class Bus {
  public:
   explicit Bus(bios::Bios const& bios,
+               memory::Expansion& expansion,
                cpu::Interrupts& interrupts,
                memory::Scratchpad& scratchpad,
                memory::Ram& ram,
@@ -38,6 +40,7 @@ class Bus {
 
       : m_interrupts(interrupts),
         m_ram(ram),
+        m_expansion(expansion),
         m_scratchpad(scratchpad),
         m_bios(bios),
         m_dma(dma),
@@ -55,6 +58,7 @@ class Bus {
   memory::Ram& m_ram;
 
  private:
+  memory::Expansion& m_expansion;
   memory::Scratchpad& m_scratchpad;
   bios::Bios const& m_bios;
   memory::Dma& m_dma;

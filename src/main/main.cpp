@@ -6,7 +6,8 @@
 #include <exception>
 #include <memory>
 
-constexpr auto BIOS_PATH = "../../data/bios/SCPH1001.BIN";
+constexpr auto NOCASH_BIOS_PATH = "data/bios/no$psx_bios/NO$PSX_BIOS_2.0_2x.ROM";
+constexpr auto BIOS_PATH = "data/bios/SCPH1001.BIN";
 
 // Entry point
 s32 main(s32 argc, char** argv) {
@@ -18,11 +19,16 @@ s32 main(s32 argc, char** argv) {
     gui.init();
 
     std::string psxexe_path;
+    std::string bootstrap_path;
 
     if (argc > 1)
       psxexe_path = argv[1];
 
-    auto emulator = std::make_unique<emulator::Emulator>(BIOS_PATH, psxexe_path);
+    // TODO: do this properly
+    if (argc > 2)
+        bootstrap_path = argv[2];
+
+    auto emulator = std::make_unique<emulator::Emulator>(BIOS_PATH, psxexe_path, bootstrap_path);
 
     bool running = true;
     while (running) {
