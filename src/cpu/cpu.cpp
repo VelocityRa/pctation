@@ -47,7 +47,11 @@ void Cpu::step(u32 cycles_to_execute) {
     m_bus.m_interrupts.check();
 
     // Fetch current instruction
-    const u32 cur_instr = m_bus.read32(m_pc);
+    u32 cur_instr;
+    if (!load32(m_pc, cur_instr)) {
+      LOG_CRITICAL("PC unaligned: {:08X}", m_pc);
+      continue;
+    }
 
     // Decode current instruction
     const Instruction instr(cur_instr);
@@ -137,7 +141,10 @@ void Cpu::execute_instruction(const Instruction& i) {
       // Hook std_out_putchar function in the B0 kernel table. Assumes there's an ADDIU/"LI" instruction
       // right after the JR, containing the kernel procedure vector.
       if (m_pc_next == 0xB0) {
-        const Instruction next_instr(load32(m_pc));
+        u32 instr_word;
+        if (!load32(m_pc, instr_word))
+          return;
+        const Instruction next_instr(instr_word);
         Ensures(next_instr.opcode() == Opcode::ADDIU);
 
         if (next_instr.imm16_se() == 0x3D) {
@@ -336,19 +343,11 @@ void Cpu::op_sb(const Instruction& i) {
 
 void Cpu::op_sh(const Instruction& i) {
   const address addr = i.imm16_se() + rs(i);
-  if (addr % 2 != 0) {
-    trigger_store_exception(addr);
-    return;
-  }
   store16(addr, (u16)rt(i));
 }
 
 void Cpu::op_sw(const Instruction& i) {
   const address addr = i.imm16_se() + rs(i);
-  if (addr % 4 != 0) {
-    trigger_store_exception(addr);
-    return;
-  }
   store32(addr, rt(i));
 }
 
@@ -357,7 +356,9 @@ void Cpu::op_swl(const Instruction& i) {
 
   // Load aligned word
   const auto aligned_addr = addr & ~0b11u;
-  const auto cur_mem = load32(aligned_addr);
+  u32 cur_mem;
+  if (!load32(aligned_addr, cur_mem))
+    return;
 
   const Register t = rt(i);
 
@@ -369,7 +370,7 @@ void Cpu::op_swl(const Instruction& i) {
     case 2: val = cur_mem & 0xFF000000 | t >> 8; break;
     case 3: val = cur_mem & 0x00000000 | t >> 0; break;
   }
-  m_bus.write32(aligned_addr, val);
+  store32(aligned_addr, val);
 }
 
 void Cpu::op_swr(const Instruction& i) {
@@ -377,7 +378,9 @@ void Cpu::op_swr(const Instruction& i) {
 
   // Load aligned word
   const auto aligned_addr = addr & ~0b11u;
-  const auto cur_mem = load32(aligned_addr);
+  u32 cur_mem;
+  if (!load32(aligned_addr, cur_mem))
+    return;
 
   const Register t = rt(i);
 
@@ -389,44 +392,45 @@ void Cpu::op_swr(const Instruction& i) {
     case 2: val = cur_mem & 0x0000FFFF | t << 16; break;
     case 3: val = cur_mem & 0x00FFFFFF | t << 24; break;
   }
-  m_bus.write32(aligned_addr, val);
+  store32(aligned_addr, val);
 }
 
 void Cpu::op_lbu(const Instruction& i) {
   const address addr = i.imm16_se() + rs(i);
-  issue_delayed_load(i.rt(), load8(addr));
+  u8 val;
+  load8(addr, val);
+  issue_delayed_load(i.rt(), val);
 }
 
 void Cpu::op_lb(const Instruction& i) {
   const address addr = i.imm16_se() + rs(i);
-  issue_delayed_load(i.rt(), (s8)load8(addr));
+  u8 val;
+  load8(addr, val);
+  issue_delayed_load(i.rt(), (s8)val);
 }
 
 void Cpu::op_lhu(const Instruction& i) {
   const address addr = i.imm16_se() + rs(i);
-  if (addr % 2 != 0) {
-    trigger_load_exception(addr);
+  u16 val;
+  if (!load16(addr, val))
     return;
-  }
-  issue_delayed_load(i.rt(), load16(addr));
+  issue_delayed_load(i.rt(), val);
 }
 
 void Cpu::op_lh(const Instruction& i) {
   const address addr = i.imm16_se() + rs(i);
-  if (addr % 2 != 0) {
-    trigger_load_exception(addr);
+  u16 val;
+  if (!load16(addr, val))
     return;
-  }
-  issue_delayed_load(i.rt(), (s16)load16(addr));
+  issue_delayed_load(i.rt(), (s16)val);
 }
 
 void Cpu::op_lw(const Instruction& i) {
   const address addr = i.imm16_se() + rs(i);
-  if (addr % 4 != 0) {
-    trigger_load_exception(addr);
+  u32 val;
+  if (!load32(addr, val))
     return;
-  }
-  issue_delayed_load(i.rt(), load32(addr));
+  issue_delayed_load(i.rt(), val);
 }
 
 void Cpu::op_lwl(const Instruction& i) {
@@ -436,7 +440,9 @@ void Cpu::op_lwl(const Instruction& i) {
 
   // Load aligned word
   const auto aligned_addr = addr & ~0b11u;
-  const auto aligned_word = load32(aligned_addr);
+  u32 aligned_word;
+  if (!load32(aligned_addr, aligned_word))
+    return;
 
   // Depending on the alignment, fetch different number of bytes
   u32 val{};
@@ -456,7 +462,9 @@ void Cpu::op_lwr(const Instruction& i) {
 
   // Load aligned word
   const auto aligned_addr = addr & ~0b11u;
-  const auto aligned_word = load32(aligned_addr);
+  u32 aligned_word;
+  if (!load32(aligned_addr, aligned_word))
+    return;
 
   // Depending on the alignment, fetch different number of bytes
   u32 val{};
@@ -564,24 +572,26 @@ bool Cpu::checked_sub(u32 op1, u32 op2, u32& out) {
   return true;
 }
 
-u32 Cpu::load32(u32 addr) {
+bool Cpu::load32(u32 addr, u32& out_val) {
   if (addr % 4 != 0) {
     trigger_load_exception(addr);
-    return 0;
+    return false;
   }
-  return m_bus.read32(addr);
+  out_val = m_bus.read32(addr);
+  return true;
 }
 
-u16 Cpu::load16(u32 addr) {
+bool Cpu::load16(u32 addr, u16& out_val) {
   if (addr % 2 != 0) {
     trigger_load_exception(addr);
-    return 0;
+    return false;
   }
-  return m_bus.read16(addr);
+  out_val = m_bus.read16(addr);
+  return true;
 }
 
-u8 Cpu::load8(u32 addr) {
-  return m_bus.read8(addr);
+void Cpu::load8(u32 addr, u8& out_val) {
+  out_val = m_bus.read8(addr);
 }
 
 void Cpu::store32(u32 addr, u32 val) {

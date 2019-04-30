@@ -122,9 +122,9 @@ class Cpu {
   void op_sdiv(const Instruction& i);
   void op_rfe(const Instruction& i);
 
-  u32 load32(u32 addr);
-  u16 load16(u32 addr);
-  u8 load8(u32 addr);
+  bool load32(u32 addr, u32& out_val);  // Returns false on exception
+  bool load16(u32 addr, u16& out_val);  // Returns false on exception
+  void load8(u32 addr, u8& out_val);
   void store32(u32 addr, u32 val);
   void store16(u32 addr, u16 val);
   void store8(u32 addr, u8 val);
