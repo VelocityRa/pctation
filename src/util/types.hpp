@@ -13,6 +13,9 @@ using s16 = std::int16_t;
 using s32 = std::int32_t;
 using s64 = std::int64_t;
 
+using f32 = float;
+using f64 = double;
+
 using byte = u8;
 using buffer = std::vector<byte>;
 using address = u32;  // Guest address
