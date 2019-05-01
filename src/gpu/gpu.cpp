@@ -73,6 +73,28 @@ bool Gpu::step(u32 cycles_to_emulate) {
   return trigger_vblank;
 }
 
+u32 Gpu::setup_vram_transfer(u32 pos_word, u32 size_word) {
+  m_vram_transfer_x = pos_word & 0xFFFF;
+  m_vram_transfer_y = (pos_word >> 16) & 0xFFFF;
+
+  m_vram_transfer_width = size_word & 0xFFFF;
+  m_vram_transfer_height = (size_word >> 16) & 0xFFFF;
+
+  m_vram_transfer_x_start = m_vram_transfer_x;
+
+  const auto pixel_count = (m_vram_transfer_width * m_vram_transfer_height + 1) & ~1u;
+  return pixel_count;
+}
+
+void Gpu::advance_vram_transfer_pos() {
+  const auto rect_x = m_vram_transfer_x - m_vram_transfer_x_start;
+  if (rect_x == m_vram_transfer_width - 1) {
+    m_vram_transfer_x = m_vram_transfer_x_start;
+    m_vram_transfer_y++;
+  } else
+    m_vram_transfer_x++;
+}
+
 void Gpu::gp0(u32 cmd) {
   bool is_new_command = m_gp0_words_left == 0;
 
@@ -147,13 +169,7 @@ void Gpu::gp0(u32 cmd) {
         //        src_word);
 
         set_vram_pos(m_vram_transfer_x, m_vram_transfer_y, src_word);
-
-        const auto rect_x = m_vram_transfer_x - m_vram_transfer_x_start;
-        if (rect_x == m_vram_transfer_width - 1) {
-          m_vram_transfer_x = m_vram_transfer_x_start;
-          m_vram_transfer_y++;
-        } else
-          m_vram_transfer_x++;
+        advance_vram_transfer_pos();
       }
       if (transfer_finished) {
         // Load done, switch back to command mode
@@ -229,39 +245,26 @@ void Gpu::gp0_copy_rect_cpu_to_vram(u32 cmd) {
   const auto pos_word = m_gp0_cmd[1];
   const auto size_word = m_gp0_cmd[2];
 
-  m_vram_transfer_x = pos_word & 0x3FF;
-  m_vram_transfer_y = (pos_word >> 16) & 0x3FF;
+  const auto pixel_count = setup_vram_transfer(pos_word, size_word);
 
-  m_vram_transfer_width = size_word & 0x3FF;
-  m_vram_transfer_height = (size_word >> 16) & 0x3FF;
-
-  m_vram_transfer_x_start = m_vram_transfer_x;
-
-  // Size of image in 16-bit pixels, rounded up to nearest 32-bit value
-  const auto size = (m_vram_transfer_width * m_vram_transfer_height + 1) & ~1u;
-
-  m_gp0_words_left = size / 2;  // Divide by two since packets are 32-bit and we have a 16-bit size
+  m_gp0_words_left =
+      pixel_count / 2;  // Divide by two since packets are 32-bit and we have a 16-bit size
 
   // Next GP0 packets will contain image data
   m_gp0_mode = Gp0Mode::ImageLoad;
 
-  m_vram_transfer_x = pos_word;
-
-  LOG_DEBUG("Copying rect (x:{} y:{} w:{} h:{} size:{} hw) from CPU to VRAM", m_vram_transfer_x,
-            m_vram_transfer_y, m_vram_transfer_width, m_vram_transfer_height, size);
+  LOG_DEBUG("Copying rect (x:{} y:{} w:{} h:{} count:{} hw) from CPU to VRAM", m_vram_transfer_x,
+            m_vram_transfer_y, m_vram_transfer_width, m_vram_transfer_height, pixel_count);
 }
 
 void Gpu::gp0_copy_rect_vram_to_cpu(u32 cmd) {
   const auto pos_word = m_gp0_cmd[1];
   const auto size_word = m_gp0_cmd[2];
 
-  const auto width = size_word & 0xFFFF;
-  const auto height = size_word >> 16;
+  const auto pixel_count = setup_vram_transfer(pos_word, size_word);
 
-  // Size of image in 16-bit pixels, rounded up to nearest 32-bit value
-  const auto size = (width * height + 1) & ~1;
-
-  LOG_WARN(__FUNCTION__ ", width: {} height: {} size {} TODO", width, height, size);
+  LOG_DEBUG("Copying rect (x:{} y:{} w:{} h:{} count:{} hw) from VRAM to CPU", m_vram_transfer_x,
+            m_vram_transfer_y, m_vram_transfer_width, m_vram_transfer_height, pixel_count);
 }
 
 void Gpu::gp0_texture_window(u32 cmd) {

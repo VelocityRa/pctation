@@ -196,7 +196,13 @@ class Gpu {
   u16 get_vram_idx(u32 vram_idx) const;
   void set_vram_pos(u16 x, u16 y, u16 val);
   void set_vram_idx(u32 vram_idx, u16 val);
+  void advance_vram_transfer_pos();
 
+ private:
+  // Returns size of image in 16-bit pixels, rounded up to nearest 32-bit value
+  u32 setup_vram_transfer(u32 pos_word, u32 size_word);
+
+ public:
   // Returns true to signals that a frame is ready for presenting (VBLANK)
   bool step(u32 cycles_to_emualate);
 
