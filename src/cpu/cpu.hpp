@@ -15,19 +15,14 @@ namespace cpu {
 class Instruction;
 }
 
-#define TTY_OUTPUT 1
+#define LOG_TTY_OUTPUT_WITH_HOOK false  // No need to enable this if LOG_BIOS_CALLS is enabled
+#define LOG_BIOS_CALLS true             // If enabled, TTY output is logged anyways
 
 namespace cpu {
 
 constexpr u32 APPROX_CYCLES_PER_INSTRUCTION = 2;
 
 constexpr auto PC_RESET_ADDR = 0xBFC00000u;
-
-// Interrupt vectors for general interrupts and exceptions
-constexpr auto EXCEPTION_VECTOR_GENERAL_RAM = 0x80000080u;
-constexpr auto EXCEPTION_VECTOR_GENERAL_ROM = 0xBFC00180u;
-// Interrupt vector for breakpoints
-constexpr auto EXCEPTION_VECTOR_BREAKPOINT = 0x80000040u;
 
 // Co-processor 0 registers
 enum class Cop0Register : u32 {
@@ -85,11 +80,13 @@ class Cpu {
 
   void step(u32 cycles_to_execute);
 
-  // Getters
-  const std::string& tty_out() const { return m_tty_out; }
+  // Debug UI fields
+  std::string m_tty_out_log;
+  std::string m_bios_calls_log;
 
  private:
   void execute_instruction(const Instruction& i);
+  void on_bios_call(u32 masked_pc);
 
   // Exceptions
   void store_exception_state();
@@ -120,6 +117,7 @@ class Cpu {
   void op_multu(const Instruction& i);
   void op_udiv(const Instruction& i);
   void op_sdiv(const Instruction& i);
+  void op_syscall(const Instruction& i);
   void op_rfe(const Instruction& i);
 
   bool load32(u32 addr, u32& out_val);  // Returns false on exception
@@ -131,8 +129,8 @@ class Cpu {
   bool checked_add(u32 op1, u32 op2, u32& out);  // returns false on overflow
   bool checked_sub(u32 op1, u32 op2, u32& out);  // returns false on overflow
 
- private:
-  // Register getters/setters
+  // Register getters
+ public:
   Register gpr(RegisterIndex index) const {
     //    Ensures(index >= 0);
     //    Ensures(index <= 31);
@@ -143,6 +141,9 @@ class Cpu {
     //    Ensures(index <= 31);
     return m_gpr[index];
   }
+
+ private:
+  // Register setters
   void set_gpr(RegisterIndex index, u32 v) {
     m_gpr[index] = v;
     m_gpr[0] = 0;
@@ -151,6 +152,7 @@ class Cpu {
     m_pc = addr;
     m_pc_next = m_pc + 4;
   }
+
   void set_pc_next(address addr) {
     m_pc_next = addr;
     m_branch_taken = true;
@@ -228,10 +230,6 @@ class Cpu {
   //  #endif
 
   bus::Bus& m_bus;
-
-#ifdef TTY_OUTPUT
-  std::string m_tty_out;
-#endif
 };
 
 static const char* register_to_str(u8 reg_idx) {

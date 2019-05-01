@@ -1,4 +1,5 @@
 add_library(bios STATIC bios.cpp
-                        bios.hpp)
+                        bios.hpp
+                        functions.hpp)
 
-target_link_libraries(bios PUBLIC util)
+target_link_libraries(bios PUBLIC cpu util)

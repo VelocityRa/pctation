@@ -25,10 +25,9 @@
 
 using namespace gl;
 
-const auto SCREEN_SCALE = 1.25;
+const auto SCREEN_SCALE = 1.5;
 
 const auto GUI_CLEAR_COLOR = RGBA_TO_FLOAT(133, 20, 75, 255);
-const auto GUI_COLOR_TTY_TEXT = RGBA_TO_FLOAT(170, 170, 170, 255);
 const auto GUI_COLOR_BLACK_HALF_TRANSPARENT = RGBA_TO_FLOAT(0, 0, 0, 128);
 const auto GUI_TABLE_COLUMN_TITLES_COL = ImColor(255, 255, 255);
 const auto GUI_TABLE_COLUMN_ROWS_NAME_COL = IM_COL32(200, 200, 200, 255);
@@ -60,11 +59,11 @@ void init_theme() {
 // backgrounds (@todo: complete with BG_MED, BG_LOW)
 #define BG(v) ImVec4(0.200f, 0.220f, 0.270f, v)
 // text
-#define TEXT(v) ImVec4(0.860f, 0.930f, 0.890f, v)
+#define TXT(v) ImVec4(0.860f, 0.930f, 0.890f, v)
 
   auto& style = ImGui::GetStyle();
-  style.Colors[ImGuiCol_Text] = TEXT(0.78f);
-  style.Colors[ImGuiCol_TextDisabled] = TEXT(0.28f);
+  style.Colors[ImGuiCol_Text] = TXT(0.78f);
+  style.Colors[ImGuiCol_TextDisabled] = TXT(0.28f);
   style.Colors[ImGuiCol_WindowBg] = ImVec4(0.13f, 0.14f, 0.17f, 1.00f);
   style.Colors[ImGuiCol_ChildWindowBg] = BG(0.58f);
   style.Colors[ImGuiCol_PopupBg] = BG(0.9f);
@@ -96,9 +95,9 @@ void init_theme() {
   style.Colors[ImGuiCol_ResizeGrip] = ImVec4(0.47f, 0.77f, 0.83f, 0.04f);
   style.Colors[ImGuiCol_ResizeGripHovered] = MED(0.78f);
   style.Colors[ImGuiCol_ResizeGripActive] = MED(1.00f);
-  style.Colors[ImGuiCol_PlotLines] = TEXT(0.63f);
+  style.Colors[ImGuiCol_PlotLines] = TXT(0.63f);
   style.Colors[ImGuiCol_PlotLinesHovered] = MED(1.00f);
-  style.Colors[ImGuiCol_PlotHistogram] = TEXT(0.63f);
+  style.Colors[ImGuiCol_PlotHistogram] = TXT(0.63f);
   style.Colors[ImGuiCol_PlotHistogramHovered] = MED(1.00f);
   style.Colors[ImGuiCol_TextSelectedBg] = MED(0.43f);
   style.Colors[ImGuiCol_ModalWindowDarkening] = BG(0.73f);
@@ -226,7 +225,8 @@ void Gui::swap() {
 void Gui::draw_imgui(const emulator::Emulator& emulator) {
   if (false && ImGui::BeginMainMenuBar()) {  // TODO: Enable when it doesn't overlay with screen
     if (ImGui::BeginMenu("Debug")) {
-      ImGui::MenuItem("TTY Output", "Ctrl+T", &m_draw_tty, TTY_OUTPUT);
+      ImGui::MenuItem("TTY Output", "Ctrl+T", &m_draw_tty, LOG_TTY_OUTPUT_WITH_HOOK);
+      ImGui::MenuItem("BIOS Function Calls", "Ctrl+B", &m_draw_bios_calls, LOG_BIOS_CALLS);
       ImGui::MenuItem("RAM Contents", "Ctrl+R", &m_draw_ram);
       ImGui::MenuItem("GPU Registers", "Ctrl+G", &m_draw_gpu_registers);
       ImGui::EndMenu();
@@ -236,8 +236,11 @@ void Gui::draw_imgui(const emulator::Emulator& emulator) {
 
   draw_overlay_fps();
 
-  if (m_draw_tty && TTY_OUTPUT)
-    draw_dialog_tty(emulator.cpu().tty_out().c_str());
+  if (m_draw_tty && (LOG_TTY_OUTPUT_WITH_HOOK || LOG_BIOS_CALLS))
+    draw_dialog_log("TTY Output", m_draw_tty, m_tty_autoscroll, emulator.cpu().m_tty_out_log.c_str());
+  if (m_draw_bios_calls && LOG_BIOS_CALLS)
+    draw_dialog_log("BIOS Function Calls", m_draw_bios_calls, m_bios_calls_autoscroll,
+                    emulator.cpu().m_bios_calls_log.c_str());
   if (m_draw_ram)
     draw_dialog_ram(emulator.ram().data());
   if (m_draw_gpu_registers)
@@ -257,27 +260,31 @@ void Gui::clear() {
 
 // Dialogs
 
-void Gui::draw_dialog_tty(const char* tty_text) {
+void Gui::draw_dialog_log(const char* title,
+                          bool& should_draw,
+                          bool& should_autoscroll,
+                          const char* text_contents) {
   // Window style
   ImGui::SetNextWindowSize(ImVec2(470, 300), ImGuiCond_FirstUseEver);
 
   // Window creation
-  if (!ImGui::Begin("TTY Output", &m_draw_tty)) {
+  if (!ImGui::Begin(title, &should_draw)) {
     ImGui::End();
     return;
   }
 
   // Options above log text
   ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(0, 0));
-  ImGui::Checkbox("Auto-scroll", &m_tty_autoscroll);
+  ImGui::Checkbox("Auto-scroll", &should_autoscroll);
   ImGui::PopStyleVar();
+  ImGui::Spacing();
   ImGui::Separator();
 
-  // TTY text
-  ImGui::BeginChild("tty text", ImVec2(0, 0), false, ImGuiWindowFlags_HorizontalScrollbar);
-  ImGui::TextColored(GUI_COLOR_TTY_TEXT, tty_text);
+  // Text contents
+  ImGui::BeginChild(title, ImVec2(0, 0), false, ImGuiWindowFlags_HorizontalScrollbar);
+  ImGui::TextUnformatted(text_contents);
 
-  if (m_tty_autoscroll)
+  if (should_autoscroll)
     ImGui::SetScrollHere(1.0f);
   ImGui::EndChild();
 

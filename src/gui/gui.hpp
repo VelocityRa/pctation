@@ -32,7 +32,10 @@ class Gui {
  private:
   void draw_imgui(const emulator::Emulator& emulator);  // Draws all imgui GUI elements
   void draw_overlay_fps();
-  void draw_dialog_tty(const char* tty_text);
+  void draw_dialog_log(const char* title,
+                       bool& should_draw,
+                       bool& should_autoscroll,
+                       const char* text_contents);
   template <size_t RamSize>
   void draw_dialog_ram(const std::array<byte, RamSize>& data);
   void draw_gpu_registers(const gpu::Gpu& gpu);
@@ -55,6 +58,10 @@ class Gui {
   // TTY dialog fields
   bool m_draw_tty{ true };
   bool m_tty_autoscroll{ true };
+
+  // Bios Calls dialog fields
+  bool m_draw_bios_calls{ true };
+  bool m_bios_calls_autoscroll{ true };
 
   // RAM Memory dialog fields
   bool m_draw_ram{ true };

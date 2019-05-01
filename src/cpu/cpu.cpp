@@ -1,6 +1,6 @@
-#include <cpu/cpu.hpp>
-
+#include <bios/functions.hpp>
 #include <bus/bus.hpp>
+#include <cpu/cpu.hpp>
 #include <cpu/instruction.hpp>
 #include <cpu/interrupt.hpp>
 #include <cpu/opcode.hpp>
@@ -38,6 +38,10 @@ void Cpu::step(u32 cycles_to_execute) {
         m_gpr[30] = psxexe_load_info.r29_r30;
       }
     }
+#endif
+
+#ifdef LOG_BIOS_CALLS
+    bool was_branch_cycle = m_branch_taken_saved;
 #endif
 
     // Store state for potential exceptions (and reset current state)
@@ -80,6 +84,16 @@ void Cpu::step(u32 cycles_to_execute) {
     //  Ensures(m_gpr[0] == 0);
 
     do_pending_load();
+
+#ifdef LOG_BIOS_CALLS
+    if (was_branch_cycle) {
+      const auto masked_pc = m_pc_current & 0x1FFFFF;
+
+      // If we jumped to a BIOS function
+      if (masked_pc == 0xA0 || masked_pc == 0xB0 || masked_pc == 0xC0)
+        on_bios_call(masked_pc);
+    }
+#endif
   }
 }
 
@@ -137,7 +151,7 @@ void Cpu::execute_instruction(const Instruction& i) {
       op_j(i);
       break;
     case Opcode::JR: m_in_branch_delay_slot = true; op_jr(i);
-#if TTY_OUTPUT
+#if LOG_TTY_OUTPUT_WITH_HOOK
       // Hook std_out_putchar function in the B0 kernel table. Assumes there's an ADDIU/"LI" instruction
       // right after the JR, containing the kernel procedure vector.
       if (m_pc_next == 0xB0) {
@@ -203,7 +217,7 @@ void Cpu::execute_instruction(const Instruction& i) {
       break;
     }
     // Syscall/Breakpoint
-    case Opcode::SYSCALL: trigger_exception(ExceptionCause::Syscall); break;
+    case Opcode::SYSCALL: op_syscall(i); break;
     case Opcode::BREAK: trigger_exception(ExceptionCause::Breakpoint); break;
     // Co-processor 0
     case Opcode::MTC0: {
@@ -255,6 +269,59 @@ void Cpu::execute_instruction(const Instruction& i) {
   }
 }
 
+void Cpu::on_bios_call(u32 masked_pc) {
+  std::unordered_map<uint8_t, bios::Function>::const_iterator function;
+  const u8 func_number = gpr(9);
+  const auto type = masked_pc >> 4;
+  bool is_known_func = false;
+  bool log_known_func = true;
+
+  if (masked_pc == 0xA0) {
+    function = bios::A0.find(func_number);
+    if (function != bios::A0.end()) {
+      is_known_func = true;
+      if (function->second.callback != nullptr)
+        log_known_func = function->second.callback(*this);
+    }
+  } else if (masked_pc == 0xB0) {
+    function = bios::B0.find(func_number);
+    if (function != bios::B0.end()) {
+      is_known_func = true;
+      if (function->second.callback != nullptr)
+        log_known_func = function->second.callback(*this);
+    }
+  } else {
+    function = bios::C0.find(func_number);
+    if (function != bios::C0.end()) {
+      is_known_func = true;
+      if (function->second.callback != nullptr)
+        log_known_func = function->second.callback(*this);
+    }
+  }
+
+  if (!is_known_func) {
+    m_bios_calls_log += fmt::format("[{:08X}] {:01X}({:02X})\n", gpr(31), type, func_number);
+    return;
+  }
+
+  if (log_known_func) {
+    const bios::Function func = function->second;
+
+    const auto arg_count = func.args.size();
+    // Arguments after the 4th are passed on the stack, unimplemented
+    Ensures(arg_count <= 4);
+
+    std::string log_text =
+        fmt::format("[{:08X}] {:01X}({:02X}): {}(", gpr(31), type, func_number, func.name);
+    for (auto i = 0; i < arg_count; ++i) {
+      log_text += fmt::format("{}=0x{:X}{}", func.args[i], gpr(4 + i), i == (arg_count - 1) ? "" : ", ");
+    }
+    log_text += ")\n";
+
+    m_bios_calls_log += log_text;
+  }
+}
+
 void Cpu::store_exception_state() {
   // Store state that we'll need if an exception happens
   m_pc_current = m_pc;
@@ -267,6 +334,12 @@ void Cpu::store_exception_state() {
 }
 
 void Cpu::trigger_exception(ExceptionCause cause) {
+  // Interrupt vectors for general interrupts and exceptions
+  constexpr auto EXCEPTION_VECTOR_GENERAL_RAM = 0x80000080u;
+  constexpr auto EXCEPTION_VECTOR_GENERAL_ROM = 0xBFC00180u;
+  // Interrupt vector for breakpoints
+  constexpr auto EXCEPTION_VECTOR_BREAKPOINT = 0x80000040u;
+
   u32 handler_addr;
   if (cause == ExceptionCause::Breakpoint)
     handler_addr = EXCEPTION_VECTOR_BREAKPOINT;
@@ -544,6 +617,20 @@ void Cpu::op_sdiv(const Instruction& i) {
     m_lo = numerator / denominator;
     m_hi = numerator % denominator;
   }
+}
+
+void Cpu::op_syscall(const Instruction& i) {
+  const u32 syscall_function = gpr(4);
+
+  switch (syscall_function) {
+    case 0: LOG_DEBUG("SYSCALL(0x00) NoFunction()"); break;
+    case 1: LOG_DEBUG("SYSCALL(0x01) EnterCriticalSection()"); break;
+    case 2: LOG_DEBUG("SYSCALL(0x02) ExitCriticalSection()"); break;
+    case 3: LOG_DEBUG("SYSCALL(0x03) ChangeThreadSubFunction({:08X})", gpr(5)); break;
+    default: LOG_DEBUG("SYSCALL(0x{:02X} DeliverEvent(F0000010h, 4000h)", syscall_function);
+  }
+
+  trigger_exception(ExceptionCause::Syscall);
 }
 
 void Cpu::op_rfe(const Instruction& i) {
