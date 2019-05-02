@@ -216,7 +216,7 @@ void Cpu::execute_instruction(const Instruction& i) {
         case Cop0Register::COP0_BDA: issue_delayed_load(i.rt(), m_cop0_bda); goto unhandled_mfc;
         case Cop0Register::COP0_JUMPDEST: issue_delayed_load(i.rt(), m_cop0_jumpdest);
         case Cop0Register::COP0_DCIC: issue_delayed_load(i.rt(), m_cop0_dcic); break;
-        case Cop0Register::COP0_BAD_VADDR: issue_delayed_load(i.rt(), m_cop0_bad_vaddr);
+        case Cop0Register::COP0_BAD_VADDR: issue_delayed_load(i.rt(), m_cop0_bad_vaddr); break;
         case Cop0Register::COP0_BDAM: issue_delayed_load(i.rt(), m_cop0_bdam); goto unhandled_mfc;
         case Cop0Register::COP0_BPCM: issue_delayed_load(i.rt(), m_cop0_bpcm); goto unhandled_mfc;
         case Cop0Register::COP0_SR: issue_delayed_load(i.rt(), m_cop0_status.word); break;

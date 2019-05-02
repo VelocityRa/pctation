@@ -202,7 +202,7 @@ class Cpu {
   Cop0StatusRegister m_cop0_status{};
   Cop0CauseRegister m_cop0_cause{};
   Register m_cop0_epc{};
-  Register m_cop0_prid{};
+  Register m_cop0_prid{ 0x2 };  // CXD8606CQ CPU
 
   // Load delay emulation
   void issue_delayed_load(RegisterIndex reg, u32 val);
