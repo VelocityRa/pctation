@@ -7,6 +7,7 @@
 #include <imgui.h>
 #include <imgui_memory_editor/imgui_memory_editor.h>
 
+#include <chrono>
 #include <string>
 
 namespace emulator {
@@ -31,7 +32,6 @@ class Gui {
 
  private:
   void draw_imgui(const emulator::Emulator& emulator);  // Draws all imgui GUI elements
-  void draw_overlay_fps();
   void draw_dialog_log(const char* title,
                        bool& should_draw,
                        bool& should_autoscroll,
@@ -39,6 +39,8 @@ class Gui {
   template <size_t RamSize>
   void draw_dialog_ram(const std::array<byte, RamSize>& data);
   void draw_gpu_registers(const gpu::Gpu& gpu);
+  void update_window_title();
+  void update_fps_counter();
 
  private:
   // SDL
@@ -47,13 +49,10 @@ class Gui {
   SDL_Event m_event;
 
  private:
-  // Counts times draw() has been called
-  // For updating some UI elements more rarely
-  u32 m_draw_counter{};
-  // Width of characters in current font (assumes it's monospaced)
-
-  // FPS Overlay fields
-  std::string m_fps_overlay_str;
+  // FPS counter fields
+  u32 m_fps_counter_frames{};
+  std::chrono::time_point<std::chrono::steady_clock> m_fps_counter_start{};
+  f32 m_fps{};
 
   // TTY dialog fields
   bool m_draw_tty{ true };

@@ -18,6 +18,7 @@
 #include <imgui_sdl2_gl3_backend/imgui_impl_sdl.h>
 
 #include <cassert>
+#include <chrono>
 #include <exception>
 #include <sstream>
 
@@ -147,10 +148,8 @@ void Gui::init() {
   if (!m_gl_context)
     SDL_ERROR("Unable to create GL context");
 
-  // Try adaptive vsync first, falling back to regular vsync.
-  if (SDL_GL_SetSwapInterval(-1) < 0) {
-    SDL_GL_SetSwapInterval(1);
-  }
+  // Don't use Vsync
+  SDL_GL_SetSwapInterval(0);
 
   const glbinding::GetProcAddress get_proc_address = [](const char* name) {
     return reinterpret_cast<glbinding::ProcAddress>(SDL_GL_GetProcAddress(name));
@@ -181,6 +180,9 @@ void Gui::init() {
   // Setup platform/renderer bindings
   ImGui_ImplSDL2_InitForOpenGL(m_window, m_gl_context);
   ImGui_ImplOpenGL3_Init("#version 330 core");
+
+  // Start FPS counter for first frame
+  m_fps_counter_start = std::chrono::steady_clock::now();
 }
 
 bool Gui::poll_events() {
@@ -214,12 +216,35 @@ void Gui::draw(const emulator::Emulator& emulator) {
   ImGuiIO& io = ImGui::GetIO();
   glViewport(0, 0, (int)io.DisplaySize.x, (int)io.DisplaySize.y);
   ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-
-  m_draw_counter++;
 }
 
 void Gui::swap() {
   SDL_GL_SwapWindow(m_window);
+
+  update_fps_counter();
+}
+
+void Gui::update_fps_counter() {
+  ++m_fps_counter_frames;
+
+  constexpr auto SAMPLE_INTERVAL = std::chrono::milliseconds(500);
+
+  const auto now = std::chrono::steady_clock::now();
+  const std::chrono::duration<double> interval = now - m_fps_counter_start;
+
+  if (interval > SAMPLE_INTERVAL) {
+    m_fps = m_fps_counter_frames / interval.count();
+    m_fps_counter_start = now;
+    m_fps_counter_frames = 0;
+
+    update_window_title();
+  }
+}
+
+void Gui::update_window_title() {
+  std::string window_title = fmt::format("Pctation | OpenGL | {:0.2f} FPS", m_fps);
+
+  SDL_SetWindowTitle(m_window, window_title.c_str());
 }
 
 void Gui::draw_imgui(const emulator::Emulator& emulator) {
@@ -233,8 +258,6 @@ void Gui::draw_imgui(const emulator::Emulator& emulator) {
     }
     ImGui::EndMainMenuBar();
   }
-
-  draw_overlay_fps();
 
   if (m_draw_tty && (LOG_TTY_OUTPUT_WITH_HOOK || LOG_BIOS_CALLS))
     draw_dialog_log("TTY Output", m_draw_tty, m_tty_autoscroll, emulator.cpu().m_tty_out_log.c_str());
@@ -459,30 +482,6 @@ void Gui::draw_gpu_registers(const gpu::Gpu& gpu) {
   ImGui::EndChild();
 
   ImGui::End();
-}
-
-void Gui::draw_overlay_fps() {
-  // TODO: this broke after the swith to SDL
-  return;
-  // Don't want to deal with time, just update FPS overlay every X frames
-  if (m_draw_counter % 20 == 0) {
-    // TODO: implement FPS counter
-    //    m_fps_overlay_str = fmt::format("FPS: {:0.2f}", );
-  }
-
-  const auto imgui_flags_overlay = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize |
-                                   ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoScrollbar |
-                                   ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoInputs;
-
-  ImGui::SetNextWindowPos(ImVec2{ 8.f, 25.f });
-  ImGui::SetNextWindowSize(ImVec2{ 88.f, 0.f });
-  ImGui::PushStyleColor(ImGuiCol_WindowBg, GUI_COLOR_BLACK_HALF_TRANSPARENT);
-
-  ImGui::Begin("FPS", nullptr, imgui_flags_overlay);
-  ImGui::TextUnformatted(m_fps_overlay_str.c_str());
-  ImGui::End();
-
-  ImGui::PopStyleColor();
 }
 
 }  // namespace gui
