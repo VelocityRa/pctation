@@ -146,39 +146,10 @@ void Cpu::execute_instruction(const Instruction& i) {
     case Opcode::SWL: op_swl(i); break;
     case Opcode::SWR: op_swr(i); break;
     // Jumps/Branches
-    case Opcode::J:
-      m_in_branch_delay_slot = true;
-      op_j(i);
-      break;
-    case Opcode::JR: m_in_branch_delay_slot = true; op_jr(i);
-#if LOG_TTY_OUTPUT_WITH_HOOK
-      // Hook std_out_putchar function in the B0 kernel table. Assumes there's an ADDIU/"LI" instruction
-      // right after the JR, containing the kernel procedure vector.
-      if (m_pc_next == 0xB0) {
-        u32 instr_word;
-        if (!load32(m_pc, instr_word))
-          return;
-        const Instruction next_instr(instr_word);
-        Ensures(next_instr.opcode() == Opcode::ADDIU);
-
-        if (next_instr.imm16_se() == 0x3D) {
-          char tty_out_char = gpr(4);
-          m_tty_out += tty_out_char;
-          //          std::cout << tty_out_char;
-        }
-      }
-#endif
-      break;
-    case Opcode::JAL:
-      m_in_branch_delay_slot = true;
-      gpr(31) = m_pc_next;
-      op_j(i);
-      break;
-    case Opcode::JALR:
-      m_in_branch_delay_slot = true;
-      set_rd(i, m_pc_next);
-      op_jr(i);
-      break;
+    case Opcode::J: op_j(i); break;
+    case Opcode::JR: op_jr(i); break;
+    case Opcode::JAL: op_jal(i); break;
+    case Opcode::JALR: op_jalr(i); break;
     case Opcode::BEQ:
       m_in_branch_delay_slot = true;
       if (rs(i) == rt(i))
@@ -551,13 +522,55 @@ void Cpu::op_lwr(const Instruction& i) {
 }
 
 void Cpu::op_j(const Instruction& i) {
+  m_in_branch_delay_slot = true;
   const address addr = m_pc_next & 0xF0000000 | (i.imm26() << 2);
 
   set_pc_next(addr);
 }
 
 void Cpu::op_jr(const Instruction& i) {
+  m_in_branch_delay_slot = true;
   const address addr = rs(i);
+
+  if (addr % 4 != 0) {
+    trigger_load_exception(addr);
+    return;
+  }
+  set_pc_next(addr);
+
+#if LOG_TTY_OUTPUT_WITH_HOOK
+  // Hook std_out_putchar function in the B0 kernel table. Assumes there's an ADDIU/"LI" instruction
+  // right after the JR, containing the kernel procedure vector.
+  if (m_pc_next == 0xB0) {
+    u32 instr_word;
+    if (!load32(m_pc, instr_word))
+      return;
+    const Instruction next_instr(instr_word);
+    Ensures(next_instr.opcode() == Opcode::ADDIU);
+
+    if (next_instr.imm16_se() == 0x3D) {
+      char tty_out_char = gpr(4);
+      m_tty_out += tty_out_char;
+      //          std::cout << tty_out_char;
+    }
+  }
+#endif
+}
+
+void Cpu::op_jal(const Instruction& i) {
+  m_in_branch_delay_slot = true;
+
+  gpr(31) = m_pc_next;
+  const address addr = m_pc_next & 0xF0000000 | (i.imm26() << 2);
+
+  set_pc_next(addr);
+}
+
+void Cpu::op_jalr(const Instruction& i) {
+  m_in_branch_delay_slot = true;
+
+  const address addr = rs(i);
+  set_rd(i, m_pc_next);
 
   if (addr % 4 != 0) {
     trigger_load_exception(addr);

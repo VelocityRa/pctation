@@ -113,6 +113,8 @@ class Cpu {
   void op_branch(const Instruction& i);
   void op_j(const Instruction& i);
   void op_jr(const Instruction& i);
+  void op_jal(const Instruction& i);
+  void op_jalr(const Instruction& i);
   void op_mult(const Instruction& i);
   void op_multu(const Instruction& i);
   void op_udiv(const Instruction& i);
