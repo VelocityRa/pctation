@@ -480,7 +480,11 @@ void Cpu::op_lw(const Instruction& i) {
 void Cpu::op_lwl(const Instruction& i) {
   const address addr = rs(i) + i.imm16_se();
 
-  const auto cur_v = rt(i);
+  Register cur_v;
+  if (m_slot_current.reg == i.rt())
+    cur_v = m_slot_current.val; // No load delay on consecutive LWLs with the same RT
+  else
+    cur_v = rt(i);
 
   // Load aligned word
   const auto aligned_addr = addr & ~0b11u;
@@ -502,7 +506,11 @@ void Cpu::op_lwl(const Instruction& i) {
 void Cpu::op_lwr(const Instruction& i) {
   const address addr = rs(i) + i.imm16_se();
 
-  const auto cur_v = rt(i);
+  Register cur_v;
+  if (m_slot_current.reg == i.rt())
+      cur_v = m_slot_current.val; // No load delay on consecutive LWRs with the same RT
+  else
+      cur_v = rt(i);
 
   // Load aligned word
   const auto aligned_addr = addr & ~0b11u;
