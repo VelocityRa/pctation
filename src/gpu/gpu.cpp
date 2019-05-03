@@ -12,7 +12,7 @@
 namespace gpu {
 
 Gpu::Gpu() {
-  m_gp0_cmd.reserve(12);  // Max command size
+  m_gp0_cmd.reserve(MAX_GP0_CMD_LEN);
   m_vram = std::make_unique<std::array<u16, VRAM_WIDTH * VRAM_HEIGHT>>();
 }
 
@@ -96,113 +96,120 @@ void Gpu::advance_vram_transfer_pos() {
 }
 
 void Gpu::gp0(u32 cmd) {
-  bool is_new_command = m_gp0_words_left == 0;
+  if (m_gp0_cmd_type == RenderCommandType::None) {
+    m_gp0_cmd.clear();
+    m_gp0_cmd.push_back(cmd);
 
-  if (is_new_command) {
-    const auto opcode = (cmd >> 24) & 0xFF;
-    const auto args = cmd & 0xFFFFFF;
+    const u8 opcode = cmd >> 24;
+    const u32 args = cmd & 0xFFFFFF;
+    m_gp0_arg_index = 0;
+    m_gp0_arg_count = 0;
 
     LOG_DEBUG("GP0 cmd: {:08X}", cmd);
 
-    // Pair of command length (in words) and handler
-    using Gp0OpcodeHandlerEntry = std::pair<u8, GpuGp0CmdHandler>;
-
-    static const std::unordered_map<u8, Gp0OpcodeHandlerEntry> gp0_handlers = {
-      { 0x00, { 1, &Gpu::gp0_nop } },
-      { 0x01, { 1, &Gpu::gp0_clear_cache } },
-      { 0x28, { 5, &Gpu::gp0_quad_mono_opaque } },
-      { 0x2C, { 9, &Gpu::gp0_quad_texture_blend_opaque } },
-      { 0x30, { 6, &Gpu::gp0_triangle_shaded_opaque } },
-      { 0x38, { 8, &Gpu::gp0_quad_shaded_opaque } },
-      { 0x1F, { 1, &Gpu::gp0_gpu_irq } },
-      { 0x68, { 2, &Gpu::gp0_mono_rect_1x1_opaque } },
-      { 0xA0, { 3, &Gpu::gp0_copy_rect_cpu_to_vram } },
-      { 0xC0, { 3, &Gpu::gp0_copy_rect_vram_to_cpu } },
-      { 0xE1, { 1, &Gpu::gp0_draw_mode } },
-      { 0xE2, { 1, &Gpu::gp0_texture_window } },
-      { 0xE3, { 1, &Gpu::gp0_drawing_area_top_left } },
-      { 0xE4, { 1, &Gpu::gp0_drawing_area_bottom_right } },
-      { 0xE5, { 1, &Gpu::gp0_drawing_offset } },
-      { 0xE6, { 1, &Gpu::gp0_mask_bit } },
-    };
-
-    const auto handler_entry = gp0_handlers.find(opcode);
-    if (handler_entry != std::end(gp0_handlers)) {  // we have a handler for this command
-      const auto cmd_length = handler_entry->second.first;
-      const auto cmd_handler = handler_entry->second.second;
-
-      m_gp0_words_left = cmd_length;
-      m_gp0_handler = cmd_handler;
-
-      m_gp0_cmd.clear();
-    } else {  // command is unimplemented
+    if (opcode == 0x00) {                          // Nop
+    } else if (opcode == 0x01) {                   // Clear cache
+    } else if (0x20 <= opcode && opcode < 0x40) {  // Draw polygon
+      m_gp0_cmd_type = RenderCommandType::Polygon;
+      m_gp0_arg_count = renderer::DrawCommand{ opcode }.polygon.get_arg_count();
+    } else if (0x40 <= opcode && opcode < 0x60) {  // Draw line
+      m_gp0_cmd_type = RenderCommandType::Line;
+      m_gp0_arg_count = renderer::DrawCommand{ opcode }.line.get_arg_count();
+    } else if (0x60 <= opcode && opcode < 0x80) {  // Draw rectangle
+      m_gp0_cmd_type = RenderCommandType::Rectangle;
+      m_gp0_arg_count = renderer::DrawCommand{ opcode }.rectangle.get_arg_count();
+    } else if (opcode == 0x1F)
+      gp0_gpu_irq(cmd);
+    else if (opcode == 0xA0) {  // Copy rectangle (CPU -> VRAM)
+      m_gp0_cmd_type = RenderCommandType::CopyCpuToVram;
+      m_gp0_arg_count = 2;
+    } else if (opcode == 0xC0) {  // Copy rectangle (VRAM -> CPU)
+      m_gp0_cmd_type = RenderCommandType::CopyVramToCpu;
+      m_gp0_arg_count = 2;
+    } else if (opcode == 0xE1)
+      gp0_draw_mode(cmd);
+    else if (opcode == 0xE2)
+      gp0_texture_window(cmd);
+    else if (opcode == 0xE3)
+      gp0_drawing_area_top_left(cmd);
+    else if (opcode == 0xE4)
+      gp0_drawing_area_bottom_right(cmd);
+    else if (opcode == 0xE5)
+      gp0_drawing_offset(cmd);
+    else if (opcode == 0xE6)
+      gp0_mask_bit(cmd);
+    else {  // command is unimplemented
       // Error here because if this command accepts parameters, we will process them as commands and
       // cause undefined behavior
       LOG_ERROR("Unhandled GP0 cmd: 0x{:08X}", cmd);
     }
-  } else {  // argument to some preceding command
-    LOG_TRACE("  arg: {:08X}", cmd);
+    return;
   }
 
-  m_gp0_words_left--;
+  // If it reaches here we know 'cmd' is an argument to some preceding command, or CPU -> VRAM transfer
+  // image data
 
-  bool transfer_finished = m_gp0_words_left == 0;
+  m_gp0_arg_index++;
+  LOG_TRACE("  GP0 arg: {:08X}", cmd);
 
-  switch (m_gp0_mode) {
-    case Gp0Mode::Command:
-      m_gp0_cmd.push_back(cmd);
+  const bool is_transfer_data = (m_gp0_cmd_type == RenderCommandType::CopyCpuToVramTransferring);
 
-      if (transfer_finished) {
-        // We have all the arguments, we can run the command
-        std::invoke(m_gp0_handler, this, cmd);
+  if (is_transfer_data) {
+    do_cpu_to_vram_transfer(cmd);
+    return;
+  }
+
+  // If it reaches here we know 'cmd' is an argument to some preceding command
+
+  m_gp0_cmd.push_back(cmd);
+
+  bool command_issued = (m_gp0_arg_index == m_gp0_arg_count);
+
+  if (m_gp0_arg_count == MAX_GP0_CMD_LEN - 1)
+    if (!command_issued)
+      if (cmd == 0x55555555 || cmd == 0x50005000)
+        command_issued = true;
+
+  if (command_issued) {
+    // Save temporary and reset it here instead of at the end, because following
+    // handlers might change it themselves type and we wouldn't want to override that
+    const auto cmd_type = m_gp0_cmd_type;
+    m_gp0_cmd_type = RenderCommandType::None;
+
+    // We have all the arguments, we can run the command
+    // TODO:
+    switch (cmd_type) {
+      case RenderCommandType::Polygon: {
+        const u8 opcode = m_gp0_cmd[0] >> 24;
+        auto draw_cmd = renderer::DrawCommand{ opcode }.polygon;
+        m_renderer.draw_polygon(draw_cmd);
+        break;
       }
-      break;
-    case Gp0Mode::ImageLoad: {
-      for (auto i = 0; i < 2; ++i) {
-        u16 src_word;
-        if (i == 0)
-          src_word = (u16)cmd;
-        else
-          src_word = (u16)(cmd >> 16);
-
-        //        LOG_TRACE("X: {:>4X} Y: {:>4X} SRC: 0x{:04X}", m_vram_transfer_x, m_vram_transfer_y,
-        //        src_word);
-
-        set_vram_pos(m_vram_transfer_x, m_vram_transfer_y, src_word);
-        advance_vram_transfer_pos();
+      case RenderCommandType::Line: {
+        const u8 opcode = m_gp0_cmd[0] >> 24;
+        auto draw_cmd = renderer::DrawCommand{ opcode }.line;
+        // TODO:
+        LOG_WARN("Unimplemented rendering of {} line (op: {:02X})",
+                 draw_cmd.is_poly() ? "poly" : "single", opcode);
+        break;
       }
-      if (transfer_finished) {
-        // Load done, switch back to command mode
-        m_gp0_mode = Gp0Mode::Command;
+      case RenderCommandType::Rectangle: {
+        const u8 opcode = m_gp0_cmd[0] >> 24;
+        auto draw_cmd = renderer::DrawCommand{ opcode }.rectangle;
+        // TODO:
+        LOG_WARN("Unimplemented rendering of {} rectangle (op: {:02X})",
+                 draw_cmd.texture_mapping ? "textured" : "colored", opcode);
+        break;
       }
-    } break;
-    default: LOG_ERROR("Invalid Gp0Mode"); assert(0);
+      case RenderCommandType::CopyCpuToVram: gp0_copy_rect_cpu_to_vram(cmd); break;
+      case RenderCommandType::CopyVramToCpu: gp0_copy_rect_vram_to_cpu(cmd); break;
+      case RenderCommandType::Invalid: break;
+    }
   }
 }
 
-void Gpu::gp0_quad_mono_opaque(u32 cmd) {
-  const auto color = m_gp0_cmd[0];
-  m_renderer.draw_quad_mono(
-      renderer::Position::from_gp0(m_gp0_cmd[1], m_gp0_cmd[2], m_gp0_cmd[3], m_gp0_cmd[4]),
-      renderer::Color::from_gp0(color));
-}
-
-void Gpu::gp0_quad_texture_blend_opaque(u32 cmd) {
-  m_renderer.draw_quad_textured(
-      renderer::Position::from_gp0(m_gp0_cmd[1], m_gp0_cmd[3], m_gp0_cmd[5], m_gp0_cmd[7]),
-      renderer::TextureInfo::from_gp0(m_gp0_cmd[0], m_gp0_cmd[2], m_gp0_cmd[4], m_gp0_cmd[6],
-                                      m_gp0_cmd[8]));
-}
-
-void Gpu::gp0_triangle_shaded_opaque(u32 cmd) {
-  m_renderer.draw_triangle_shaded(renderer::Position::from_gp0(m_gp0_cmd[1], m_gp0_cmd[3], m_gp0_cmd[5]),
-                                  renderer::Color::from_gp0(m_gp0_cmd[0], m_gp0_cmd[2], m_gp0_cmd[4]));
-}
-
-void Gpu::gp0_quad_shaded_opaque(u32 cmd) {
-  m_renderer.draw_quad_shaded(
-      renderer::Position::from_gp0(m_gp0_cmd[1], m_gp0_cmd[3], m_gp0_cmd[5], m_gp0_cmd[7]),
-      renderer::Color::from_gp0(m_gp0_cmd[0], m_gp0_cmd[2], m_gp0_cmd[4], m_gp0_cmd[6]));
+void Gpu::gp0_mono_polyline_opaque(u32 cmd) {
+  LOG_TODO();
 }
 
 void Gpu::gp0_draw_mode(u32 cmd) {
@@ -231,14 +238,20 @@ void Gpu::gp0_mask_bit(u32 cmd) {
 void Gpu::gp0_gpu_irq(u32 cmd) {
   m_gpustat.interrupt = true;
 }
+//
+// void Gpu::gp0_mono_rect_opaque(u32 cmd) {
+//  m_renderer.draw_rect_mono(renderer::Position::from_gp0(m_gp0_cmd[1]),
+//                            renderer::Size::from_gp0(m_gp0_cmd[2]),
+//                            renderer::Color::from_gp0(m_gp0_cmd[0]));
+//}
 
 void Gpu::gp0_mono_rect_1x1_opaque(u32 cmd) {
   // TODO: handle in renderer (draw_rect_mono?)
-  const auto pos = renderer::Position::from_gp0(m_gp0_cmd[1]);
-  const auto col = renderer::Color::from_gp0(m_gp0_cmd[0]);
-  const auto c16 = RGB16::from_RGB(col.r, col.g, col.b);
+  const auto color = renderer::Color::from_gp0(m_gp0_cmd[0]);
+  const auto position = renderer::Position::from_gp0(m_gp0_cmd[1]);
+  const auto c16 = RGB16::from_RGB(color.r, color.g, color.b);
 
-  set_vram_pos(pos.x, pos.y, c16.word);
+  set_vram_pos(position.x, position.y, c16.word);
 }
 
 void Gpu::gp0_copy_rect_cpu_to_vram(u32 cmd) {
@@ -247,11 +260,12 @@ void Gpu::gp0_copy_rect_cpu_to_vram(u32 cmd) {
 
   const auto pixel_count = setup_vram_transfer(pos_word, size_word);
 
-  m_gp0_words_left =
-      pixel_count / 2;  // Divide by two since packets are 32-bit and we have a 16-bit size
+  m_gp0_arg_index =
+      0;  // Reset arg index, we are now counting transfer words, not the command's 2 arguments
+  m_gp0_arg_count = pixel_count / 2;  // Divide by two since packets are 32-bit and we have a 16-bit size
 
   // Next GP0 packets will contain image data
-  m_gp0_mode = Gp0Mode::ImageLoad;
+  m_gp0_cmd_type = RenderCommandType::CopyCpuToVramTransferring;
 
   LOG_DEBUG("Copying rect (x:{} y:{} w:{} h:{} count:{} hw) from CPU to VRAM", m_vram_transfer_x,
             m_vram_transfer_y, m_vram_transfer_width, m_vram_transfer_height, pixel_count);
@@ -265,6 +279,26 @@ void Gpu::gp0_copy_rect_vram_to_cpu(u32 cmd) {
 
   LOG_DEBUG("Copying rect (x:{} y:{} w:{} h:{} count:{} hw) from VRAM to CPU", m_vram_transfer_x,
             m_vram_transfer_y, m_vram_transfer_width, m_vram_transfer_height, pixel_count);
+}
+
+void Gpu::do_cpu_to_vram_transfer(u32 cmd) {
+  for (auto i = 0; i < 2; ++i) {
+    u16 src_word;
+    if (i == 0)
+      src_word = (u16)cmd;
+    else
+      src_word = (u16)(cmd >> 16);
+
+    //        LOG_TRACE("X: {:>4X} Y: {:>4X} SRC: 0x{:04X}", m_vram_transfer_x, m_vram_transfer_y,
+    //        src_word);
+
+    set_vram_pos(m_vram_transfer_x, m_vram_transfer_y, src_word);
+    advance_vram_transfer_pos();
+  }
+  if (m_gp0_arg_index == m_gp0_arg_count) {
+    // Load done, start processing new commands
+    m_gp0_cmd_type = RenderCommandType::None;
+  }
 }
 
 void Gpu::gp0_texture_window(u32 cmd) {
@@ -330,8 +364,9 @@ void Gpu::gp1_cmd_buf_reset() {
   // Clear GP0 state machine state
   // TODO: Implement proper FIFO
   m_gp0_cmd.clear();
-  m_gp0_mode = Gp0Mode::Command;
-  m_gp0_words_left = 0;
+  m_gp0_cmd_type = RenderCommandType::None;
+  m_gp0_arg_count = 0;
+  m_gp0_arg_index = 0;
 }
 
 void Gpu::gp1_ack_gpu_interrupt() {

@@ -15,19 +15,16 @@ constexpr u32 CPU_CYCLES_PER_SECOND = 33'868'800;
 constexpr u32 FRAMERATE_NTSC = 60;
 constexpr u32 CPU_CYCLES_PER_FRAME = CPU_CYCLES_PER_SECOND / FRAMERATE_NTSC;
 
-const u32 VRAM_WIDTH = 1024;
-const u32 VRAM_HEIGHT = 512;
+constexpr u32 MAX_GP0_CMD_LEN = 32;
+
+constexpr u32 VRAM_WIDTH = 1024;
+constexpr u32 VRAM_HEIGHT = 512;
 
 enum DmaDirection {
   Off = 0,
   Fifo = 1,
   CpuToGp0 = 2,
   VRamToCpu = 3,
-};
-
-enum class Gp0Mode {
-  Command,    // We're processing words that are part of a command
-  ImageLoad,  // We're processing words that are image data transferred by a Copy command
 };
 
 // GP0(E2h) - Texture Window setting
@@ -65,10 +62,23 @@ union Gp0DrawingOffset {
   };
 };
 
-struct Gp0DrawMode {
-  // The rest of the fields are set to GPUSTAT
-  bool rect_textured_x_flip{};
-  bool rect_textured_y_flip{};
+// GP0(E1h) - Draw Mode setting (aka "Texpage")
+union Gp0DrawMode {
+  u32 word{};
+
+  // Only define the fields we want to use (the rest are common with GPUSTAT definition)
+  struct {
+    u32 tex_page_x_base : 4;  //  0-3   Texture page X Base
+    u32 tex_page_y_base : 1;  //  4     Texture page Y Base
+    u32 _5_6 : 2;
+    u32 tex_page_colors : 2;  //  7-8   Texture page colors
+    u32 _9_11 : 3;
+    u32 rect_textured_x_flip : 1;  // 12
+    u32 rect_textured_y_flip : 1;  // 13
+  };
+
+  s32 tex_base_x() const { return tex_page_x_base * 64; }
+  s32 tex_base_y() const { return tex_page_y_base * 256; }
 };
 
 // GP1(05h) - Start of Display area (in VRAM)
@@ -99,6 +109,17 @@ union Gp1VDisplayRange {
     u32 y1 : 10;  // Y1 (NTSC=88h-(224/2), (PAL=A3h-(264/2))  ;\scanline numbers on screen
     u32 y2 : 10;  // Y2 (NTSC=88h+(224/2), (PAL=A3h+(264/2))  ;/relative to VSYNC
   };
+};
+
+enum class RenderCommandType {
+  None,
+  Line,
+  Rectangle,
+  Polygon,
+  CopyCpuToVram,
+  CopyCpuToVramTransferring,  // Extra state to denote that GP0 is receiving image data
+  CopyVramToCpu,
+  Invalid,
 };
 
 // GPUSTAT register
@@ -135,8 +156,6 @@ union GpuStatus {
 
   // methods
   DmaDirection dma_direction() const { return static_cast<DmaDirection>(dma_direction_); }
-  s32 tex_base_x() const { return tex_page_x_base * 64; }
-  s32 tex_base_y() const { return tex_page_y_base * 256; }
 };
 
 class Gpu {
@@ -201,6 +220,7 @@ class Gpu {
  private:
   // Returns size of image in 16-bit pixels, rounded up to nearest 32-bit value
   u32 setup_vram_transfer(u32 pos_word, u32 size_word);
+  void do_cpu_to_vram_transfer(u32 cmd);
 
  public:
   // Returns true to signals that a frame is ready for presenting (VBLANK)
@@ -211,12 +231,7 @@ class Gpu {
   void gp0(u32 cmd);
 
  private:
-  void gp0_nop(u32 cmd){};
-  void gp0_clear_cache(u32 cmd){};
-  void gp0_quad_mono_opaque(u32 cmd);
-  void gp0_quad_texture_blend_opaque(u32 cmd);
-  void gp0_triangle_shaded_opaque(u32 cmd);
-  void gp0_quad_shaded_opaque(u32 cmd);
+  void gp0_mono_polyline_opaque(u32 cmd);
   void gp0_draw_mode(u32 cmd);
   void gp0_mask_bit(u32 cmd);
   void gp0_gpu_irq(u32 cmd);  // rarely used
@@ -239,12 +254,12 @@ class Gpu {
  private:
   renderer::Renderer m_renderer = renderer::Renderer(*this);
 
+  // TOOD: reset all these in the method
   // GP0 command handling
-  Gp0Mode m_gp0_mode = Gp0Mode::Command;
-  std::vector<u32> m_gp0_cmd;  // 1 to 12 words comprising a GP0 command
-  u32 m_gp0_words_left = 0;
-  using GpuGp0CmdHandler = void (Gpu::*)(u32 cmd);
-  GpuGp0CmdHandler m_gp0_handler{};
+  RenderCommandType m_gp0_cmd_type = RenderCommandType::None;
+  u32 m_gp0_arg_count{};       // Number of args
+  u32 m_gp0_arg_index{};       // Current arg index
+  std::vector<u32> m_gp0_cmd;  // All words comprising a GP0 command
 
   // VBLANK
   s32 m_vblank_cycles_left{ CPU_CYCLES_PER_FRAME };
