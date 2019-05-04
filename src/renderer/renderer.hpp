@@ -60,8 +60,8 @@ struct Size {
   s16 height;
 
   static Size from_gp0(u32 cmd) {
-    return { util::sign_extend<10, s16>((s16)(cmd >> 16) & 0x3FF),
-             util::sign_extend<10, s16>((s16)cmd & 0x1FF) };
+    return { util::sign_extend<10, s16>((s16)cmd & 0x1FF),
+             util::sign_extend<10, s16>((s16)(cmd >> 16) & 0x3FF) };
   }
 };
 
