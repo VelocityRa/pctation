@@ -53,6 +53,10 @@ struct Position {
   static Position4 from_gp0(u32 cmd, u32 cmd2, u32 cmd3, u32 cmd4) {
     return { from_gp0(cmd), from_gp0(cmd2), from_gp0(cmd3), from_gp0(cmd4) };
   }
+  Position operator+(const Position& rhs) const {
+    // TODO: sign extend?
+    return { x + rhs.x, y + rhs.y };
+  }
 };
 
 struct Size {
@@ -82,12 +86,16 @@ struct Color {
 };
 
 struct Texcoord {
-  u8 x;
-  u8 y;
+  s16 x;
+  s16 y;
 
   static Texcoord from_gp0(u32 cmd) { return { (u8)(cmd & 0xFF), (u8)((cmd >> 8) & 0xFF) }; }
   static Texcoord4 from_gp0(u32 cmd1, u32 cmd2, u32 cmd3, u32 cmd4) {
     return { from_gp0(cmd1), from_gp0(cmd2), from_gp0(cmd3), from_gp0(cmd4) };
+  }
+  Texcoord operator+(const Texcoord& rhs) const {
+    // TODO: sign extend?
+    return { x + rhs.x, y + rhs.y };
   }
 };
 
@@ -272,6 +280,7 @@ class Renderer {
   void draw_triangle(Position3 pos, DrawTriVariableArgs draw_args);
 
   void draw_polygon(const DrawCommand::Polygon& polygon);
+  void draw_rectangle(const DrawCommand::Rectangle& polygon);
 
  private:
   void draw_polygon_impl(Position4 positions,

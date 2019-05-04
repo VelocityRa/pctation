@@ -327,6 +327,48 @@ void Renderer::draw_polygon(const DrawCommand::Polygon& polygon) {
   draw_polygon_impl(positions, colors, tex_info, polygon.is_quad(), polygon.texture_mapping);
 }
 
+void Renderer::draw_rectangle(const DrawCommand::Rectangle& rectangle) {
+  Position4 positions;
+  Color4 colors;
+  TextureInfo tex_info{};
+  Size size;
+
+  const auto gp0_cmd = m_gpu.get_gp0_cmd();
+  const auto is_textured = rectangle.texture_mapping;
+
+  u8 arg_idx = 1;
+
+  // Gather data from command words
+  colors[0] = colors[1] = colors[2] = colors[3] = Color::from_gp0(gp0_cmd[0]);
+  positions[0] = Position::from_gp0(gp0_cmd[arg_idx++]);
+
+  if (is_textured) {
+    tex_info.palette = Palette::from_gp0(gp0_cmd[arg_idx]);
+    tex_info.page = (u16)m_gpu.m_draw_mode.word;
+    tex_info.color = colors[0];
+    tex_info.uv[0] = Texcoord::from_gp0(gp0_cmd[arg_idx++]);
+  }
+  if (rectangle.is_variable_sized())
+    size = Size::from_gp0(gp0_cmd[arg_idx++]);
+  else
+    size = rectangle.get_static_size();
+
+  positions[1] = positions[0] + Position{ size.width, (s16)0 };
+  positions[2] = positions[0] + Position{ (s16)0, size.height };
+  positions[3] = positions[0] + Position{ size.width, size.height };
+
+  if (is_textured) {
+    auto& uv = tex_info.uv;
+    uv[1] = uv[0] + Texcoord{ size.width, 0 };
+    uv[2] = uv[0] + Texcoord{ 0, size.height };
+    uv[3] = uv[0] + Texcoord{ size.width, size.height };
+  }
+  // TODO: semi transparency
+  // TODO: raw textures
+  const auto is_quad = true;
+  draw_polygon_impl(positions, colors, tex_info, is_quad, is_textured);
+}
+
 void Renderer::render() {
   // Bind needed state
   glBindVertexArray(m_vao);

@@ -196,9 +196,7 @@ void Gpu::gp0(u32 cmd) {
       case RenderCommandType::Rectangle: {
         const u8 opcode = m_gp0_cmd[0] >> 24;
         auto draw_cmd = renderer::DrawCommand{ opcode }.rectangle;
-        // TODO:
-        LOG_WARN("Unimplemented rendering of {} rectangle (op: {:02X})",
-                 draw_cmd.texture_mapping ? "textured" : "colored", opcode);
+        m_renderer.draw_rectangle(draw_cmd);
         break;
       }
       case RenderCommandType::CopyCpuToVram: gp0_copy_rect_cpu_to_vram(cmd); break;
@@ -238,12 +236,6 @@ void Gpu::gp0_mask_bit(u32 cmd) {
 void Gpu::gp0_gpu_irq(u32 cmd) {
   m_gpustat.interrupt = true;
 }
-//
-// void Gpu::gp0_mono_rect_opaque(u32 cmd) {
-//  m_renderer.draw_rect_mono(renderer::Position::from_gp0(m_gp0_cmd[1]),
-//                            renderer::Size::from_gp0(m_gp0_cmd[2]),
-//                            renderer::Color::from_gp0(m_gp0_cmd[0]));
-//}
 
 void Gpu::gp0_mono_rect_1x1_opaque(u32 cmd) {
   // TODO: handle in renderer (draw_rect_mono?)
