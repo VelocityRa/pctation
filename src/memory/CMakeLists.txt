@@ -5,6 +5,8 @@ add_library(memory STATIC addressable.hpp
                           ram.hpp
                           dma.cpp
                           dma.hpp
+                          dma_channel.cpp
+                          dma_channel.hpp
                           map.hpp
                           expansion.cpp
                           expansion.hpp)
