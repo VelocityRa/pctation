@@ -139,6 +139,8 @@ void Dma::do_block_transfer(DmaPort port) {
   LOG_DEBUG("Starting DMA block transfer: {} {} RAM, sync mode: {}", dma_port_to_str(port),
             channel.to_ram() ? "to" : "from", channel.sync_mode_str());
 
+  // TODO: optimize for the few combinations that are actually used
+
   while (transfer_word_count > 0) {
     const auto addr_cur = addr & RAM_ADDR_MASK;
 
@@ -150,11 +152,11 @@ void Dma::do_block_transfer(DmaPort port) {
           // Not supposed to read from anywhere for OTC, values are specific and depend on the address
           case DmaPort::Otc:
             if (transfer_word_count == 1)
-              src_word = 0xFFFFFF;  // Last OTC entry contains the "End of table" marker
+              // Last OTC entry contains the "End of table" marker
+              src_word = 0xFFFFFF;
             else
-              // TODO: Should this be RAM_ADDR_MASK?
-              src_word =
-                  (addr - 4) & 0x1FFFFF;  // Each of the rest of the entries points to the previous one
+              // Each of the rest of the entries points to the previous one
+              src_word = (addr - 4) & RAM_ADDR_MASK;
             break;
           case DmaPort::Gpu:
             src_word = m_gpu.get_vram_pos(m_gpu.m_vram_transfer_x, m_gpu.m_vram_transfer_y);
