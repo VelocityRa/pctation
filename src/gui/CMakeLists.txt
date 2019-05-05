@@ -12,6 +12,7 @@ target_link_libraries(gui PUBLIC SDL2::SDL2
                                  glbinding::glbinding-aux
                                  imgui::imgui
                                  imgui_sdl2_gl3_backend
+                                 io
                                  gpu
                                  emulator
                                  util)

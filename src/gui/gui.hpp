@@ -10,6 +10,10 @@
 #include <chrono>
 #include <string>
 
+namespace io {
+class Joypad;
+}
+
 namespace emulator {
 class Emulator;
 }
@@ -23,8 +27,8 @@ namespace gui {
 class Gui {
  public:
   void init();
-  bool poll_events();     // Returns true if there are any pending events
-  bool process_events();  // returns true if apllication exit was requested
+  bool poll_events();                       // Returns true if there are any pending events
+  bool process_events(io::Joypad& joypad);  // returns true if apllication exit was requested
   void draw(const emulator::Emulator& emulator);
   void swap();
   void deinit();

@@ -6,7 +6,8 @@
 #include <exception>
 #include <memory>
 
-constexpr auto NOCASH_BIOS_PATH = "data/bios/no$psx_bios/NO$PSX_BIOS_2.0_2x.ROM";
+constexpr auto NOCASH_BIOS_2_0_PATH = "data/bios/no$psx_bios/NO$PSX_BIOS_2.0_2x.ROM";
+constexpr auto NOCASH_BIOS_1_2_PATH = "data/bios/no$psx_bios/NO$PSX_BIOS_1.2_2x.ROM";
 constexpr auto BIOS_PATH = "data/bios/SCPH1001.BIN";
 
 // Entry point
@@ -33,7 +34,7 @@ s32 main(s32 argc, char** argv) {
     bool running = true;
     while (running) {
       while (gui.poll_events()) {
-        running = !gui.process_events();
+        running = !gui.process_events(emulator->joypad());
       }
 
       emulator->advance_frame();

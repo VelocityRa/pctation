@@ -2,6 +2,7 @@
 #include <bus/bus.hpp>
 #include <cpu/interrupt.hpp>
 #include <gpu/gpu.hpp>
+#include <io/joypad.hpp>
 #include <memory/dma.hpp>
 #include <memory/expansion.hpp>
 #include <memory/map.hpp>
@@ -10,6 +11,8 @@
 #include <util/log.hpp>
 
 namespace bus {
+
+// TODO: refactor IO reads/writes
 
 u32 Bus::read32(u32 addr) const {
   addr = memory::mask_region(addr);
@@ -66,8 +69,8 @@ u16 Bus::read16(u32 addr) const {
     return val;
   }
   if (memory::map::JOYPAD.contains(addr, addr_rebased)) {
-    LOG_WARN("Unhandled 16-bit read of Joypad register at 0x{:08X}", addr);
-    return 0;
+    LOG_TRACE("16-bit read of {}", io::Joypad::addr_to_reg_name(addr_rebased));
+    return (u16)m_joypad.read8(addr_rebased) | (u16)m_joypad.read8(addr_rebased + 1) << 8;
   }
 
   LOG_ERROR("Unknown 16-bit read at 0x{:08X}", addr);
@@ -86,6 +89,10 @@ u8 Bus::read8(u32 addr) const {
     return m_ram.read<u8>(addr_rebased);
   if (memory::map::BIOS.contains(addr, addr_rebased))
     return m_bios.read<u8>(addr_rebased);
+  if (memory::map::JOYPAD.contains(addr, addr_rebased)) {
+    LOG_TRACE("8-bit read of {}", io::Joypad::addr_to_reg_name(addr_rebased));
+    return m_joypad.read8(addr_rebased);
+  }
   if (memory::map::EXPANSION_1.contains(addr, addr_rebased)) {
     if (addr_rebased == 0x020018)
       __debugbreak();
@@ -181,7 +188,9 @@ void Bus::write16(u32 addr, u16 val) {
     return m_interrupts.write<u16>(addr_rebased, val);
   }
   if (memory::map::JOYPAD.contains(addr, addr_rebased)) {
-    LOG_WARN("Unhandled 16-bit write to Joypad register: 0x{:04X} at 0x{:08X}", val, addr);
+    LOG_TRACE("16-bit write of {:04X} to {}", val, io::Joypad::addr_to_reg_name(addr_rebased));
+    m_joypad.write8(addr_rebased, val & 0xFF);
+    m_joypad.write8(addr_rebased + 1, (val >> 8) & 0xFF);
     return;
   }
 
@@ -196,8 +205,11 @@ void Bus::write8(u32 addr, u8 val) {
 
   if (memory::map::SCRATCHPAD.contains(addr, addr_rebased))
     return m_scratchpad.write<u8>(addr_rebased, val);
-  if (memory::map::RAM.contains(addr, addr_rebased))
-    return m_ram.write<u8>(addr_rebased, val);
+  if (memory::map::JOYPAD.contains(addr, addr_rebased)) {
+    LOG_TRACE("8-bit write of {:02X} to {}", val, io::Joypad::addr_to_reg_name(addr_rebased));
+    m_joypad.write8(addr_rebased, val);
+    return;
+  }
   if (memory::map::EXPANSION_2.contains(addr, addr_rebased)) {
     LOG_WARN("Unhandled 8-bit write to EXPANSION_2 register: 0x{:02X} at 0x{:08X}", val, addr);
     return;

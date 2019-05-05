@@ -189,7 +189,7 @@ bool Gui::poll_events() {
   return SDL_PollEvent(&m_event);
 }
 
-bool Gui::process_events() {
+bool Gui::process_events(io::Joypad& joypad) {
   bool should_exit = false;
 
   ImGui_ImplSDL2_ProcessEvent(&m_event);
@@ -198,6 +198,34 @@ bool Gui::process_events() {
   if (m_event.type == SDL_WINDOWEVENT && m_event.window.event == SDL_WINDOWEVENT_CLOSE &&
       m_event.window.windowID == SDL_GetWindowID(m_window))
     should_exit = true;
+
+  if (m_event.type == SDL_KEYUP || m_event.type == SDL_KEYDOWN) {
+    const bool was_pressed = m_event.key.state == SDL_PRESSED;
+    const auto sym = m_event.key.keysym.sym;
+
+    u8 button_index;
+    switch (sym) {
+      case SDLK_w: button_index = io::BTN_SELECT; break;
+      case SDLK_c: button_index = io::BTN_L3; break;
+      case SDLK_v: button_index = io::BTN_R3; break;
+      case SDLK_2: button_index = io::BTN_START; break;
+      case SDLK_UP: button_index = io::BTN_PAD_UP; break;
+      case SDLK_RIGHT: button_index = io::BTN_PAD_RIGHT; break;
+      case SDLK_DOWN: button_index = io::BTN_PAD_DOWN; break;
+      case SDLK_LEFT: button_index = io::BTN_PAD_LEFT; break;
+      case SDLK_1: button_index = io::BTN_L2; break;
+      case SDLK_3: button_index = io::BTN_R2; break;
+      case SDLK_q: button_index = io::BTN_L1; break;
+      case SDLK_e: button_index = io::BTN_R1; break;
+      case SDLK_s: button_index = io::BTN_TRIANGLE; break;
+      case SDLK_x: button_index = io::BTN_CIRCLE; break;
+      case SDLK_z: button_index = io::BTN_CROSS; break;
+      case SDLK_a: button_index = io::BTN_SQUARE; break;
+      default: button_index = io::BTN_INVALID;
+    }
+    if (button_index != io::BTN_INVALID)
+      joypad.update_button(button_index, was_pressed);
+  }
 
   return should_exit;
 }
@@ -230,7 +258,7 @@ void Gui::update_fps_counter() {
   constexpr auto SAMPLE_INTERVAL = std::chrono::milliseconds(500);
 
   const auto now = std::chrono::steady_clock::now();
-  const std::chrono::duration<double> interval = now - m_fps_counter_start;
+  const std::chrono::duration<float> interval = now - m_fps_counter_start;
 
   if (interval > SAMPLE_INTERVAL) {
     m_fps = m_fps_counter_frames / interval.count();
@@ -408,7 +436,7 @@ void Gui::draw_gpu_registers(const gpu::Gpu& gpu) {
 
   // GPUSTAT fields to string tables
   const char* semi_transparency_str[] = { "B/2+F/2", "B+F", "B-F", "B+F/4" };
-  const char* tex_page_colors_str[] = { "4bit", "8bit", "15bit", "Reserv." };
+  const char* tex_page_colors_str[] = { "4bit", "8bit", "15bit", "15bitAlt" };
   const char* video_mode_str[] = { "NTSC", "PAL" };
   const char* disp_color_depth_str[] = { "15bit", "24bit" };
   const char* dma_direction_str[] = { "Off", "???", "CPUtoGP0", "VRMtoCPU" };
