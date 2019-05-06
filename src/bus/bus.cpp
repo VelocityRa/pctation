@@ -19,10 +19,10 @@ u32 Bus::read32(u32 addr) const {
 
   address addr_rebased;
 
-  if (memory::map::SCRATCHPAD.contains(addr, addr_rebased))
-    return m_scratchpad.read<u32>(addr_rebased);
   if (memory::map::RAM.contains(addr, addr_rebased))
     return m_ram.read<u32>(addr_rebased);
+  if (memory::map::SCRATCHPAD.contains(addr, addr_rebased))
+    return m_scratchpad.read<u32>(addr_rebased);
   if (memory::map::IRQ_CONTROL.contains(addr, addr_rebased)) {
     auto val = m_interrupts.read<u32>(addr_rebased);
     LOG_DEBUG("{} 32-bit read of 0x{:08X}", addr_rebased == 0 ? "I_STAT" : "I_MASK", val);
@@ -54,10 +54,10 @@ u16 Bus::read16(u32 addr) const {
 
   address addr_rebased;
 
-  if (memory::map::SCRATCHPAD.contains(addr, addr_rebased))
-    return m_scratchpad.read<u16>(addr_rebased);
   if (memory::map::RAM.contains(addr, addr_rebased))
     return m_ram.read<u16>(addr_rebased);
+  if (memory::map::SCRATCHPAD.contains(addr, addr_rebased))
+    return m_scratchpad.read<u16>(addr_rebased);
   if (memory::map::SPU.contains(addr, addr_rebased)) {
     // NOTE: TRACE level because it's used a lot in BIOS init.
     LOG_TRACE("Stubbed 16-bit read of SPU register at 0x{:08X}", addr);
@@ -72,6 +72,15 @@ u16 Bus::read16(u32 addr) const {
     LOG_TRACE("16-bit read of {}", io::Joypad::addr_to_reg_name(addr_rebased));
     return (u16)m_joypad.read8(addr_rebased) | (u16)m_joypad.read8(addr_rebased + 1) << 8;
   }
+  if (memory::map::EXPANSION_1.contains(addr, addr_rebased)) {
+    if (addr_rebased == 0x020018)
+      __debugbreak();
+    return m_expansion.read<u16>(addr_rebased);
+  }
+  if (memory::map::SIO.contains(addr, addr_rebased)) {
+    LOG_WARN("Unhandled 16-bit read of SIO register at 0x{:04X}", addr);
+    return 0;
+  }
 
   LOG_ERROR("Unknown 16-bit read at 0x{:08X}", addr);
   assert(0);
@@ -83,10 +92,10 @@ u8 Bus::read8(u32 addr) const {
 
   address addr_rebased;
 
-  if (memory::map::SCRATCHPAD.contains(addr, addr_rebased))
-    return m_scratchpad.read<u8>(addr_rebased);
   if (memory::map::RAM.contains(addr, addr_rebased))
     return m_ram.read<u8>(addr_rebased);
+  if (memory::map::SCRATCHPAD.contains(addr, addr_rebased))
+    return m_scratchpad.read<u8>(addr_rebased);
   if (memory::map::BIOS.contains(addr, addr_rebased))
     return m_bios.read<u8>(addr_rebased);
   if (memory::map::JOYPAD.contains(addr, addr_rebased)) {
@@ -98,8 +107,12 @@ u8 Bus::read8(u32 addr) const {
       __debugbreak();
     return m_expansion.read<u8>(addr_rebased);
   }
-  if (memory::map::JOYPAD.contains(addr, addr_rebased)) {
-    LOG_WARN("Unhandled 8-bit read of Joypad register at 0x{:08X}", addr);
+  if (memory::map::EXPANSION_2.contains(addr, addr_rebased)) {
+    LOG_WARN("Unhandled 8-bit read of EXPANSION_2 register at 0x{:08X}", addr);
+    return 0;
+  }
+  if (memory::map::SIO.contains(addr, addr_rebased)) {
+    LOG_WARN("Unhandled 8-bit read of SIO register at 0x{:08X}", addr);
     return 0;
   }
 
@@ -113,10 +126,14 @@ void Bus::write32(u32 addr, u32 val) {
 
   address addr_rebased;
 
-  if (memory::map::SCRATCHPAD.contains(addr, addr_rebased))
-    return m_scratchpad.write<u32>(addr_rebased, val);
   if (memory::map::RAM.contains(addr, addr_rebased))
     return m_ram.write<u32>(addr_rebased, val);
+  if (memory::map::SCRATCHPAD.contains(addr, addr_rebased))
+    return m_scratchpad.write<u32>(addr_rebased, val);
+  if (memory::map::SPU.contains(addr, addr_rebased)) {
+    LOG_WARN("Stubbed 32-bit write to SPU register: 0x{:08X} at 0x{:08X}", val, addr);
+    return m_spu.write<u32>(addr_rebased, val);
+  }
   if (memory::map::IRQ_CONTROL.contains(addr, addr_rebased)) {
     LOG_DEBUG("{} 32-bit write of 0x{:08X}", addr_rebased == 0 ? "I_STAT" : "I_MASK", val);
     return m_interrupts.write<u32>(addr_rebased, val);
@@ -170,10 +187,10 @@ void Bus::write16(u32 addr, u16 val) {
 
   address addr_rebased;
 
-  if (memory::map::SCRATCHPAD.contains(addr, addr_rebased))
-    return m_scratchpad.write<u16>(addr_rebased, val);
   if (memory::map::RAM.contains(addr, addr_rebased))
     return m_ram.write<u16>(addr_rebased, val);
+  if (memory::map::SCRATCHPAD.contains(addr, addr_rebased))
+    return m_scratchpad.write<u16>(addr_rebased, val);
   if (memory::map::TIMERS.contains(addr, addr_rebased)) {
     LOG_WARN("Unhandled 16-bit write to Timer register: 0x{:04X} at 0x{:08X}", val, addr);
     return;
@@ -193,6 +210,10 @@ void Bus::write16(u32 addr, u16 val) {
     m_joypad.write8(addr_rebased + 1, (val >> 8) & 0xFF);
     return;
   }
+  if (memory::map::SIO.contains(addr, addr_rebased)) {
+    LOG_WARN("Unhandled 16-bit write to SIO register: 0x{:04X} at 0x{:08X}", val, addr);
+    return;
+  }
 
   LOG_ERROR("Unknown 16-bit write of 0x{:04X} at 0x{:08X} ", val, addr);
   assert(0);
@@ -203,6 +224,8 @@ void Bus::write8(u32 addr, u8 val) {
 
   address addr_rebased;
 
+  if (memory::map::RAM.contains(addr, addr_rebased))
+    return m_ram.write<u8>(addr_rebased, val);
   if (memory::map::SCRATCHPAD.contains(addr, addr_rebased))
     return m_scratchpad.write<u8>(addr_rebased, val);
   if (memory::map::JOYPAD.contains(addr, addr_rebased)) {

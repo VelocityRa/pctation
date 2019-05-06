@@ -28,6 +28,7 @@ static constexpr Range DMA{ 0x1F801080, 0x80 };
 static constexpr Range GPU{ 0x1F801810, 8 };
 static constexpr Range SCRATCHPAD{ 0x1F800000, SCRATCHPAD_SIZE };
 static constexpr Range JOYPAD{ 0x1F801040, 0x10 };
+static constexpr Range SIO{ 0x1F801050, 0x10 };
 
 }  // namespace map
 
