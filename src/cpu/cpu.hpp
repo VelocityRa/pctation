@@ -69,6 +69,7 @@ enum class ExceptionCause : u32 {
   StoreAddressError = 0x5,
   Syscall = 0x8,
   Breakpoint = 0x9,
+  ReservedInstruction = 0xA,
   Overflow = 0xC,
 };
 

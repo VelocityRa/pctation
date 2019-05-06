@@ -60,6 +60,11 @@ void Cpu::step(u32 cycles_to_execute) {
     // Decode current instruction
     const Instruction instr(cur_instr);
 
+    if (instr.opcode() == Opcode::INVALID) {
+      trigger_exception(ExceptionCause::ReservedInstruction);
+      return;
+    }
+
 #if TRACE_MODE == TRACE_REGS  // Log all registers
     char debug_str[512];
     // This is ugly but much faster than a loop
@@ -248,22 +253,19 @@ void Cpu::on_bios_call(u32 masked_pc) {
   bool log_known_func = true;
 
   if (masked_pc == 0xA0) {
-    function = bios::A0.find(func_number);
-    if (function != bios::A0.end()) {
+    if ((function = bios::A0.find(func_number)) != bios::A0.end()) {
       is_known_func = true;
       if (function->second.callback != nullptr)
         log_known_func = function->second.callback(*this);
     }
   } else if (masked_pc == 0xB0) {
-    function = bios::B0.find(func_number);
-    if (function != bios::B0.end()) {
+    if ((function = bios::B0.find(func_number)) != bios::B0.end()) {
       is_known_func = true;
       if (function->second.callback != nullptr)
         log_known_func = function->second.callback(*this);
     }
   } else {
-    function = bios::C0.find(func_number);
-    if (function != bios::C0.end()) {
+    if ((function = bios::C0.find(func_number)) != bios::C0.end()) {
       is_known_func = true;
       if (function->second.callback != nullptr)
         log_known_func = function->second.callback(*this);
@@ -284,6 +286,7 @@ void Cpu::on_bios_call(u32 masked_pc) {
 
     std::string log_text =
         fmt::format("[{:08X}] {:01X}({:02X}): {}(", gpr(31), type, func_number, func.name);
+
     for (auto i = 0; i < arg_count; ++i) {
       log_text += fmt::format("{}=0x{:X}{}", func.args[i], gpr(4 + i), i == (arg_count - 1) ? "" : ", ");
     }
@@ -336,13 +339,13 @@ void Cpu::trigger_exception(ExceptionCause cause) {
     m_cop0_epc = m_pc_current;  // on everything else, the instruction that caused the exception
 
   if (m_in_branch_delay_slot_saved) {
-    m_cop0_epc -= 4;  // need to set this to the branch target if we're in a branch delay slot
+    m_cop0_epc -= 4;  // need to set this to the branch instruction if we're in a branch delay slot
     m_cop0_cause.branch_delay = true;  // also set this CAUSE bit which indicates this edge case
 
     if (m_branch_taken_saved)
-      m_cop0_cause.branch_delay_taken = true;
+      m_cop0_cause.branch_delay_taken = true;  // Another edge case, if the branch was actually taken
 
-    m_cop0_jumpdest = m_pc;
+    m_cop0_jumpdest = m_pc;  // Update JUMPDEST ()
   }
 
   if (cause == ExceptionCause::Breakpoint)
@@ -482,7 +485,7 @@ void Cpu::op_lwl(const Instruction& i) {
 
   Register cur_v;
   if (m_slot_current.reg == i.rt())
-    cur_v = m_slot_current.val; // No load delay on consecutive LWLs with the same RT
+    cur_v = m_slot_current.val;  // No load delay on consecutive LWLs with the same RT
   else
     cur_v = rt(i);
 
@@ -508,9 +511,9 @@ void Cpu::op_lwr(const Instruction& i) {
 
   Register cur_v;
   if (m_slot_current.reg == i.rt())
-      cur_v = m_slot_current.val; // No load delay on consecutive LWRs with the same RT
+    cur_v = m_slot_current.val;  // No load delay on consecutive LWRs with the same RT
   else
-      cur_v = rt(i);
+    cur_v = rt(i);
 
   // Load aligned word
   const auto aligned_addr = addr & ~0b11u;
