@@ -22,16 +22,16 @@ enum class IrqType : u16 {
 
 union Irq {
   struct {
-    IrqType vblank : 1;
-    IrqType gpu : 1;
-    IrqType cdrom : 1;
-    IrqType dma : 1;
-    IrqType timer0 : 1;
-    IrqType timer1 : 1;
-    IrqType timer2 : 1;
-    IrqType controller : 1;
-    IrqType sio : 1;
-    IrqType spu : 1;
+    u16 vblank : 1;
+    u16 gpu : 1;
+    u16 cdrom : 1;
+    u16 dma : 1;
+    u16 timer0 : 1;
+    u16 timer1 : 1;
+    u16 timer2 : 1;
+    u16 controller : 1;
+    u16 sio : 1;
+    u16 spu : 1;
   };
   u16 word;
   u8 byte[2];

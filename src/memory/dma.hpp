@@ -4,6 +4,7 @@
 #include <util/types.hpp>
 
 #include <array>
+#include <bitset>
 
 namespace memory {
 class Ram;
@@ -11,6 +12,10 @@ class Ram;
 
 namespace gpu {
 class Gpu;
+}
+
+namespace cpu {
+class Interrupts;
 }
 
 namespace memory {
@@ -38,12 +43,6 @@ static const char* dma_port_to_str(DmaPort dma_port) {
   }
 }
 
-enum class DmaRegister : u32 {
-  DMA_GPU_CONTROL = 0x28,
-  DMA_CONTROL = 0x70,
-  DMA_INTERRUPT = 0x74,
-};
-
 union DmaInterruptRegister {
   u32 word{};
 
@@ -69,29 +68,50 @@ union DmaInterruptRegister {
     u32 ram_flags : 1;
     u32 master_flags : 1;
   };
+
+  bool is_port_enabled(DmaPort port) const { return (word & (1 << (16 + (u8)port))) || master_enable; }
+  void set_port_flags(DmaPort port, bool val) {
+    std::bitset<32> bs(word);
+    bs.set((u8)port + 24, val);
+    word = bs.to_ulong();
+  }
+
+  bool get_irq_master_flag() {
+    u8 all_enable = (word & 0x7F0000) >> 16;
+    u8 all_flag = (word & 0x7F000000) >> 24;
+    return force || (master_enable && (all_enable & all_flag));
+  }
 };
 
 class Dma {
  public:
-  explicit Dma(memory::Ram& ram, gpu::Gpu& gpu) : m_ram(ram), m_gpu(gpu) {}
+  explicit Dma(memory::Ram& ram, gpu::Gpu& gpu, cpu::Interrupts& interrupts)
+      : m_ram(ram),
+        m_gpu(gpu),
+        m_interrupts(interrupts) {}
 
-  void set_reg(DmaRegister reg, u32 val);
-  u32 read_reg(DmaRegister reg) const;
+  void write_reg(address addr, u32 val);
+  u32 read_reg(address addr) const;
   DmaChannel const& channel_control(DmaPort port) const;
   DmaChannel& channel_control(DmaPort port);
+  void step();
 
  private:
   void do_transfer(DmaPort port);
   void do_block_transfer(DmaPort port);
+  void transfer_finished(DmaChannel& channel, DmaPort port);
   void do_linked_list_transfer(DmaPort port);
 
  private:
-  DmaInterruptRegister m_interrupt;
+  u32 m_reg_control{ 0x07654321 };
+  DmaInterruptRegister m_reg_interrupt;
+  bool m_irq_pending{};
+
   std::array<DmaChannel, 7> m_channels{};
-  u32 m_control{ 0x07654321 };
 
   memory::Ram& m_ram;
   gpu::Gpu& m_gpu;
+  cpu::Interrupts& m_interrupts;
 };
 
 }  // namespace memory

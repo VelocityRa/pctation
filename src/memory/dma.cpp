@@ -1,5 +1,6 @@
 #include <memory/dma.hpp>
 
+#include <cpu/interrupt.hpp>
 #include <gpu/gpu.hpp>
 #include <memory/dma_channel.hpp>
 #include <memory/ram.hpp>
@@ -11,10 +12,9 @@ namespace memory {
 
 constexpr u32 RAM_ADDR_MASK = 0x1FFFFC;
 
-u32 Dma::read_reg(DmaRegister reg) const {
-  const u32 reg_offset = (u32)reg;
-  const auto major = (reg_offset & 0x70) >> 4;
-  const auto minor = reg_offset & 0xF;
+u32 Dma::read_reg(address addr) const {
+  const auto major = (addr & 0x70) >> 4;
+  const auto minor = addr & 0xF;
 
   if (0 <= major && major <= 6) {
     // Per-channel registers
@@ -24,24 +24,24 @@ u32 Dma::read_reg(DmaRegister reg) const {
       case 0: return channel.m_base_addr;
       case 4: return channel.m_block_control.word;
       case 8: return channel.m_channel_control.word;
-      default: LOG_WARN("Unhandled read from DMA at offset 0x{:08X}", reg_offset); return 0;
+      default: LOG_WARN("Unhandled read from DMA at offset 0x{:08X}", addr); return 0;
     }
   } else if (major == 7) {
     // Common registers
     switch (minor) {
-      case 0: return m_control;
-      case 4: return m_interrupt.word;
-      default: LOG_WARN("Unhandled read from DMA at offset 0x{:08X}", reg_offset); return 0;
+      case 0: return m_reg_control;
+      case 4: return m_reg_interrupt.word;
+      default: LOG_WARN("Unhandled read from DMA at offset 0x{:08X}", addr); return 0;
     }
   } else {
-    LOG_WARN("Unhandled read from DMA at offset 0x{:08X}", reg_offset);
+    LOG_WARN("Unhandled read from DMA at offset 0x{:08X}", addr);
     return 0;
   }
 }
-void Dma::set_reg(DmaRegister reg, u32 val) {
-  const u32 reg_offset = (u32)reg;
-  const auto major = (reg_offset & 0x70) >> 4;
-  const auto minor = reg_offset & 0xF;
+
+void Dma::write_reg(address addr, u32 val) {
+  const auto major = (addr & 0x70) >> 4;
+  const auto minor = addr & 0xF;
 
   if (0 <= major && major <= 6) {  // Per-channel registers
     const auto port = static_cast<DmaPort>(major);
@@ -52,7 +52,7 @@ void Dma::set_reg(DmaRegister reg, u32 val) {
       case 4: channel.m_block_control.word = val; break;
       case 8: channel.m_channel_control.word = val; break;
       default:
-        LOG_WARN("Unhandled write to DMA register: 0x{:08X} at offset 0x{:08X}", val, reg_offset);
+        LOG_WARN("Unhandled write to DMA register: 0x{:08X} at offset 0x{:08X}", val, addr);
         break;
     }
 
@@ -61,26 +61,38 @@ void Dma::set_reg(DmaRegister reg, u32 val) {
 
   } else if (major == 7) {  // Common registers
     switch (minor) {
-      case 0: m_control = val; break;
-      case 4: m_interrupt.word = val; break;
+      case 0: m_reg_control = val; break;
+      case 4: {
+        // Clear acknowledged (1'ed) flag bits
+        u32 masked_flags = (((m_reg_interrupt.word & 0xFF000000) & ~(val & 0xFF000000)));
+        m_reg_interrupt.word = (val & 0x00FFFFFF) | masked_flags;
+        break;
+      }
       default:
-        LOG_WARN("Unhandled write to DMA register: 0x{:08X} at offset 0x{:08X}", val, reg_offset);
+        LOG_WARN("Unhandled write to DMA register: 0x{:08X} at offset 0x{:08X}", val, addr);
         break;
     }
   } else
-    LOG_WARN("Unhandled write to DMA register: 0x{:08X} at offset 0x{:08X}", val, reg_offset);
+    LOG_WARN("Unhandled write to DMA register: 0x{:08X} at offset 0x{:08X}", val, addr);
 }
 
 DmaChannel const& Dma::channel_control(DmaPort port) const {
   const auto port_index = (u32)port;
-  Ensures(port_index < 7);
+  Expects(port_index < 7);
   return m_channels[port_index];
 }
 
 DmaChannel& Dma::channel_control(DmaPort port) {
   const auto port_index = (u32)port;
-  Ensures(port_index < 7);
+  Expects(port_index < 7);
   return m_channels[port_index];
+}
+
+void Dma::step() {
+  if (m_irq_pending) {
+    m_irq_pending = false;
+    m_interrupts.trigger(cpu::IrqType::DMA);
+  }
 }
 
 void Dma::do_transfer(DmaPort port) {
@@ -153,7 +165,8 @@ void Dma::do_block_transfer(DmaPort port) {
     addr += addr_step;
     transfer_word_count -= 1;
   }
-  channel.transfer_finished();
+
+  transfer_finished(channel, port);
 }
 
 void Dma::do_linked_list_transfer(DmaPort port) {
@@ -189,7 +202,17 @@ void Dma::do_linked_list_transfer(DmaPort port) {
 
     addr = packet_header & RAM_ADDR_MASK;
   }
+  transfer_finished(channel, port);
+}
+
+void Dma::transfer_finished(DmaChannel& channel, DmaPort port) {
   channel.transfer_finished();
+
+  bool is_enabled = m_reg_interrupt.is_port_enabled(port);
+  if (is_enabled)
+    m_reg_interrupt.set_port_flags(port, true);
+
+  m_irq_pending = m_reg_interrupt.get_irq_master_flag();
 }
 
 }  // namespace memory

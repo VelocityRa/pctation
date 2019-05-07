@@ -31,7 +31,7 @@ u32 Bus::read32(u32 addr) const {
   if (memory::map::BIOS.contains(addr, addr_rebased))
     return m_bios.read<u32>(addr_rebased);
   if (memory::map::DMA.contains(addr, addr_rebased))
-    return m_dma.read_reg(static_cast<memory::DmaRegister>(addr_rebased));
+    return m_dma.read_reg(addr_rebased);
   if (memory::map::GPU.contains(addr, addr_rebased))
     return m_gpu.read_reg(addr_rebased);
   if (memory::map::TIMERS.contains(addr, addr_rebased)) {
@@ -170,7 +170,7 @@ void Bus::write32(u32 addr, u32 val) {
     return;  // Cache Control, ignore
   }
   if (memory::map::DMA.contains(addr, addr_rebased))
-    return m_dma.set_reg(static_cast<memory::DmaRegister>(addr_rebased), val);
+    return m_dma.write_reg(addr_rebased, val);
   if (memory::map::GPU.contains(addr, addr_rebased))
     return m_gpu.write_reg(addr_rebased, val);
   if (memory::map::TIMERS.contains(addr, addr_rebased)) {
