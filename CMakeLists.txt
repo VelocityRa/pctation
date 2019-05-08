@@ -63,6 +63,9 @@ find_package(imgui CONFIG REQUIRED)
 # glbinding
 find_package(glbinding CONFIG REQUIRED)
 
+# glm
+find_package(glm CONFIG REQUIRED)
+
 ### Add source tree
 add_subdirectory(src)
 

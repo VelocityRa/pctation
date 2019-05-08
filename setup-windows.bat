@@ -8,7 +8,7 @@ if not exist "vcpkg.exe" (
 )
 
 REM Installing dependencies...
-vcpkg install fmt spdlog gsl-lite sdl2 imgui glbinding
+vcpkg install fmt spdlog gsl-lite sdl2 imgui glbinding glm
 
 REM Done.
 popd
