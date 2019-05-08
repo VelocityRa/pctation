@@ -111,11 +111,12 @@ union Gp1VDisplayRange {
   };
 };
 
-enum class RenderCommandType {
+enum class Gp0CommandType {
   None,
-  Line,
-  Rectangle,
-  Polygon,
+  DrawLine,
+  DrawRectangle,
+  DrawPolygon,
+  FillRectangleInVram,
   CopyCpuToVram,
   CopyCpuToVramTransferring,  // Extra state to denote that GP0 is receiving image data
   CopyVramToCpu,
@@ -235,9 +236,9 @@ class Gpu {
   void gp0_draw_mode(u32 cmd);
   void gp0_mask_bit(u32 cmd);
   void gp0_gpu_irq(u32 cmd);  // rarely used
-  void gp0_mono_rect_1x1_opaque(u32 cmd);
-  void gp0_copy_rect_cpu_to_vram(u32 cmd);
-  void gp0_copy_rect_vram_to_cpu(u32 cmd);
+  void gp0_fill_rect_in_vram();
+  void gp0_copy_rect_cpu_to_vram();
+  void gp0_copy_rect_vram_to_cpu();
 
   void gp1(u32 cmd);
   void gp1_soft_reset();
@@ -256,7 +257,7 @@ class Gpu {
 
   // TOOD: reset all these in the method
   // GP0 command handling
-  RenderCommandType m_gp0_cmd_type = RenderCommandType::None;
+  Gp0CommandType m_gp0_cmd_type = Gp0CommandType::None;
   u32 m_gp0_arg_count{};       // Number of args
   u32 m_gp0_arg_index{};       // Current arg index
   std::vector<u32> m_gp0_cmd;  // All words comprising a GP0 command
