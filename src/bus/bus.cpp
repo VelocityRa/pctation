@@ -2,6 +2,7 @@
 #include <bus/bus.hpp>
 #include <cpu/interrupt.hpp>
 #include <gpu/gpu.hpp>
+#include <io/cdrom.hpp>
 #include <io/joypad.hpp>
 #include <memory/dma.hpp>
 #include <memory/expansion.hpp>
@@ -111,6 +112,8 @@ u8 Bus::read8(u32 addr) const {
     LOG_WARN("Unhandled 8-bit read of EXPANSION_2 register at 0x{:08X}", addr);
     return 0;
   }
+  if (memory::map::CDROM.contains(addr, addr_rebased))
+    return m_cdrom.read_reg(addr_rebased);
   if (memory::map::SIO.contains(addr, addr_rebased)) {
     LOG_WARN("Unhandled 8-bit read of SIO register at 0x{:08X}", addr);
     return 0;
@@ -235,6 +238,10 @@ void Bus::write8(u32 addr, u8 val) {
   }
   if (memory::map::EXPANSION_2.contains(addr, addr_rebased)) {
     LOG_WARN("Unhandled 8-bit write to EXPANSION_2 register: 0x{:02X} at 0x{:08X}", val, addr);
+    return;
+  }
+  if (memory::map::CDROM.contains(addr, addr_rebased)) {
+    m_cdrom.write_reg(addr_rebased, val);
     return;
   }
 

@@ -27,7 +27,8 @@ class Spu;
 
 namespace io {
 class Joypad;
-}
+class Cdrom;
+}  // namespace io
 
 namespace bus {
 
@@ -41,7 +42,8 @@ class Bus {
                memory::Dma& dma,
                gpu::Gpu& gpu,
                spu::Spu& spu,
-               io::Joypad& joypad)
+               io::Joypad& joypad,
+               io::Cdrom& cdrom)
 
       : m_interrupts(interrupts),
         m_ram(ram),
@@ -51,7 +53,8 @@ class Bus {
         m_dma(dma),
         m_gpu(gpu),
         m_spu(spu),
-        m_joypad(joypad) {}
+        m_joypad(joypad),
+        m_cdrom(cdrom) {}
 
   u32 read32(u32 addr) const;
   u16 read16(u32 addr) const;
@@ -71,6 +74,7 @@ class Bus {
   gpu::Gpu& m_gpu;
   spu::Spu& m_spu;
   io::Joypad& m_joypad;
+  io::Cdrom& m_cdrom;
 };
 
 }  // namespace bus
