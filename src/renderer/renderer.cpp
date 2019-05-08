@@ -4,6 +4,7 @@
 #include <renderer/shader.hpp>
 
 #include <glbinding/gl/gl.h>
+#include <glm/vec3.hpp>
 #include <gsl-lite.hpp>
 
 #include <algorithm>
@@ -86,7 +87,10 @@ Renderer::~Renderer() {
 }
 
 template <PixelRenderType RenderType>
-void Renderer::draw_pixel(Position pos, DrawTriVariableArgs draw_args, BarycentricCoords bar) {
+void Renderer::draw_pixel(Position pos,
+                          DrawTriVariableArgs draw_args,
+                          BarycentricCoords bar,
+                          DrawCommand::Flags draw_flags) {
   // Texture stuff, unused for SHADED render type
   TextureInfo tex_info{};
   TexelPos texel{};
@@ -106,12 +110,11 @@ void Renderer::draw_pixel(Position pos, DrawTriVariableArgs draw_args, Barycentr
       out_color = calculate_pixel_shaded(color, bar);
       break;
     }
-    case PixelRenderType::TEXTURED_PALETTED_4BIT: {
+    case PixelRenderType::TEXTURED_PALETTED_4BIT:
       out_color = calculate_pixel_tex_4bit(tex_info, texel);
       break;
-    }
     case PixelRenderType::TEXTURED_PALETTED_8BIT: assert(0); break;
-    case PixelRenderType::TEXTURED_16BIT: assert(0); break;
+    case PixelRenderType::TEXTURED_16BIT: out_color = calculate_pixel_tex_16bit(tex_info, texel); break;
     default: assert(0);
   }
 
@@ -121,8 +124,14 @@ void Renderer::draw_pixel(Position pos, DrawTriVariableArgs draw_args, Barycentr
 
   // Apply texture color or (TODO) shading
   if (is_textured) {
-    auto tex_color = gpu::RGB32::from_word(tex_info.color.word());
-    out_color *= tex_color.r / 255.f * 2.f;
+    glm::vec3 brightness;
+    if (draw_flags.shading == DrawCommand::Shading::Flat) {
+      brightness = gpu::RGB32::from_word(tex_info.color.word()).to_vec();
+    } else if (draw_flags.shading == DrawCommand::Shading::Gouraud) {
+      // TODO: shading
+      brightness = glm::vec3(128);
+    }
+    out_color *= brightness / 255.f * 2.f;
   }
 
   m_gpu.set_vram_pos(pos.x, pos.y, out_color.word);
@@ -139,14 +148,15 @@ gpu::RGB16 Renderer::calculate_pixel_shaded(Color3 colors, BarycentricCoords bar
   return gpu::RGB16::from_RGB(r, g, b);
 }
 
-gpu::RGB16 Renderer::calculate_pixel_tex_4bit(TextureInfo tex_info, TexelPos texel_pos) {
+gpu::RGB16 Renderer::calculate_pixel_tex_4bit(TextureInfo tex_info, TexelPos texel_pos) const {
   const auto texpage = gpu::Gp0DrawMode{ tex_info.page };
 
   const auto index_x = texel_pos.x / 4 + texpage.tex_base_x();
   const auto index_y = texel_pos.y + texpage.tex_base_y();
 
   u16 index = m_gpu.get_vram_pos(index_x, index_y);
-  const auto index_shift = (texel_pos.x & 0b11) << 2;
+
+  const auto index_shift = (texel_pos.x & 0b11) * 4;
   u16 entry = (index >> index_shift) & 0xF;
 
   const auto clut_x = tex_info.palette.x() + entry;
@@ -157,7 +167,18 @@ gpu::RGB16 Renderer::calculate_pixel_tex_4bit(TextureInfo tex_info, TexelPos tex
   return gpu::RGB16::from_word(color);
 }
 
-TexelPos Renderer::calculate_texel_pos(BarycentricCoords bar, Texcoord3 uv) {
+gpu::RGB16 Renderer::calculate_pixel_tex_16bit(TextureInfo tex_info, TexelPos texel_pos) const {
+  const auto texpage = gpu::Gp0DrawMode{ tex_info.page };
+
+  const auto color_x = texel_pos.x + texpage.tex_base_x();
+  const auto color_y = texel_pos.y + texpage.tex_base_y();
+
+  u16 color = m_gpu.get_vram_pos(color_x, color_y);
+
+  return gpu::RGB16::from_word(color);
+}
+
+TexelPos Renderer::calculate_texel_pos(BarycentricCoords bar, Texcoord3 uv) const {
   TexelPos texel;
 
   texel.x = (s32)(bar.a * uv[0].x + bar.b * uv[1].x + bar.c * uv[2].x);
@@ -178,7 +199,9 @@ TexelPos Renderer::calculate_texel_pos(BarycentricCoords bar, Texcoord3 uv) {
 }
 
 template <PixelRenderType RenderType>
-void Renderer::draw_triangle(Position3 positions, DrawTriVariableArgs draw_args) {
+void Renderer::draw_triangle(Position3 positions,
+                             DrawTriVariableArgs draw_args,
+                             DrawCommand::Flags draw_flags) {
   // Algorithm from https://fgiesen.wordpress.com/2013/02/08/triangle-rasterization-in-practice/
   // TODO: optimize
 
@@ -241,7 +264,7 @@ void Renderer::draw_triangle(Position3 positions, DrawTriVariableArgs draw_args)
         const auto area_abs = std::abs(area);
         const auto normalized_bar =
             BarycentricCoords{ w0 / (float)area_abs, w1 / (float)area_abs, w2 / (float)area_abs };
-        draw_pixel<RenderType>(p_iter, draw_args, normalized_bar);
+        draw_pixel<RenderType>(p_iter, draw_args, normalized_bar, draw_flags);
       }
     }
 }
@@ -250,9 +273,10 @@ void Renderer::draw_polygon_impl(Position4 positions,
                                  Color4 colors,
                                  TextureInfo tex_info,
                                  bool is_quad,
-                                 bool is_textured) {
+                                 DrawCommand::Flags draw_flags) {
   // Consolidate args data and call appropriate drawing functions
   const auto end_tri_idx = is_quad ? QuadTriangleIndex::Second : QuadTriangleIndex::First;
+  const auto is_textured = draw_flags.texture_mapped;
 
   const auto texpage = gpu::Gp0DrawMode{ tex_info.page };
   auto pixel_render_type = tex_page_col_to_render_type(texpage.tex_page_colors);
@@ -270,12 +294,14 @@ void Renderer::draw_polygon_impl(Position4 positions,
 
       switch (pixel_render_type) {
         case PixelRenderType::TEXTURED_PALETTED_4BIT:
-          draw_triangle<PixelRenderType::TEXTURED_PALETTED_4BIT>(tri_positions, tex_info);
+          draw_triangle<PixelRenderType::TEXTURED_PALETTED_4BIT>(tri_positions, tex_info, draw_flags);
           break;
         case PixelRenderType::TEXTURED_PALETTED_8BIT:
           LOG_ERROR("Unimplemented TEXTURED_PALETTED_8BIT draw cmd");
           break;
-        case PixelRenderType::TEXTURED_16BIT: LOG_ERROR("Unimplemented TEXTURED_16BIT draw cmd"); break;
+        case PixelRenderType::TEXTURED_16BIT:
+          draw_triangle<PixelRenderType::TEXTURED_16BIT>(tri_positions, tex_info, draw_flags);
+          break;
         case PixelRenderType::SHADED:
         default: LOG_ERROR("Invalid textured PixelRenderType"); assert(0);
       }
@@ -284,7 +310,7 @@ void Renderer::draw_polygon_impl(Position4 positions,
         tri_positions = { positions[1], positions[2], positions[3] };
         tri_colors = { colors[1], colors[2], colors[3] };
       }
-      draw_triangle<PixelRenderType::SHADED>(tri_positions, tri_colors);
+      draw_triangle<PixelRenderType::SHADED>(tri_positions, tri_colors, draw_flags);
     }
 
     tri_idx = (QuadTriangleIndex)((u32)tri_idx + 1);
@@ -324,7 +350,7 @@ void Renderer::draw_polygon(const DrawCommand::Polygon& polygon) {
   // TODO: raw textures
   // TODO: dithering
 
-  draw_polygon_impl(positions, colors, tex_info, polygon.is_quad(), polygon.texture_mapping);
+  draw_polygon_impl(positions, colors, tex_info, polygon.is_quad(), *(DrawCommand::Flags*)&polygon);
 }
 
 void Renderer::draw_rectangle(const DrawCommand::Rectangle& rectangle) {
@@ -366,7 +392,7 @@ void Renderer::draw_rectangle(const DrawCommand::Rectangle& rectangle) {
   // TODO: semi transparency
   // TODO: raw textures
   const auto is_quad = true;
-  draw_polygon_impl(positions, colors, tex_info, is_quad, is_textured);
+  draw_polygon_impl(positions, colors, tex_info, is_quad, *(DrawCommand::Flags*)&rectangle);
 }
 
 void Renderer::render() {

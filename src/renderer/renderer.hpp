@@ -264,6 +264,14 @@ union DrawCommand {
       return arg_count;
     }
   } polygon;
+
+  struct Flags {
+    TextureMode texture_mode : 1;
+    u8 semi_transparency : 1;
+    u8 texture_mapped : 1;
+    u8 : 1;
+    Shading shading : 1;
+  } flags;
 };
 
 class Renderer {
@@ -274,10 +282,13 @@ class Renderer {
   void render();
 
   template <PixelRenderType RenderType>
-  void draw_pixel(Position pos, DrawTriVariableArgs draw_args, BarycentricCoords bar);
+  void draw_pixel(Position pos,
+                  DrawTriVariableArgs draw_args,
+                  BarycentricCoords bar,
+                  DrawCommand::Flags draw_flags);
 
   template <PixelRenderType RenderType>
-  void draw_triangle(Position3 pos, DrawTriVariableArgs draw_args);
+  void draw_triangle(Position3 pos, DrawTriVariableArgs draw_args, DrawCommand::Flags draw_flags);
 
   void draw_polygon(const DrawCommand::Polygon& polygon);
   void draw_rectangle(const DrawCommand::Rectangle& polygon);
@@ -287,11 +298,12 @@ class Renderer {
                          Color4 colors,
                          TextureInfo tex_info,
                          bool is_quad,
-                         bool is_textured);
+                         DrawCommand::Flags draw_flags);
 
-  TexelPos calculate_texel_pos(BarycentricCoords bar, Texcoord3 uv);
+  TexelPos calculate_texel_pos(BarycentricCoords bar, Texcoord3 uv) const;
   static gpu::RGB16 calculate_pixel_shaded(Color3 colors, BarycentricCoords bar);
-  gpu::RGB16 calculate_pixel_tex_4bit(TextureInfo tex_info, TexelPos texel_pos);
+  gpu::RGB16 calculate_pixel_tex_4bit(TextureInfo tex_info, TexelPos texel_pos) const;
+  gpu::RGB16 calculate_pixel_tex_16bit(TextureInfo tex_info, TexelPos texel_pos) const;
 
  private:
   // Shaders
