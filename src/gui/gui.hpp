@@ -28,6 +28,7 @@ namespace gui {
 enum class GuiEvent {
   None,
   Exit,
+  GameSelected,
   ToggleView,
 };
 
@@ -39,6 +40,7 @@ class Gui {
   GuiEvent process_events() const;
   GuiEvent process_events_exe_select();
   void draw(const emulator::Emulator& emulator);
+  bool draw_exe_select(std::string& psxexe_path) const;  // Returns true if a psx was selected
   void process_exit_events(GuiEvent& ret_event) const;
   void swap();
   void set_window_size(emulator::WindowSize size);

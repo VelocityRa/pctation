@@ -2,6 +2,7 @@
 
 #include <cpu/cpu.hpp>
 #include <gpu/gpu.hpp>
+#include <util/fs.hpp>
 #include <util/log.hpp>
 
 #include <emulator/emulator.hpp>
@@ -26,7 +27,7 @@
 
 using namespace gl;
 
-const auto SCREEN_SCALE = 1.5;
+const auto SCREEN_SCALE = 1;
 
 const auto GUI_CLEAR_COLOR = RGBA_TO_FLOAT(133, 20, 75, 255);
 const auto GUI_COLOR_BLACK_HALF_TRANSPARENT = RGBA_TO_FLOAT(0, 0, 0, 128);
@@ -255,6 +256,66 @@ void Gui::imgui_end_frame() const {
   ImGuiIO& io = ImGui::GetIO();
   glViewport(0, 0, (int)io.DisplaySize.x, (int)io.DisplaySize.y);
   ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+}
+
+bool Gui::draw_exe_select(std::string& exe_path) const {
+  const auto EXE_PATH = "data/exe";
+
+  bool selected = false;
+
+  imgui_start_frame();
+
+  if (ImGui::Begin("PSX-EXE Explorer")) {
+    if (ImGui::Selectable("None"))
+      selected = true;
+
+    for (auto& p : fs::recursive_directory_iterator(EXE_PATH)) {
+      const auto ext = p.path().extension();
+      if (ext == ".exe" || ext == ".psx") {
+        const auto path = p.path().string();
+        const auto rel_path = path.substr(sizeof(EXE_PATH));
+
+        if (ImGui::Selectable(rel_path.c_str())) {
+          exe_path = path;
+          selected = true;
+        }
+      }
+    }
+
+    ImGui::End();
+  }
+
+  imgui_end_frame();
+
+  return selected;
+}
+
+GuiEvent Gui::process_events_exe_select() {
+  auto ret_event = GuiEvent::None;
+
+  // Let ImGui process events
+  ImGui_ImplSDL2_ProcessEvent(&m_event);
+
+  // Exit events
+  process_exit_events(ret_event);
+
+  return ret_event;
+}
+
+void Gui::process_exit_events(GuiEvent& ret_event) const {
+  if (m_event.type == SDL_QUIT)
+    ret_event = GuiEvent::Exit;
+  else if (m_event.type == SDL_WINDOWEVENT && m_event.window.event == SDL_WINDOWEVENT_CLOSE &&
+           m_event.window.windowID == SDL_GetWindowID(m_window))
+    ret_event = GuiEvent::Exit;
+}
+
+void Gui::draw(const emulator::Emulator& emulator) {
+  imgui_start_frame();
+
+  imgui_draw(emulator);
+
+  imgui_end_frame();
 }
 
 void Gui::swap() {
