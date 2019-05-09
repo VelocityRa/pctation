@@ -49,7 +49,12 @@ u16 Gpu::get_vram_idx(u32 vram_idx) const {
   return vram()[vram_idx];
 }
 
-void Gpu::set_vram_pos(u16 x, u16 y, u16 val) {
+void Gpu::set_vram_pos(u16 x, u16 y, u16 val, bool wrap) {
+  if (wrap) {
+    x %= VRAM_WIDTH;
+    y %= VRAM_HEIGHT;
+  }
+
   Ensures(x <= 1024);
   Ensures(y <= 512);
 
@@ -74,11 +79,11 @@ bool Gpu::step(u32 cycles_to_emulate) {
 }
 
 u32 Gpu::setup_vram_transfer(u32 pos_word, u32 size_word) {
-  m_vram_transfer_x = pos_word & 0xFFFF;
-  m_vram_transfer_y = (pos_word >> 16) & 0xFFFF;
+  m_vram_transfer_x = pos_word & 0x3FF;
+  m_vram_transfer_y = (pos_word >> 16) & 0x1FF;
 
-  m_vram_transfer_width = size_word & 0xFFFF;
-  m_vram_transfer_height = (size_word >> 16) & 0xFFFF;
+  m_vram_transfer_width = (((size_word & 0xFFFF) - 1) & 0x3FF) + 1;
+  m_vram_transfer_height = ((((size_word >> 16) & 0xFFFF) - 1) & 0x1FF) + 1;
 
   m_vram_transfer_x_start = m_vram_transfer_x;
 
@@ -245,13 +250,13 @@ void Gpu::gp0_fill_rect_in_vram() {
   const auto color = renderer::Color::from_gp0(m_gp0_cmd[0]);
   const auto c16 = RGB16::from_RGB(color.r, color.g, color.b);
 
-  const auto pos_start = renderer::Position::from_gp0(m_gp0_cmd[1]);
-  const auto size = renderer::Size::from_gp0(m_gp0_cmd[2]);
+  const auto pos_start = renderer::Position::from_gp0_fill(m_gp0_cmd[1]);
+  const auto size = renderer::Size::from_gp0_fill(m_gp0_cmd[2]);
   const renderer::Position pos_end = { pos_start.x + size.width, pos_start.y + size.height };
 
   for (auto i_x = pos_start.x; i_x < pos_end.x; ++i_x)
     for (auto i_y = pos_start.y; i_y < pos_end.y; ++i_y)
-      set_vram_pos(i_x, i_y, c16.word);
+      set_vram_pos(i_x, i_y, c16.word, true);
 }
 
 void Gpu::gp0_copy_rect_cpu_to_vram() {
@@ -292,7 +297,7 @@ void Gpu::do_cpu_to_vram_transfer(u32 cmd) {
     //        LOG_TRACE("X: {:>4X} Y: {:>4X} SRC: 0x{:04X}", m_vram_transfer_x, m_vram_transfer_y,
     //        src_word);
 
-    set_vram_pos(m_vram_transfer_x, m_vram_transfer_y, src_word);
+    set_vram_pos(m_vram_transfer_x, m_vram_transfer_y, src_word, true);
     advance_vram_transfer_pos();
   }
   if (m_gp0_arg_index == m_gp0_arg_count) {

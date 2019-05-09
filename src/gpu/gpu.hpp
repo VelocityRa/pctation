@@ -214,7 +214,7 @@ class Gpu {
   // VRAM
   u16 get_vram_pos(u16 x, u16 y) const;
   u16 get_vram_idx(u32 vram_idx) const;
-  void set_vram_pos(u16 x, u16 y, u16 val);
+  void set_vram_pos(u16 x, u16 y, u16 val, bool wrap);
   void set_vram_idx(u32 vram_idx, u16 val);
   void advance_vram_transfer_pos();
 

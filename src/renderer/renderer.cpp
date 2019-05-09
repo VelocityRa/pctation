@@ -134,7 +134,7 @@ void Renderer::draw_pixel(Position pos,
     out_color *= brightness / 255.f * 2.f;
   }
 
-  m_gpu.set_vram_pos(pos.x, pos.y, out_color.word);
+  m_gpu.set_vram_pos(pos.x, pos.y, out_color.word, false);
 }
 
 gpu::RGB16 Renderer::calculate_pixel_shaded(Color3 colors, BarycentricCoords bar) {
