@@ -185,24 +185,25 @@ void Gui::init() {
   m_fps_counter_start = std::chrono::steady_clock::now();
 }
 
+void Gui::set_joypad(io::Joypad* joypad) {
+  m_joypad = joypad;
+}
+
 bool Gui::poll_events() {
   return SDL_PollEvent(&m_event);
 }
 
-bool Gui::process_events(io::Joypad& joypad) {
-  bool should_exit = false;
+GuiEvent Gui::process_events() const {
+  auto ret_event = GuiEvent::None;
 
+  // Let ImGui process events
   ImGui_ImplSDL2_ProcessEvent(&m_event);
-  if (m_event.type == SDL_QUIT)
-    should_exit = true;
-  if (m_event.type == SDL_WINDOWEVENT && m_event.window.event == SDL_WINDOWEVENT_CLOSE &&
-      m_event.window.windowID == SDL_GetWindowID(m_window))
-    should_exit = true;
 
   if (m_event.type == SDL_KEYUP || m_event.type == SDL_KEYDOWN) {
     const bool was_pressed = m_event.key.state == SDL_PRESSED;
     const auto sym = m_event.key.keysym.sym;
 
+    // Joypad events
     u8 button_index;
     switch (sym) {
       case SDLK_w: button_index = io::BTN_SELECT; break;
@@ -223,22 +224,32 @@ bool Gui::process_events(io::Joypad& joypad) {
       case SDLK_a: button_index = io::BTN_SQUARE; break;
       default: button_index = io::BTN_INVALID;
     }
-    if (button_index != io::BTN_INVALID)
-      joypad.update_button(button_index, was_pressed);
+    if (button_index != io::BTN_INVALID) {
+      m_joypad->update_button(button_index, was_pressed);
+      return ret_event;
+    }
+
+    // Emulator operation events
+    if (m_event.type == SDL_KEYDOWN) {
+      switch (sym) {
+        case SDLK_TAB: return GuiEvent::ToggleView;
+      }
+    }
   }
 
-  return should_exit;
+  // Exit events
+  process_exit_events(ret_event);
+
+  return ret_event;
 }
 
-void Gui::draw(const emulator::Emulator& emulator) {
-  // Start the Dear ImGui frame
+void Gui::imgui_start_frame() const {
   ImGui_ImplOpenGL3_NewFrame();
   ImGui_ImplSDL2_NewFrame(m_window);
   ImGui::NewFrame();
+}
 
-  draw_imgui(emulator);
-
-  // Render imgui
+void Gui::imgui_end_frame() const {
   ImGui::Render();
   SDL_GL_MakeCurrent(m_window, m_gl_context);
   ImGuiIO& io = ImGui::GetIO();
@@ -250,6 +261,10 @@ void Gui::swap() {
   SDL_GL_SwapWindow(m_window);
 
   update_fps_counter();
+}
+
+void Gui::set_window_size(emulator::WindowSize size) {
+  SDL_SetWindowSize(m_window, size.width, size.height);
 }
 
 void Gui::update_fps_counter() {
@@ -269,13 +284,13 @@ void Gui::update_fps_counter() {
   }
 }
 
-void Gui::update_window_title() {
-  std::string window_title = fmt::format("Pctation | OpenGL | {:0.2f} FPS", m_fps);
+void Gui::update_window_title() const {
+  auto window_title = fmt::format("Pctation | OpenGL | {:0.2f} FPS", m_fps);
 
   SDL_SetWindowTitle(m_window, window_title.c_str());
 }
 
-void Gui::draw_imgui(const emulator::Emulator& emulator) {
+void Gui::imgui_draw(const emulator::Emulator& emulator) {
   if (false && ImGui::BeginMainMenuBar()) {  // TODO: Enable when it doesn't overlay with screen
     if (ImGui::BeginMenu("Debug")) {
       ImGui::MenuItem("TTY Output", "Ctrl+T", &m_draw_tty, LOG_TTY_OUTPUT_WITH_HOOK);

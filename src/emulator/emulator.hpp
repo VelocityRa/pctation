@@ -17,6 +17,18 @@
 
 namespace emulator {
 
+enum class View : u8 {
+  Display,  // Show only the display output that would be shown on a real console
+  Vram,     // Show the contents of the entire VRAM
+
+  Maximum,
+};
+
+struct WindowSize {
+  s32 width;
+  s32 height;
+};
+
 class Emulator {
  public:
   explicit Emulator(fs::path bios_path, fs::path psx_exe_path, fs::path bootstrap_path);
@@ -24,6 +36,7 @@ class Emulator {
   // Advances the emulator state approximately one frame
   void advance_frame();
   void render();
+  WindowSize toggle_view();
 
   // Getters
   const cpu::Cpu& cpu() const { return m_cpu; }
@@ -32,6 +45,7 @@ class Emulator {
   io::Joypad& joypad() { return m_joypad; }
 
  private:
+  // Emulator core components
   bios::Bios m_bios;
   memory::Expansion m_expansion;
   cpu::Interrupts m_interrupts;
@@ -46,7 +60,10 @@ class Emulator {
 
   cpu::Cpu m_cpu;
 
+ private:
+  // Host fields
   renderer::ScreenRenderer m_screen_renderer;
+  emulator::View m_view = View::Vram;
 };
 
 }  // namespace emulator

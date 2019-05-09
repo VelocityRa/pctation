@@ -17,24 +17,35 @@ s32 main(s32 argc, char** argv) {
   try {
     logging::init();
 
-    gui.init();
-
-    std::string psxexe_path;
+    std::string exe_path;
     std::string bootstrap_path;
 
     if (argc > 1)
       psxexe_path = argv[1];
 
     // TODO: do this properly
-    if (argc > 2)
-        bootstrap_path = argv[2];
+    //    if (argc > 2)
+    //      bootstrap_path = argv[2];
 
-    auto emulator = std::make_unique<emulator::Emulator>(BIOS_PATH, psxexe_path, bootstrap_path);
+    gui.init();
 
-    bool running = true;
-    while (running) {
+    // Init emulator
+    auto emulator = std::make_unique<emulator::Emulator>(BIOS_PATH, exe_path, bootstrap_path);
+
+    // Link GUI with Joypad
+    gui.set_joypad(&emulator->joypad());
+
+    // Main loop
+    gui::GuiEvent event = gui::GuiEvent::None;
+
+    while (event != gui::GuiEvent::Exit) {
       while (gui.poll_events()) {
-        running = !gui.process_events(emulator->joypad());
+        event = gui.process_events();
+
+        if (event == gui::GuiEvent::ToggleView) {
+          const auto size = emulator->toggle_view();
+          gui.set_window_size(size);
+        }
       }
 
       emulator->advance_frame();

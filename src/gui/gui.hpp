@@ -16,7 +16,8 @@ class Joypad;
 
 namespace emulator {
 class Emulator;
-}
+struct WindowSize;
+}  // namespace emulator
 
 namespace gpu {
 class Gpu;
@@ -24,18 +25,31 @@ class Gpu;
 
 namespace gui {
 
+enum class GuiEvent {
+  None,
+  Exit,
+  ToggleView,
+};
+
 class Gui {
  public:
   void init();
-  bool poll_events();                       // Returns true if there are any pending events
-  bool process_events(io::Joypad& joypad);  // returns true if apllication exit was requested
+  void set_joypad(io::Joypad* joypad);
+  bool poll_events();  // Returns true if there are any pending events
+  GuiEvent process_events() const;
+  GuiEvent process_events_exe_select();
   void draw(const emulator::Emulator& emulator);
+  void process_exit_events(GuiEvent& ret_event) const;
   void swap();
+  void set_window_size(emulator::WindowSize size);
   void deinit();
   void clear();
 
  private:
-  void draw_imgui(const emulator::Emulator& emulator);  // Draws all imgui GUI elements
+  void imgui_start_frame() const;
+  void imgui_end_frame() const;
+  void imgui_draw(const emulator::Emulator& emulator);  // Draws all imgui GUI elements
+
   void draw_dialog_log(const char* title,
                        bool& should_draw,
                        bool& should_autoscroll,
@@ -43,7 +57,7 @@ class Gui {
   template <size_t RamSize>
   void draw_dialog_ram(const std::array<byte, RamSize>& data);
   void draw_gpu_registers(const gpu::Gpu& gpu);
-  void update_window_title();
+  void update_window_title() const;
   void update_fps_counter();
 
  private:
@@ -72,6 +86,8 @@ class Gui {
 
   // GPU Registers dialog fields
   bool m_draw_gpu_registers{ true };
+
+  io::Joypad* m_joypad;
 };
 
 }  // namespace gui

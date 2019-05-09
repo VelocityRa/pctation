@@ -13,7 +13,6 @@ const GLuint ATTRIB_INDEX_TEXCOORD = 1;
 
 ScreenRenderer::ScreenRenderer() {
   // Load and compile shaders
-
   m_shader_program_screen = renderer::load_shaders("screen");
 
   if (!m_shader_program_screen)
@@ -56,21 +55,38 @@ ScreenRenderer::ScreenRenderer() {
 
   // Generate and configure screen texture
   glGenTextures(1, &m_tex_screen);
-  glActiveTexture(GL_TEXTURE0);
-  glBindTexture(GL_TEXTURE_2D, m_tex_screen);
+  bind_screen_texture();
 
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
+  // Get uniforms
+  m_u_tex_size = glGetUniformLocation(m_shader_program_screen, "u_tex_size");
+
   glBindVertexArray(0);
 }
 
-void ScreenRenderer::render(s32 width, s32 height, const void* vram_data) {
+void ScreenRenderer::render(const void* vram_data) const {
   // Bind needed state
   glBindVertexArray(m_vao);
-  glActiveTexture(GL_TEXTURE0);
-  glBindTexture(GL_TEXTURE_2D, m_tex_screen);
   glUseProgram(m_shader_program_screen);
+  bind_screen_texture();
+
+  // Upload screen texture
+  glPixelStorei(GL_UNPACK_ROW_LENGTH, 1024);
+  glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, m_screen_width, m_screen_height, GL_RGBA,
+                  GL_UNSIGNED_SHORT_1_5_5_5_REV, vram_data);
+  glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
+
+  // Set uniforms
+  glUniform2f(m_u_tex_size, (f32)m_screen_width, (f32)m_screen_height);
+
+  // Draw screen
+  glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+}
+
+void ScreenRenderer::set_texture_size(s32 width, s32 height) {
+  bind_screen_texture();
 
   // If screen texture dimensions changed
   if (width != m_screen_width || height != m_screen_height) {
@@ -80,13 +96,11 @@ void ScreenRenderer::render(s32 width, s32 height, const void* vram_data) {
     m_screen_width = width;
     m_screen_height = height;
   }
+}
 
-  // Upload screen texture
-  glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, m_screen_width, m_screen_height, GL_RGBA,
-                  GL_UNSIGNED_SHORT_1_5_5_5_REV, vram_data);
-
-  // Draw screen
-  glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+void ScreenRenderer::bind_screen_texture() const {
+  glActiveTexture(GL_TEXTURE0);
+  glBindTexture(GL_TEXTURE_2D, m_tex_screen);
 }
 
 ScreenRenderer::~ScreenRenderer() {

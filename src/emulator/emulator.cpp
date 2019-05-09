@@ -2,6 +2,8 @@
 
 #include <util/fs.hpp>
 
+#include <tuple>
+
 namespace emulator {
 
 Emulator::Emulator(fs::path bios_path, fs::path psx_exe_path, fs::path bootstrap_path)
@@ -26,6 +28,7 @@ Emulator::Emulator(fs::path bios_path, fs::path psx_exe_path, fs::path bootstrap
   m_interrupts.init(&m_cpu);
   m_joypad.init(&m_interrupts);
   m_cdrom.init(&m_interrupts);
+  m_screen_renderer.set_texture_size(gpu::VRAM_WIDTH, gpu::VRAM_HEIGHT);
 }
 
 void Emulator::advance_frame() {
@@ -47,7 +50,30 @@ void Emulator::advance_frame() {
 }
 
 void Emulator::render() {
-  m_screen_renderer.render(gpu::VRAM_WIDTH, gpu::VRAM_HEIGHT, (const void*)m_gpu.vram().data());
+  m_screen_renderer.render((const void*)m_gpu.vram().data());
+}
+
+WindowSize Emulator::toggle_view() {
+  // Advance View enum by 1 and wrap
+  m_view = View(((u8)m_view + 1) % (u8)View::Maximum);
+
+  WindowSize new_size{};
+
+  switch (m_view) {
+    case View::Display:
+      new_size.width = 640;  // TODO: get from m_gpu
+      new_size.height = 480;
+      break;
+
+    case View::Vram:
+      new_size.width = gpu::VRAM_WIDTH;
+      new_size.height = gpu::VRAM_HEIGHT;
+      break;
+  }
+
+  m_screen_renderer.set_texture_size(new_size.width, new_size.height);
+
+  return new_size;
 }
 
 }  // namespace emulator

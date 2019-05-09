@@ -11,7 +11,9 @@ class ScreenRenderer {
   explicit ScreenRenderer();
   ~ScreenRenderer();
 
-  void render(s32 width, s32 height, const void* vram_data);
+  void render(const void* vram_data) const;
+  void bind_screen_texture() const;
+  void set_texture_size(s32 width, s32 height);
 
  private:
   s32 m_screen_width{};
@@ -24,6 +26,7 @@ class ScreenRenderer {
   gl::GLuint m_vao{};
   gl::GLuint m_vbo{};
   gl::GLuint m_tex_screen{};
+  gl::GLuint m_u_tex_size{};
 };
 
 }  // namespace renderer
