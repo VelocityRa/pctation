@@ -46,8 +46,8 @@ void Emulator::advance_frame() {
   }
 }
 
-void Emulator::draw() {
-  m_gpu.draw();
+void Emulator::render() {
+  m_screen_renderer.render(gpu::VRAM_WIDTH, gpu::VRAM_HEIGHT, (const void*)m_gpu.vram().data());
 }
 
 }  // namespace emulator

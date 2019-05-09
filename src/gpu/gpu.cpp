@@ -32,10 +32,6 @@ void Gpu::write_reg(u32 addr, u32 val) {
   }
 }
 
-void Gpu::draw() {
-  m_renderer.render();
-}
-
 u16 Gpu::get_vram_pos(u16 x, u16 y) const {
   Ensures(x <= 1024);
   Ensures(y <= 512);
@@ -119,13 +115,13 @@ void Gpu::gp0(u32 cmd) {
     } else if (opcode == 0x01) {                   // Clear cache
     } else if (0x20 <= opcode && opcode < 0x40) {  // Draw polygon
       m_gp0_cmd_type = Gp0CommandType::DrawPolygon;
-      m_gp0_arg_count = renderer::DrawCommand{ opcode }.polygon.get_arg_count();
+      m_gp0_arg_count = renderer::rasterizer::DrawCommand{ opcode }.polygon.get_arg_count();
     } else if (0x40 <= opcode && opcode < 0x60) {  // Draw line
       m_gp0_cmd_type = Gp0CommandType::DrawLine;
-      m_gp0_arg_count = renderer::DrawCommand{ opcode }.line.get_arg_count();
+      m_gp0_arg_count = renderer::rasterizer::DrawCommand{ opcode }.line.get_arg_count();
     } else if (0x60 <= opcode && opcode < 0x80) {  // Draw rectangle
       m_gp0_cmd_type = Gp0CommandType::DrawRectangle;
-      m_gp0_arg_count = renderer::DrawCommand{ opcode }.rectangle.get_arg_count();
+      m_gp0_arg_count = renderer::rasterizer::DrawCommand{ opcode }.rectangle.get_arg_count();
     } else if (opcode == 0x1F)
       gp0_gpu_irq(cmd);
     else if (opcode == 0xA0) {  // Copy rectangle (CPU -> VRAM)
@@ -188,13 +184,13 @@ void Gpu::gp0(u32 cmd) {
     switch (cmd_type) {
       case Gp0CommandType::DrawPolygon: {
         const u8 opcode = m_gp0_cmd[0] >> 24;
-        auto draw_cmd = renderer::DrawCommand{ opcode }.polygon;
-        m_renderer.draw_polygon(draw_cmd);
+        auto draw_cmd = renderer::rasterizer::DrawCommand{ opcode }.polygon;
+        m_rasterizer.draw_polygon(draw_cmd);
         break;
       }
       case Gp0CommandType::DrawLine: {
         const u8 opcode = m_gp0_cmd[0] >> 24;
-        auto draw_cmd = renderer::DrawCommand{ opcode }.line;
+        auto draw_cmd = renderer::rasterizer::DrawCommand{ opcode }.line;
         // TODO:
         LOG_WARN("Unimplemented rendering of {} line (op: {:02X})",
                  draw_cmd.is_poly() ? "poly" : "single", opcode);
@@ -202,8 +198,8 @@ void Gpu::gp0(u32 cmd) {
       }
       case Gp0CommandType::DrawRectangle: {
         const u8 opcode = m_gp0_cmd[0] >> 24;
-        auto draw_cmd = renderer::DrawCommand{ opcode }.rectangle;
-        m_renderer.draw_rectangle(draw_cmd);
+        auto draw_cmd = renderer::rasterizer::DrawCommand{ opcode }.rectangle;
+        m_rasterizer.draw_rectangle(draw_cmd);
         break;
       }
       case Gp0CommandType::FillRectangleInVram: gp0_fill_rect_in_vram(); break;
@@ -247,12 +243,12 @@ void Gpu::gp0_gpu_irq(u32 cmd) {
 
 void Gpu::gp0_fill_rect_in_vram() {
   // TODO: handle in renderer
-  const auto color = renderer::Color::from_gp0(m_gp0_cmd[0]);
+  const auto color = renderer::rasterizer::Color::from_gp0(m_gp0_cmd[0]);
   const auto c16 = RGB16::from_RGB(color.r, color.g, color.b);
 
-  const auto pos_start = renderer::Position::from_gp0_fill(m_gp0_cmd[1]);
-  const auto size = renderer::Size::from_gp0_fill(m_gp0_cmd[2]);
-  const renderer::Position pos_end = { pos_start.x + size.width, pos_start.y + size.height };
+  const auto pos_start = renderer::rasterizer::Position::from_gp0_fill(m_gp0_cmd[1]);
+  const auto size = renderer::rasterizer::Size::from_gp0_fill(m_gp0_cmd[2]);
+  const renderer::rasterizer::Position pos_end = { pos_start.x + size.width, pos_start.y + size.height };
 
   for (auto i_x = pos_start.x; i_x < pos_end.x; ++i_x)
     for (auto i_y = pos_start.y; i_y < pos_end.y; ++i_y)

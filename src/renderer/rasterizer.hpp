@@ -1,24 +1,20 @@
 #pragma once
 
+#include <algorithm>
+#include <array>
 #include <gpu/colors.hpp>
 #include <renderer/buffer.hpp>
 #include <util/bit_utils.hpp>
 #include <util/log.hpp>
 #include <util/types.hpp>
-
-#include <glbinding/gl/types.h>
-
-#include <algorithm>
-#include <array>
 #include <variant>
-
-using namespace gl;
 
 namespace gpu {
 class Gpu;
 }
 
 namespace renderer {
+namespace rasterizer {
 
 constexpr u32 MAX_GP0_CMD_LEN = 32;
 
@@ -278,12 +274,9 @@ union DrawCommand {
   } flags;
 };
 
-class Renderer {
+class Rasterizer {
  public:
-  explicit Renderer(gpu::Gpu& gpu);
-  ~Renderer();
-
-  void render();
+  explicit Rasterizer(gpu::Gpu& gpu) : m_gpu(gpu) {}
 
   template <PixelRenderType RenderType>
   void draw_pixel(Position pos,
@@ -310,16 +303,9 @@ class Renderer {
   gpu::RGB16 calculate_pixel_tex_16bit(TextureInfo tex_info, TexelPos texel_pos) const;
 
  private:
-  // Shaders
-  GLuint m_shader_program_screen{};
-
-  // Other OpenGL objects
-  GLuint m_vao{};
-  GLuint m_vbo{};
-  GLuint m_tex_screen{};
-
   // GPU reference
   gpu::Gpu& m_gpu;
 };
 
+}  // namespace rasterizer
 }  // namespace renderer

@@ -1,7 +1,7 @@
 #pragma once
 
 #include <gpu/colors.hpp>
-#include <renderer/renderer.hpp>
+#include <renderer/rasterizer.hpp>
 #include <util/types.hpp>
 
 #include <gsl-lite.hpp>
@@ -209,8 +209,6 @@ class Gpu {
   u32 read_reg(u32 addr);
   void write_reg(u32 addr, u32 val);
 
-  void draw();
-
   // VRAM
   u16 get_vram_pos(u16 x, u16 y) const;
   u16 get_vram_idx(u32 vram_idx) const;
@@ -253,7 +251,7 @@ class Gpu {
   void gp0_drawing_offset(u32 cmd);
 
  private:
-  renderer::Renderer m_renderer = renderer::Renderer(*this);
+  renderer::rasterizer::Rasterizer m_rasterizer = renderer::rasterizer::Rasterizer(*this);
 
   // TOOD: reset all these in the method
   // GP0 command handling

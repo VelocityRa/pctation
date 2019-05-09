@@ -1,5 +1,7 @@
-add_library(renderer STATIC renderer.cpp
-                            renderer.hpp
+add_library(renderer STATIC rasterizer.cpp
+                            rasterizer.hpp
+                            screen_renderer.cpp
+                            screen_renderer.hpp
                             shader.cpp
                             shader.hpp
                             buffer.hpp

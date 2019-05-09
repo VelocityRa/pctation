@@ -10,6 +10,7 @@
 #include <memory/dma.hpp>
 #include <memory/expansion.hpp>
 #include <memory/ram.hpp>
+#include <renderer/screen_renderer.hpp>
 #include <spu/spu.hpp>
 
 #include <util/fs.hpp>
@@ -22,7 +23,7 @@ class Emulator {
 
   // Advances the emulator state approximately one frame
   void advance_frame();
-  void draw();
+  void render();
 
   // Getters
   const cpu::Cpu& cpu() const { return m_cpu; }
@@ -44,6 +45,8 @@ class Emulator {
   bus::Bus m_bus;
 
   cpu::Cpu m_cpu;
+
+  renderer::ScreenRenderer m_screen_renderer;
 };
 
 }  // namespace emulator

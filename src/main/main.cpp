@@ -40,7 +40,7 @@ s32 main(s32 argc, char** argv) {
       emulator->advance_frame();
 
       gui.clear();
-      emulator->draw();
+      emulator->render();
       gui.draw(*emulator);
 
       gui.swap();

@@ -1,9 +1,7 @@
-#include <renderer/renderer.hpp>
+#include <renderer/rasterizer.hpp>
 
 #include <gpu/gpu.hpp>
-#include <renderer/shader.hpp>
 
-#include <glbinding/gl/gl.h>
 #include <glm/vec3.hpp>
 #include <gsl-lite.hpp>
 
@@ -13,84 +11,16 @@
 #include <string>
 #include <variant>
 
-using namespace gl;
-
 namespace renderer {
+namespace rasterizer {
 
 PixelRenderType tex_page_col_to_render_type(u8 tex_page_colors);
 
-const GLuint ATTRIB_INDEX_POSITION = 0;
-const GLuint ATTRIB_INDEX_TEXCOORD = 1;
-
-Renderer::Renderer(gpu::Gpu& gpu) : m_gpu(gpu) {
-  // Load and compile shaders
-
-  m_shader_program_screen = renderer::load_shaders("screen");
-
-  if (!m_shader_program_screen)
-    throw std::runtime_error("Couldn't compile screen shader");
-
-  glUseProgram(m_shader_program_screen);
-
-  // Generate VAO
-  glGenVertexArrays(1, &m_vao);
-  glBindVertexArray(m_vao);
-
-  // Generate and configure VBO
-  glGenBuffers(1, &m_vbo);
-  glBindBuffer(GL_ARRAY_BUFFER, m_vbo);
-
-  const auto x = 1.f;
-  const auto y = 1.f;
-
-  const float vertices[] = {
-    // Position Texcoords
-    -1.f, 1.f, 0.0f, 0.0f,  // Top-left
-    -1.f, -y,  0.0f, 1.0f,  // Bottom-left
-    x,    1.f, 1.0f, 0.0f,  // Top-right
-    x,    -y,  1.0f, 1.0f,  // Bottom-right
-  };
-
-  glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-
-  const auto vertex_stride = 4 * sizeof(float);
-  const auto position_offset = 0 * sizeof(float);
-  const auto texcoord_offset = 2 * sizeof(float);
-
-  glEnableVertexAttribArray(ATTRIB_INDEX_POSITION);
-  glVertexAttribPointer(ATTRIB_INDEX_POSITION, 2, GL_FLOAT, GL_FALSE, vertex_stride,
-                        (const void*)position_offset);
-
-  glEnableVertexAttribArray(ATTRIB_INDEX_TEXCOORD);
-  glVertexAttribPointer(ATTRIB_INDEX_TEXCOORD, 2, GL_FLOAT, GL_FALSE, vertex_stride,
-                        (const void*)texcoord_offset);
-
-  // Generate and configure screen texture
-  glGenTextures(1, &m_tex_screen);
-  glActiveTexture(GL_TEXTURE0);
-  glBindTexture(GL_TEXTURE_2D, m_tex_screen);
-
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-
-  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, gpu::VRAM_WIDTH, gpu::VRAM_HEIGHT, 0, GL_RGBA,
-               GL_UNSIGNED_SHORT_1_5_5_5_REV, nullptr);
-
-  glBindVertexArray(0);
-}
-
-Renderer::~Renderer() {
-  glDeleteTextures(1, &m_tex_screen);
-  glDeleteBuffers(1, &m_vbo);
-  glDeleteVertexArrays(1, &m_vao);
-  glDeleteProgram(m_shader_program_screen);
-}
-
 template <PixelRenderType RenderType>
-void Renderer::draw_pixel(Position pos,
-                          DrawTriVariableArgs draw_args,
-                          BarycentricCoords bar,
-                          DrawCommand::Flags draw_flags) {
+void Rasterizer::draw_pixel(Position pos,
+                            DrawTriVariableArgs draw_args,
+                            BarycentricCoords bar,
+                            DrawCommand::Flags draw_flags) {
   // Texture stuff, unused for SHADED render type
   TextureInfo tex_info{};
   TexelPos texel{};
@@ -137,7 +67,7 @@ void Renderer::draw_pixel(Position pos,
   m_gpu.set_vram_pos(pos.x, pos.y, out_color.word, false);
 }
 
-gpu::RGB16 Renderer::calculate_pixel_shaded(Color3 colors, BarycentricCoords bar) {
+gpu::RGB16 Rasterizer::calculate_pixel_shaded(Color3 colors, BarycentricCoords bar) {
   // https://codeplea.com/triangular-interpolation
 
   auto w = (float)(bar.a + bar.b + bar.c);
@@ -148,7 +78,7 @@ gpu::RGB16 Renderer::calculate_pixel_shaded(Color3 colors, BarycentricCoords bar
   return gpu::RGB16::from_RGB(r, g, b);
 }
 
-gpu::RGB16 Renderer::calculate_pixel_tex_4bit(TextureInfo tex_info, TexelPos texel_pos) const {
+gpu::RGB16 Rasterizer::calculate_pixel_tex_4bit(TextureInfo tex_info, TexelPos texel_pos) const {
   const auto texpage = gpu::Gp0DrawMode{ tex_info.page };
 
   const auto index_x = texel_pos.x / 4 + texpage.tex_base_x();
@@ -167,7 +97,7 @@ gpu::RGB16 Renderer::calculate_pixel_tex_4bit(TextureInfo tex_info, TexelPos tex
   return gpu::RGB16::from_word(color);
 }
 
-gpu::RGB16 Renderer::calculate_pixel_tex_16bit(TextureInfo tex_info, TexelPos texel_pos) const {
+gpu::RGB16 Rasterizer::calculate_pixel_tex_16bit(TextureInfo tex_info, TexelPos texel_pos) const {
   const auto texpage = gpu::Gp0DrawMode{ tex_info.page };
 
   const auto color_x = texel_pos.x + texpage.tex_base_x();
@@ -178,7 +108,7 @@ gpu::RGB16 Renderer::calculate_pixel_tex_16bit(TextureInfo tex_info, TexelPos te
   return gpu::RGB16::from_word(color);
 }
 
-TexelPos Renderer::calculate_texel_pos(BarycentricCoords bar, Texcoord3 uv) const {
+TexelPos Rasterizer::calculate_texel_pos(BarycentricCoords bar, Texcoord3 uv) const {
   TexelPos texel;
 
   texel.x = (s32)(bar.a * uv[0].x + bar.b * uv[1].x + bar.c * uv[2].x);
@@ -199,9 +129,9 @@ TexelPos Renderer::calculate_texel_pos(BarycentricCoords bar, Texcoord3 uv) cons
 }
 
 template <PixelRenderType RenderType>
-void Renderer::draw_triangle(Position3 positions,
-                             DrawTriVariableArgs draw_args,
-                             DrawCommand::Flags draw_flags) {
+void Rasterizer::draw_triangle(Position3 positions,
+                               DrawTriVariableArgs draw_args,
+                               DrawCommand::Flags draw_flags) {
   // Algorithm from https://fgiesen.wordpress.com/2013/02/08/triangle-rasterization-in-practice/
   // TODO: optimize
 
@@ -269,11 +199,11 @@ void Renderer::draw_triangle(Position3 positions,
     }
 }
 
-void Renderer::draw_polygon_impl(Position4 positions,
-                                 Color4 colors,
-                                 TextureInfo tex_info,
-                                 bool is_quad,
-                                 DrawCommand::Flags draw_flags) {
+void Rasterizer::draw_polygon_impl(Position4 positions,
+                                   Color4 colors,
+                                   TextureInfo tex_info,
+                                   bool is_quad,
+                                   DrawCommand::Flags draw_flags) {
   // Consolidate args data and call appropriate drawing functions
   const auto end_tri_idx = is_quad ? QuadTriangleIndex::Second : QuadTriangleIndex::First;
   const auto is_textured = draw_flags.texture_mapped;
@@ -317,7 +247,7 @@ void Renderer::draw_polygon_impl(Position4 positions,
   }
 }
 
-void Renderer::draw_polygon(const DrawCommand::Polygon& polygon) {
+void Rasterizer::draw_polygon(const DrawCommand::Polygon& polygon) {
   const auto gp0_cmd = m_gpu.get_gp0_cmd();
   const auto vertex_count = polygon.get_vertex_count();
 
@@ -353,7 +283,7 @@ void Renderer::draw_polygon(const DrawCommand::Polygon& polygon) {
   draw_polygon_impl(positions, colors, tex_info, polygon.is_quad(), *(DrawCommand::Flags*)&polygon);
 }
 
-void Renderer::draw_rectangle(const DrawCommand::Rectangle& rectangle) {
+void Rasterizer::draw_rectangle(const DrawCommand::Rectangle& rectangle) {
   Position4 positions;
   Color4 colors;
   TextureInfo tex_info{};
@@ -395,21 +325,6 @@ void Renderer::draw_rectangle(const DrawCommand::Rectangle& rectangle) {
   draw_polygon_impl(positions, colors, tex_info, is_quad, *(DrawCommand::Flags*)&rectangle);
 }
 
-void Renderer::render() {
-  // Bind needed state
-  glBindVertexArray(m_vao);
-  glActiveTexture(GL_TEXTURE0);
-  glBindTexture(GL_TEXTURE_2D, m_tex_screen);
-  glUseProgram(m_shader_program_screen);
-
-  // Upload screen texture
-  glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, gpu::VRAM_WIDTH, gpu::VRAM_HEIGHT, GL_RGBA,
-                  GL_UNSIGNED_SHORT_1_5_5_5_REV, (const void*)m_gpu.vram().data());
-
-  // Draw screen
-  glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-}
-
 PixelRenderType tex_page_col_to_render_type(u8 tex_page_colors) {
   switch (tex_page_colors) {
     case 0: return PixelRenderType::TEXTURED_PALETTED_4BIT;
@@ -420,4 +335,5 @@ PixelRenderType tex_page_col_to_render_type(u8 tex_page_colors) {
   return PixelRenderType::SHADED;  // unreachable
 }
 
+}  // namespace rasterizer
 }  // namespace renderer
