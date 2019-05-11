@@ -1,6 +1,7 @@
+#include <cpu/cpu.hpp>
+
 #include <bios/functions.hpp>
 #include <bus/bus.hpp>
-#include <cpu/cpu.hpp>
 #include <cpu/instruction.hpp>
 #include <cpu/interrupt.hpp>
 #include <cpu/opcode.hpp>
@@ -61,6 +62,7 @@ void Cpu::step(u32 cycles_to_execute) {
     const Instruction instr(cur_instr);
 
     if (instr.opcode() == Opcode::INVALID) {
+      LOG_CRITICAL("Invalid instruction {:02X}", cur_instr);
       trigger_exception(ExceptionCause::ReservedInstruction);
       return;
     }
