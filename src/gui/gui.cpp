@@ -150,9 +150,6 @@ void Gui::init() {
   if (!m_gl_context)
     SDL_ERROR("Unable to create GL context");
 
-  // Don't use Vsync
-  SDL_GL_SetSwapInterval(0);
-
   const glbinding::GetProcAddress get_proc_address = [](const char* name) {
     return reinterpret_cast<glbinding::ProcAddress>(SDL_GL_GetProcAddress(name));
   };
@@ -348,6 +345,9 @@ void Gui::apply_settings() {
     }
     SDL_SetWindowSize(m_window, m_settings->res_width * scale, m_settings->res_height * scale);
   }
+  if (m_settings->limit_framerate_changed)
+    // Limit framerate via Vsync
+    SDL_GL_SetSwapInterval(m_settings->limit_framerate ? -1 : 0);
 }
 
 void Gui::update_fps_counter() {
@@ -380,19 +380,19 @@ void Gui::imgui_draw(const emulator::Emulator& emulator) {
         ImGui::MenuItem("TTY Output", "Ctrl+T", &m_draw_tty, LOG_TTY_OUTPUT_WITH_HOOK);
         ImGui::MenuItem("BIOS Function Calls", "Ctrl+B", &m_draw_bios_calls, LOG_BIOS_CALLS);
         ImGui::MenuItem("RAM Contents", "Ctrl+R", &m_draw_ram);
-        ImGui::MenuItem("GPU Registers", "Ctrl+G", &m_draw_gpu_registers);
+        ImGui::MenuItem("GPU Registers", "Ctrl+U", &m_draw_gpu_registers);
         ImGui::EndMenu();
       }
+
       if (ImGui::BeginMenu("Settings")) {
-        ImGui::PushItemWidth(100);
+        ImGui::PushItemWidth(140);
         // Screen view
         auto screen_view_old = m_settings->screen_view;
         const char* const items_screen_view[] = { "VRAM", "Display" };
         ImGui::Text("View ");
         ImGui::SameLine();
         ImGui::Combo("##screen_view", (s32*)&m_settings->screen_view, items_screen_view, 2);
-        if (screen_view_old != m_settings->screen_view)
-          m_settings->window_size_changed = true;
+        m_settings->window_size_changed = (screen_view_old != m_settings->screen_view);
 
         // Screen scale
         auto screen_scale_old = m_settings->screen_scale;
@@ -400,8 +400,13 @@ void Gui::imgui_draw(const emulator::Emulator& emulator) {
         ImGui::Text("Scale");
         ImGui::SameLine();
         ImGui::Combo("##screen_scale", (s32*)&m_settings->screen_scale, items_screen_scale, 4);
-        if (screen_scale_old != m_settings->screen_scale)
-          m_settings->window_size_changed = true;
+        if (!m_settings->window_size_changed)
+          m_settings->window_size_changed = (screen_scale_old != m_settings->screen_scale);
+
+        auto limit_framerate_old = m_settings->limit_framerate;
+        // Frame limiter
+        ImGui::MenuItem("Throttle FPS", "Ctrl+F", &m_settings->limit_framerate);
+        m_settings->limit_framerate_changed = (limit_framerate_old != m_settings->limit_framerate);
 
         // Gui visibility
         ImGui::MenuItem("Show GUI", "Ctrl+G", &m_settings->show_gui);

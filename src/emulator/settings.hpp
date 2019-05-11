@@ -5,8 +5,8 @@
 namespace emulator {
 
 enum class View : s32 {
-  Display,  // Show only the display output that would be shown on a real console
   Vram,     // Show the contents of the entire VRAM
+  Display,  // Show only the display output that would be shown on a real console
 
   Maximum,
 };
@@ -25,6 +25,9 @@ struct Settings {
   u32 res_height;
 
   bool show_gui{ true };
+
+  bool limit_framerate{ true };
+  bool limit_framerate_changed{};
 };
 
 }  // namespace emulator
