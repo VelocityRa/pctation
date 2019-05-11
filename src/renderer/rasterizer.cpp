@@ -59,9 +59,9 @@ void Rasterizer::draw_pixel(Position pos,
       brightness = gpu::RGB32::from_word(tex_info.color.word()).to_vec();
     } else if (draw_flags.shading == DrawCommand::Shading::Gouraud) {
       // TODO: shading
-      brightness = glm::vec3(128);
+      brightness = glm::vec3(0.5);
     }
-    out_color *= brightness / 255.f * 2.f;
+    out_color *= brightness * 2.f;
   }
 
   m_gpu.set_vram_pos(pos.x, pos.y, out_color.word, false);
