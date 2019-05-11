@@ -58,7 +58,7 @@ class Interrupts {
       reg_addr = addr_rebased - 4;
     }
 
-    return *(ValueType*)((u8*)reg + reg_addr);
+    return *(ValueType*)((u8*)reg + reg_addr) & 0x7FF;
   }
   template <typename ValueType>
   void write(address addr_rebased, ValueType val) {

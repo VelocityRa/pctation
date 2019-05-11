@@ -63,7 +63,7 @@ union Cop0StatusRegister {
   };
 };
 
-enum class ExceptionCause : u32 {
+enum class ExceptionCause : u8 {
   Interrupt = 0x0,
   LoadAddressError = 0x4,
   StoreAddressError = 0x5,
