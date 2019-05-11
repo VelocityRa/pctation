@@ -39,6 +39,7 @@ void Emulator::advance_frame() {
     m_cpu.step(cpu_cycle_quantum);
 
     m_dma.step();
+    m_cdrom.step();
     m_joypad.step();
 
     if (m_gpu.step(system_cycle_quantum)) {
