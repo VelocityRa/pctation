@@ -159,6 +159,11 @@ union GpuStatus {
   DmaDirection dma_direction() const { return static_cast<DmaDirection>(dma_direction_); }
 };
 
+struct DisplayResolution {
+  u32 width{};
+  u32 height{};
+};
+
 class Gpu {
  public:
   Gpu();
@@ -215,6 +220,8 @@ class Gpu {
   void set_vram_pos(u16 x, u16 y, u16 val, bool wrap);
   void set_vram_idx(u32 vram_idx, u16 val);
   void advance_vram_transfer_pos();
+
+  DisplayResolution get_resolution() const;
 
  private:
   // Returns size of image in 16-bit pixels, rounded up to nearest 32-bit value

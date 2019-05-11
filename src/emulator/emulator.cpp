@@ -61,11 +61,12 @@ WindowSize Emulator::toggle_view() {
   WindowSize new_size{};
 
   switch (m_view) {
-    case View::Display:
-      new_size.width = 640;  // TODO: get from m_gpu
-      new_size.height = 480;
+    case View::Display: {
+      const auto res = m_gpu.get_resolution();
+      new_size.width = res.width;
+      new_size.height = res.height;
       break;
-
+    }
     case View::Vram:
       new_size.width = gpu::VRAM_WIDTH;
       new_size.height = gpu::VRAM_HEIGHT;

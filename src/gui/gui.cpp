@@ -518,6 +518,11 @@ void Gui::draw_gpu_registers(const gpu::Gpu& gpu) {
   const char* dma_direction_str[] = { "Off", "???", "CPUtoGP0", "VRMtoCPU" };
   const char* interlace_type_str[] = { "Even", "Odd" };
 
+  auto resolution_str = [&gpu]() {
+    const auto res = gpu.get_resolution();
+    return fmt::format("{}x{}", res.width, res.height);
+  };
+
   const RegisterTableEntries gpustat_rows = {
     { "0-3", "Texture Page X Base", fmt::format("{}", gs.tex_page_x_base * 64) },
     { "4", "Texture Page Y Base", fmt::format("{}", gs.tex_page_y_base * 256) },
@@ -530,9 +535,7 @@ void Gui::draw_gpu_registers(const gpu::Gpu& gpu) {
     { "13", "Interlace Field", fmt::format("{}", gs.interlace_field) },
     { "14", "Reverseflag", fmt::format("{}", gs.reverse_flag) },
     { "15", "Texture Disable", fmt::format("{}", gs.tex_disable) },
-    { "16", "Horizontal Res. 2", fmt::format("{}", gs.horizontal_res_2) },
-    { "17-18", "Horizontal Res. 1", fmt::format("{}", gs.horizontal_res_1) },
-    { "19", "Vertical Resolution", fmt::format("{}", gs.vertical_res) },
+    { "16-19", "Resolution", fmt::format("{}", resolution_str()) },
     { "20", "Video mode", video_mode_str[gs.video_mode] },
     { "21", "Display Color Depth", disp_color_depth_str[gs.disk_color_depth] },
     { "22", "Vertical Interlace", fmt::format("{}", gs.vertical_interlace) },

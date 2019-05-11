@@ -96,6 +96,26 @@ void Gpu::advance_vram_transfer_pos() {
     m_vram_transfer_x++;
 }
 
+DisplayResolution Gpu::get_resolution() const {
+  DisplayResolution res;
+
+  if (m_gpustat.horizontal_res_2 == 1)
+    res.width = 368;
+  else
+    switch (m_gpustat.horizontal_res_1) {
+      case 0: res.width = 256; break;
+      case 1: res.width = 320; break;
+      case 2: res.width = 512; break;
+      case 3: res.width = 640; break;
+    }
+
+  if (m_gpustat.vertical_res || !m_gpustat.vertical_interlace)
+    res.height = 240;
+  else
+    res.height = 480;
+  return res;
+}
+
 void Gpu::gp0(u32 cmd) {
   if (m_gp0_cmd_type == Gp0CommandType::None) {
     m_gp0_cmd.clear();
