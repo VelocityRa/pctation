@@ -6,6 +6,7 @@
 #include <util/log.hpp>
 
 #include <emulator/emulator.hpp>
+#include <emulator/settings.hpp>
 
 #include <SDL2/SDL.h>
 #pragma warning(disable : 4251)  // hide some glbinding warnings
@@ -29,7 +30,7 @@ using namespace gl;
 
 const auto SCREEN_SCALE = 1;
 
-const auto GUI_CLEAR_COLOR = RGBA_TO_FLOAT(133, 20, 75, 255);
+const auto GUI_CLEAR_COLOR = RGBA_TO_FLOAT(46, 63, 95, 255);
 const auto GUI_COLOR_BLACK_HALF_TRANSPARENT = RGBA_TO_FLOAT(0, 0, 0, 128);
 const auto GUI_TABLE_COLUMN_TITLES_COL = ImColor(255, 255, 255);
 const auto GUI_TABLE_COLUMN_ROWS_NAME_COL = IM_COL32(200, 200, 200, 255);
@@ -190,11 +191,15 @@ void Gui::set_joypad(io::Joypad* joypad) {
   m_joypad = joypad;
 }
 
+void Gui::set_settings(emulator::Settings* settings) {
+  m_settings = settings;
+}
+
 bool Gui::poll_events() {
   return SDL_PollEvent(&m_event);
 }
 
-GuiEvent Gui::process_events() const {
+GuiEvent Gui::process_events() {
   auto ret_event = GuiEvent::None;
 
   // Let ImGui process events
@@ -233,7 +238,14 @@ GuiEvent Gui::process_events() const {
     // Emulator operation events
     if (m_event.type == SDL_KEYDOWN) {
       switch (sym) {
-        case SDLK_TAB: return GuiEvent::ToggleView;
+        case SDLK_TAB:
+          switch (m_settings->screen_view) {
+            case emulator::View::Vram: m_settings->screen_view = emulator::View::Display; break;
+            case emulator::View::Display: m_settings->screen_view = emulator::View::Vram; break;
+          }
+          m_settings->window_size_changed = true;
+          break;
+        case SDLK_g: m_settings->show_gui ^= true; break;
       }
     }
   }
@@ -290,7 +302,7 @@ bool Gui::draw_exe_select(std::string& exe_path) const {
   return selected;
 }
 
-GuiEvent Gui::process_events_exe_select() {
+GuiEvent Gui::process_events_exe_select() const {
   auto ret_event = GuiEvent::None;
 
   // Let ImGui process events
@@ -324,8 +336,18 @@ void Gui::swap() {
   update_fps_counter();
 }
 
-void Gui::set_window_size(emulator::WindowSize size) {
-  SDL_SetWindowSize(m_window, size.width, size.height);
+void Gui::apply_settings() {
+  if (m_settings->window_size_changed) {
+    m_settings->window_size_changed = false;
+    s32 scale = 1;
+    switch (m_settings->screen_scale) {
+      case emulator::ScreenScale::x1: scale = 1; break;
+      case emulator::ScreenScale::x2: scale = 2; break;
+      case emulator::ScreenScale::x3: scale = 3; break;
+      case emulator::ScreenScale::x4: scale = 4; break;
+    }
+    SDL_SetWindowSize(m_window, m_settings->res_width * scale, m_settings->res_height * scale);
+  }
 }
 
 void Gui::update_fps_counter() {
@@ -352,26 +374,54 @@ void Gui::update_window_title() const {
 }
 
 void Gui::imgui_draw(const emulator::Emulator& emulator) {
-  if (false && ImGui::BeginMainMenuBar()) {  // TODO: Enable when it doesn't overlay with screen
-    if (ImGui::BeginMenu("Debug")) {
-      ImGui::MenuItem("TTY Output", "Ctrl+T", &m_draw_tty, LOG_TTY_OUTPUT_WITH_HOOK);
-      ImGui::MenuItem("BIOS Function Calls", "Ctrl+B", &m_draw_bios_calls, LOG_BIOS_CALLS);
-      ImGui::MenuItem("RAM Contents", "Ctrl+R", &m_draw_ram);
-      ImGui::MenuItem("GPU Registers", "Ctrl+G", &m_draw_gpu_registers);
-      ImGui::EndMenu();
-    }
-    ImGui::EndMainMenuBar();
-  }
+  if (m_settings->show_gui) {
+    if (ImGui::BeginMainMenuBar()) {
+      if (ImGui::BeginMenu("Debug")) {
+        ImGui::MenuItem("TTY Output", "Ctrl+T", &m_draw_tty, LOG_TTY_OUTPUT_WITH_HOOK);
+        ImGui::MenuItem("BIOS Function Calls", "Ctrl+B", &m_draw_bios_calls, LOG_BIOS_CALLS);
+        ImGui::MenuItem("RAM Contents", "Ctrl+R", &m_draw_ram);
+        ImGui::MenuItem("GPU Registers", "Ctrl+G", &m_draw_gpu_registers);
+        ImGui::EndMenu();
+      }
+      if (ImGui::BeginMenu("Settings")) {
+        ImGui::PushItemWidth(100);
+        // Screen view
+        auto screen_view_old = m_settings->screen_view;
+        const char* const items_screen_view[] = { "VRAM", "Display" };
+        ImGui::Text("View ");
+        ImGui::SameLine();
+        ImGui::Combo("##screen_view", (s32*)&m_settings->screen_view, items_screen_view, 2);
+        if (screen_view_old != m_settings->screen_view)
+          m_settings->window_size_changed = true;
 
-  if (m_draw_tty && (LOG_TTY_OUTPUT_WITH_HOOK || LOG_BIOS_CALLS))
-    draw_dialog_log("TTY Output", m_draw_tty, m_tty_autoscroll, emulator.cpu().m_tty_out_log.c_str());
-  if (m_draw_bios_calls && LOG_BIOS_CALLS)
-    draw_dialog_log("BIOS Function Calls", m_draw_bios_calls, m_bios_calls_autoscroll,
-                    emulator.cpu().m_bios_calls_log.c_str());
-  if (m_draw_ram)
-    draw_dialog_ram(emulator.ram().data());
-  if (m_draw_gpu_registers)
-    draw_gpu_registers(emulator.gpu());
+        // Screen scale
+        auto screen_scale_old = m_settings->screen_scale;
+        const char* const items_screen_scale[] = { "1x", "2x", "3x", "4x" };
+        ImGui::Text("Scale");
+        ImGui::SameLine();
+        ImGui::Combo("##screen_scale", (s32*)&m_settings->screen_scale, items_screen_scale, 4);
+        if (screen_scale_old != m_settings->screen_scale)
+          m_settings->window_size_changed = true;
+
+        // Gui visibility
+        ImGui::MenuItem("Show GUI", "Ctrl+G", &m_settings->show_gui);
+
+        ImGui::PopItemWidth();
+        ImGui::EndMenu();
+      }
+      ImGui::EndMainMenuBar();
+    }
+
+    if (m_draw_tty && (LOG_TTY_OUTPUT_WITH_HOOK || LOG_BIOS_CALLS))
+      draw_dialog_log("TTY Output", m_draw_tty, m_tty_autoscroll, emulator.cpu().m_tty_out_log.c_str());
+    if (m_draw_bios_calls && LOG_BIOS_CALLS)
+      draw_dialog_log("BIOS Function Calls", m_draw_bios_calls, m_bios_calls_autoscroll,
+                      emulator.cpu().m_bios_calls_log.c_str());
+    if (m_draw_ram)
+      draw_dialog_ram(emulator.ram().data());
+    if (m_draw_gpu_registers)
+      draw_gpu_registers(emulator.gpu());
+  }
 }
 
 void Gui::deinit() {

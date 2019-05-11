@@ -16,7 +16,7 @@ class Joypad;
 
 namespace emulator {
 class Emulator;
-struct WindowSize;
+struct Settings;
 }  // namespace emulator
 
 namespace gpu {
@@ -29,21 +29,20 @@ enum class GuiEvent {
   None,
   Exit,
   GameSelected,
-  ToggleView,
 };
 
 class Gui {
  public:
   void init();
   void set_joypad(io::Joypad* joypad);
+  void set_settings(emulator::Settings* joypad);
+  void apply_settings();
   bool poll_events();  // Returns true if there are any pending events
-  GuiEvent process_events() const;
-  GuiEvent process_events_exe_select();
+  GuiEvent process_events();
+  GuiEvent process_events_exe_select() const;
   void draw(const emulator::Emulator& emulator);
   bool draw_exe_select(std::string& psxexe_path) const;  // Returns true if a psx was selected
-  void process_exit_events(GuiEvent& ret_event) const;
   void swap();
-  void set_window_size(emulator::WindowSize size);
   void deinit();
   void clear();
 
@@ -61,6 +60,7 @@ class Gui {
   void draw_gpu_registers(const gpu::Gpu& gpu);
   void update_window_title() const;
   void update_fps_counter();
+  void process_exit_events(GuiEvent& ret_event) const;
 
  private:
   // SDL
@@ -90,6 +90,7 @@ class Gui {
   bool m_draw_gpu_registers{ true };
 
   io::Joypad* m_joypad;
+  emulator::Settings* m_settings;
 };
 
 }  // namespace gui

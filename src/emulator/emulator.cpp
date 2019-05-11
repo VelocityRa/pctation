@@ -54,28 +54,29 @@ void Emulator::render() {
   m_screen_renderer.render((const void*)m_gpu.vram().data());
 }
 
-WindowSize Emulator::toggle_view() {
-  // Advance View enum by 1 and wrap
-  m_view = View(((u8)m_view + 1) % (u8)View::Maximum);
-
-  WindowSize new_size{};
-
-  switch (m_view) {
+void Emulator::set_view(View view) {
+  switch (view) {
     case View::Display: {
       const auto res = m_gpu.get_resolution();
-      new_size.width = res.width;
-      new_size.height = res.height;
+      m_settings.res_width = res.width;
+      m_settings.res_height = res.height;
       break;
     }
     case View::Vram:
-      new_size.width = gpu::VRAM_WIDTH;
-      new_size.height = gpu::VRAM_HEIGHT;
+      m_settings.res_width = gpu::VRAM_WIDTH;
+      m_settings.res_height = gpu::VRAM_HEIGHT;
       break;
   }
 
-  m_screen_renderer.set_texture_size(new_size.width, new_size.height);
+  m_screen_renderer.set_texture_size(m_settings.res_width, m_settings.res_height);
+}
 
-  return new_size;
+void Emulator::update_settings() {
+  if (m_settings.window_size_changed) {
+    set_view(m_settings.screen_view);
+    // We leave screen_view_changed to true so that the GUI code can pick it up and change the window
+    // size too
+  }
 }
 
 }  // namespace emulator

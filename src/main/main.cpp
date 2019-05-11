@@ -54,21 +54,19 @@ s32 main(s32 argc, char** argv) {
     // Init emulator
     auto emulator = std::make_unique<emulator::Emulator>(BIOS_PATH, exe_path, bootstrap_path);
 
-    // Link GUI with Joypad
+    // Link GUI with Emulator
     gui.set_joypad(&emulator->joypad());
+    gui.set_settings(&emulator->settings());
 
     // Main loop
     gui::GuiEvent event = gui::GuiEvent::None;
 
     while (event != gui::GuiEvent::Exit) {
-      while (gui.poll_events()) {
+      while (gui.poll_events())
         event = gui.process_events();
 
-        if (event == gui::GuiEvent::ToggleView) {
-          const auto size = emulator->toggle_view();
-          gui.set_window_size(size);
-        }
-      }
+      emulator->update_settings();
+      gui.apply_settings();
 
       emulator->advance_frame();
 

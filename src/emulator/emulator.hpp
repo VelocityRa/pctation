@@ -4,6 +4,7 @@
 #include <bus/bus.hpp>
 #include <cpu/cpu.hpp>
 #include <cpu/interrupt.hpp>
+#include <emulator/settings.hpp>
 #include <gpu/gpu.hpp>
 #include <io/cdrom.hpp>
 #include <io/joypad.hpp>
@@ -15,19 +16,11 @@
 
 #include <util/fs.hpp>
 
+namespace gui {
+class Gui;
+}
+
 namespace emulator {
-
-enum class View : u8 {
-  Display,  // Show only the display output that would be shown on a real console
-  Vram,     // Show the contents of the entire VRAM
-
-  Maximum,
-};
-
-struct WindowSize {
-  s32 width;
-  s32 height;
-};
 
 class Emulator {
  public:
@@ -36,13 +29,15 @@ class Emulator {
   // Advances the emulator state approximately one frame
   void advance_frame();
   void render();
-  WindowSize toggle_view();
+  void set_view(View view);
 
   // Getters
   const cpu::Cpu& cpu() const { return m_cpu; }
   const memory::Ram& ram() const { return m_ram; }
   const gpu::Gpu& gpu() const { return m_gpu; }
   io::Joypad& joypad() { return m_joypad; }
+  Settings& settings() { return m_settings; }
+  void update_settings();
 
  private:
   // Emulator core components
@@ -63,7 +58,7 @@ class Emulator {
  private:
   // Host fields
   renderer::ScreenRenderer m_screen_renderer;
-  emulator::View m_view = View::Vram;
+  emulator::Settings m_settings{};
 };
 
 }  // namespace emulator
