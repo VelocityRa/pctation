@@ -368,7 +368,11 @@ void Gui::update_fps_counter() {
 }
 
 void Gui::update_window_title() const {
-  auto window_title = fmt::format("Pctation | OpenGL | {:0.2f} FPS", m_fps);
+  auto speed_percent = static_cast<u32>(m_fps / 60.f * 100.f);
+  auto window_title = fmt::format("Pctation | {:0.2f} FPS", m_fps);
+
+  if (99 > speed_percent || speed_percent > 100)
+    window_title += fmt::format(" | {:>3d}%", speed_percent);
 
   SDL_SetWindowTitle(m_window, window_title.c_str());
 }
@@ -377,7 +381,7 @@ void Gui::imgui_draw(const emulator::Emulator& emulator) {
   if (m_settings->show_gui) {
     if (ImGui::BeginMainMenuBar()) {
       if (ImGui::BeginMenu("Debug")) {
-        ImGui::MenuItem("TTY Output", "Ctrl+T", &m_draw_tty, LOG_TTY_OUTPUT_WITH_HOOK);
+        ImGui::MenuItem("TTY Output", "Ctrl+T", &m_draw_tty, LOG_TTY_OUTPUT_WITH_HOOK || LOG_BIOS_CALLS);
         ImGui::MenuItem("BIOS Function Calls", "Ctrl+B", &m_draw_bios_calls, LOG_BIOS_CALLS);
         ImGui::MenuItem("RAM Contents", "Ctrl+R", &m_draw_ram);
         ImGui::MenuItem("GPU Registers", "Ctrl+U", &m_draw_gpu_registers);
