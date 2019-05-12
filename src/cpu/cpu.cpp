@@ -332,7 +332,7 @@ void Cpu::trigger_exception(ExceptionCause cause) {
   // Clear CAUSE except for the pending interrupt bit
   m_cop0_cause.word &= ~0xFFFF00FF;
 
-  m_cop0_cause.word = (static_cast<u32>(cause) << 2);
+  m_cop0_cause.word |= (static_cast<u8>(cause) << 2);
 
   // Update EPC with the return address
   if (cause == ExceptionCause::Interrupt)
