@@ -12,14 +12,18 @@ void Interrupts::update_cop0() {
   m_cpu->m_cop0_cause.interrupt_pending = is_interrupt_pending ? 0b100 : 0b0;
 }
 
-void Interrupts::check() const {
+bool Interrupts::check() const {
   const auto cause = m_cpu->m_cop0_cause;
   const auto status = m_cpu->m_cop0_status;
 
   const bool are_interrupts_enabled = status.interrupt_enable;
   const bool are_active_interrupts = cause.interrupt_pending & status.interrupt_mask;
 
-  if (are_interrupts_enabled && are_active_interrupts)
+  return are_interrupts_enabled && are_active_interrupts;
+}
+
+void Interrupts::check_and_trigger() const {
+  if (check())
     m_cpu->trigger_exception(ExceptionCause::Interrupt);
 }
 

@@ -41,8 +41,9 @@ class Interrupts {
  public:
   void init(cpu::Cpu* cpu) { m_cpu = cpu; }
 
+  bool check() const;
   void update_cop0();
-  void check() const;
+  void check_and_trigger() const;
   void trigger(IrqType irq);
 
   template <typename ValueType>

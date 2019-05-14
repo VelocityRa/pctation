@@ -49,7 +49,7 @@ void Cpu::step(u32 cycles_to_execute) {
     store_exception_state();
 
     // Check for interrupts and trigger an exception if any
-    m_bus.m_interrupts.check();
+    m_bus.m_interrupts.check_and_trigger();
 
     // Fetch current instruction
     u32 cur_instr;
@@ -211,6 +211,7 @@ void Cpu::execute_instruction(const Instruction& i) {
         case Cop0Register::COP0_EPC:
           m_cop0_epc = rt(i);
           break;
+
         unhandled_mtc:
         default: LOG_WARN("Unhandled Cop1 register {} write", static_cast<u32>(cop_dst_reg));
       }
@@ -221,7 +222,7 @@ void Cpu::execute_instruction(const Instruction& i) {
       switch (cop_dst_reg) {
         case Cop0Register::COP0_BPC: issue_delayed_load(i.rt(), m_cop0_bpc); goto unhandled_mfc;
         case Cop0Register::COP0_BDA: issue_delayed_load(i.rt(), m_cop0_bda); goto unhandled_mfc;
-        case Cop0Register::COP0_JUMPDEST: issue_delayed_load(i.rt(), m_cop0_jumpdest);
+        case Cop0Register::COP0_JUMPDEST: issue_delayed_load(i.rt(), m_cop0_jumpdest); break;
         case Cop0Register::COP0_DCIC: issue_delayed_load(i.rt(), m_cop0_dcic); break;
         case Cop0Register::COP0_BAD_VADDR: issue_delayed_load(i.rt(), m_cop0_bad_vaddr); break;
         case Cop0Register::COP0_BDAM: issue_delayed_load(i.rt(), m_cop0_bdam); goto unhandled_mfc;
@@ -230,10 +231,11 @@ void Cpu::execute_instruction(const Instruction& i) {
         case Cop0Register::COP0_CAUSE: issue_delayed_load(i.rt(), m_cop0_cause.word); break;
         case Cop0Register::COP0_EPC: issue_delayed_load(i.rt(), m_cop0_epc); break;
         case Cop0Register::COP0_PRID:
-          issue_delayed_load(i.rt(), m_cop0_prid);
+          issue_delayed_load(i.rt(), 0x2);  // CXD8606CQ CPU
           goto unhandled_mfc;
+
         unhandled_mfc:
-        default: LOG_WARN("Unhandled Cop1 register {} read", static_cast<u32>(cop_dst_reg));
+        default: LOG_WARN("Unhandled Cop0 register {} read", static_cast<u32>(cop_dst_reg));
       }
       break;
     }
