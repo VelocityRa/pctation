@@ -36,7 +36,7 @@ class Gui {
   void init();
   void set_joypad(io::Joypad* joypad);
   void set_settings(emulator::Settings* joypad);
-  void apply_settings();
+  void apply_settings() const;
   bool poll_events();  // Returns true if there are any pending events
   GuiEvent process_events();
   GuiEvent process_events_exe_select() const;
@@ -44,7 +44,7 @@ class Gui {
   bool draw_exe_select(std::string& psxexe_path) const;  // Returns true if a psx was selected
   void swap();
   void deinit();
-  void clear();
+  void clear() const;
 
  private:
   void imgui_start_frame() const;
@@ -54,7 +54,7 @@ class Gui {
   void draw_dialog_log(const char* title,
                        bool& should_draw,
                        bool& should_autoscroll,
-                       const char* text_contents);
+                       const char* text_contents) const;
   template <size_t RamSize>
   void draw_dialog_ram(const std::array<byte, RamSize>& data);
   void draw_gpu_registers(const gpu::Gpu& gpu);

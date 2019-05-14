@@ -332,7 +332,7 @@ void Gui::swap() {
   update_fps_counter();
 }
 
-void Gui::apply_settings() {
+void Gui::apply_settings() const {
   if (m_settings->window_size_changed) {
     m_settings->window_size_changed = false;
     s32 scale = 1;
@@ -438,7 +438,7 @@ void Gui::deinit() {
   SDL_Quit();
 }
 
-void Gui::clear() {
+void Gui::clear() const {
   glClearColor(GUI_CLEAR_COLOR.x, GUI_CLEAR_COLOR.y, GUI_CLEAR_COLOR.z, GUI_CLEAR_COLOR.w);
   glClear(GL_COLOR_BUFFER_BIT);
 }
@@ -448,7 +448,7 @@ void Gui::clear() {
 void Gui::draw_dialog_log(const char* title,
                           bool& should_draw,
                           bool& should_autoscroll,
-                          const char* text_contents) {
+                          const char* text_contents) const {
   // Window style
   ImGui::SetNextWindowSize(ImVec2(470, 300), ImGuiCond_FirstUseEver);
 
