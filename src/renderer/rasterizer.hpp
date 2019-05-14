@@ -40,8 +40,8 @@ struct Position {
   s16 y;
 
   static Position from_gp0(u32 cmd) {
-    return { util::sign_extend<10, s16>((s16)cmd & 0x7FF),
-             util::sign_extend<10, s16>((s16)(cmd >> 16) & 0x7FF) };
+    return { bit_utils::sign_extend<10, s16>((s16)cmd & 0x7FF),
+             bit_utils::sign_extend<10, s16>((s16)(cmd >> 16) & 0x7FF) };
   }
   static Position from_gp0_fill(u32 cmd) { return { (s16)cmd & 0x3F0, (s16)(cmd >> 16) & 0x1FF }; }
   static Position3 from_gp0(u32 cmd, u32 cmd2, u32 cmd3) {
@@ -61,8 +61,8 @@ struct Size {
   s16 height;
 
   static Size from_gp0(u32 cmd) {
-    return { util::sign_extend<10, s16>((s16)cmd & 0x1FF),
-             util::sign_extend<10, s16>((s16)(cmd >> 16) & 0x3FF) };
+    return { bit_utils::sign_extend<10, s16>((s16)cmd & 0x1FF),
+             bit_utils::sign_extend<10, s16>((s16)(cmd >> 16) & 0x3FF) };
   }
   static Size from_gp0_fill(u32 cmd) {
     return { (((s16)cmd & 0x3FF) + 0x0F) & ~0x0F, (s16)(cmd >> 16) & 0x1FF };

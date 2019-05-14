@@ -336,8 +336,8 @@ void Gpu::gp0_drawing_area_bottom_right(u32 cmd) {
 
 void Gpu::gp0_drawing_offset(u32 cmd) {
   m_drawing_offset.word = cmd;
-  m_drawing_offset.x = util::sign_extend<11, u32>(m_drawing_offset.x);
-  m_drawing_offset.y = util::sign_extend<11, u32>(m_drawing_offset.y);
+  m_drawing_offset.x = bit_utils::sign_extend<11, u32>(m_drawing_offset.x);
+  m_drawing_offset.y = bit_utils::sign_extend<11, u32>(m_drawing_offset.y);
 }
 
 void Gpu::gp1(u32 cmd) {

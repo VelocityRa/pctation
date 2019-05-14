@@ -2,7 +2,7 @@
 
 #include <util/types.hpp>
 
-namespace util {
+namespace bit_utils {
 
 template <u32 sign_bit, typename T>
 T sign_extend(u64 n) {
@@ -19,4 +19,4 @@ T sign_extend(u64 n) {
   return val;
 }
 
-}  // namespace util
+}  // namespace bit_utils
