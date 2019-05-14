@@ -13,12 +13,15 @@ constexpr auto NOCASH_BIOS_1_2_PATH = "data/bios/no$psx_bios/NO$PSX_BIOS_1.2_2x.
 constexpr auto BIOS_PATH = "data/bios/SCPH1001.BIN";
 
 void exe_select_screen(gui::Gui& gui, std::string& exe_path) {
-  gui::GuiEvent event = gui::GuiEvent::None;
+  auto event = gui::GuiEvent::None;
 
-  while (event != gui::GuiEvent::GameSelected) {
-    while (gui.poll_events())
+  while (true) {
+    while (gui.poll_events()) {
       event = gui.process_events_exe_select();
 
+      if (event == gui::GuiEvent::GameSelected || event == gui::GuiEvent::Exit)
+        return;
+    }
     gui.clear();
 
     if (gui.draw_exe_select(exe_path))
@@ -59,12 +62,15 @@ s32 main(s32 argc, char** argv) {
     gui.set_settings(&emulator->settings());
 
     // Main loop
-    gui::GuiEvent event = gui::GuiEvent::None;
+    auto event = gui::GuiEvent::None;
 
-    while (event != gui::GuiEvent::Exit) {
-      while (gui.poll_events())
+    while (true) {
+      while (gui.poll_events()) {
         event = gui.process_events();
 
+        if (event == gui::GuiEvent::Exit)
+          return 0;
+      }
       emulator->update_settings();
       gui.apply_settings();
 
