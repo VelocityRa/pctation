@@ -186,6 +186,7 @@ void Cdrom::execute_command(u8 cmd) {
       m_mode.reset();
 
       push_response(SecondInt2, m_status_code.byte);
+      break;
     }
     default: {
       command_error();
