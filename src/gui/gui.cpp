@@ -290,9 +290,8 @@ bool Gui::draw_exe_select(std::string& exe_path) const {
         }
       }
     }
-
-    ImGui::End();
   }
+  ImGui::End();
 
   imgui_end_frame();
 
