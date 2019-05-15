@@ -26,38 +26,31 @@
 #define IMM5 OPERAND_IMM5
 #define IMM16 OPERAND_IMM16
 #define IMM20 OPERAND_IMM20
+#define IMM25 OPERAND_IMM25
 #define IMM26 OPERAND_IMM26
+#define GTE_GD OPERAND_GTE_GD
+#define GTE_GC OPERAND_GTE_GC
 
 //      (mnemonic, opcode, operand1, operand2, operand3)
 
 OPCODE_PRIM(SPECIAL,  0x00,  NONE,  NONE,  NONE)
 OPCODE_PRIM(ADDI,     0x08,    RT,    RS, IMM16)
-OPCODE_PRIM(COP0,     0x10,  NONE,  NONE,  NONE)
 OPCODE_PRIM(LB,       0x20,    RT, IMM16,    RS)
 OPCODE_PRIM(SB,       0x28,    RT, IMM16,    RS)
-OPCODE_PRIM(LWC0,     0x30,  NONE,  NONE,  NONE)
-OPCODE_PRIM(SWC0,     0x38,  NONE,  NONE,  NONE)
 OPCODE_PRIM(BCONDZ,   0x01,  NONE,  NONE,  NONE)
 OPCODE_PRIM(ADDIU,    0x09,    RT,    RS, IMM16)
-OPCODE_PRIM(COP1,     0x11,  NONE,  NONE,  NONE)
 OPCODE_PRIM(LH,       0x21,    RT, IMM16,    RS)
 OPCODE_PRIM(SH,       0x29,    RT, IMM16,    RS)
-OPCODE_PRIM(LWC1,     0x31,  NONE,  NONE,  NONE)
-OPCODE_PRIM(SWC1,     0x39,  NONE,  NONE,  NONE)
 OPCODE_PRIM(J,        0x02, IMM26,  NONE,  NONE)
 OPCODE_PRIM(SLTI,     0x0A,    RT,    RS, IMM16)
-OPCODE_PRIM(COP2,     0x12,  NONE,  NONE,  NONE)
 OPCODE_PRIM(LWL,      0x22,    RT, IMM16,    RS)
 OPCODE_PRIM(SWL,      0x2A,    RT, IMM16,    RS)
-OPCODE_PRIM(LWC2,     0x32,  NONE,  NONE,  NONE)
-OPCODE_PRIM(SWC2,     0x3A,  NONE,  NONE,  NONE)
+OPCODE_PRIM(LWC2,     0x32,  NONE,  NONE,  NONE) // COP2 instruction
+OPCODE_PRIM(SWC2,     0x3A,  NONE,  NONE,  NONE) // COP2 instruction
 OPCODE_PRIM(JAL,      0x03, IMM26,  NONE,  NONE)
 OPCODE_PRIM(SLTIU,    0x0B,    RT,    RS, IMM16)
-OPCODE_PRIM(COP3,     0x13,  NONE,  NONE,  NONE)
 OPCODE_PRIM(LW,       0x23,    RT, IMM16,    RS)
 OPCODE_PRIM(SW,       0x2B,    RT, IMM16,    RS)
-OPCODE_PRIM(LWC3,     0x33,  NONE,  NONE,  NONE)
-OPCODE_PRIM(SWC3,     0x3B,  NONE,  NONE,  NONE)
 OPCODE_PRIM(BEQ,      0x04,    RS,    RT, IMM16)
 OPCODE_PRIM(ANDI,     0x0C,    RT,    RS, IMM16)
 OPCODE_PRIM(LBU,      0x24,    RT, IMM16,    RS)
@@ -100,13 +93,23 @@ OPCODE_SEC(XOR,       0x26,    RD,    RS,    RT)
 OPCODE_SEC(SRAV,      0x07,  NONE,  NONE,  NONE)
 OPCODE_SEC(NOR,       0x27,    RD,    RS,    RT)
 
+// COP0 instructions
 OPCODE_COP(MFC0,  0b010000'0'0000,    RT,   RD, NONE)
 OPCODE_COP(CFC0,  0b010000'0'0010,    RT,   RD, NONE)
 OPCODE_COP(MTC0,  0b010000'0'0100,    RT,   RD, NONE)
 OPCODE_COP(CTC0,  0b010000'0'0110,    RT,   RD, NONE)
-OPCODE_COP(BC0,   0b010000'0'1000, IMM16, NONE, NONE)
-// Could actually be any COP0 instruction, but RFE's the only one implemented on PlayStation hardware
+OPCODE_COP(COP2,  0,                NONE, NONE, NONE) // Manually matched
+// Could actually be any COP0 instruction, but RFE's the only one implemented
+// on PlayStation hardware with this encoding
 OPCODE_COP(RFE,   0b010000'1'0000,  NONE, NONE, NONE)
+
+// COP2 (Geometry Transformation Engine) instructions
+OPCODE_COP(MFC2, 0b010010'0'0000, RT, GTE_GD, NONE)
+OPCODE_COP(CFC2, 0b010010'0'0010, RT, GTE_GC, NONE)
+OPCODE_COP(MTC2, 0b010010'0'0100, RT, GTE_GD, NONE)
+OPCODE_COP(CTC2, 0b010010'0'0110, RT, GTE_GC, NONE)
+OPCODE_COP(BC2,  0b010010'1'1000, IMM16, NONE, NONE)
+
 
 #undef NONE
 #undef RS
@@ -115,7 +118,10 @@ OPCODE_COP(RFE,   0b010000'1'0000,  NONE, NONE, NONE)
 #undef IMM5
 #undef IMM16
 #undef IMM20
+#undef IMM25
 #undef IMM26
+#undef GTE_GD
+#undef GTE_GC
 
 #undef OPCODE_PRIM
 #undef OPCODE_SEC

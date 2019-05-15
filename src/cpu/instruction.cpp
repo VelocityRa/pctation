@@ -22,11 +22,14 @@ Opcode Instruction::decode() {
   if (is_cop_instr) {  // Co-processor insruction
     const auto cop_opcode = op_cop();
 
-    // TODO: handle decoding of LWC/SWC
-    if (cop_opcode & (1 << 4)) { // COP0 instruction
+    if (is_cop2_cmd()) {
+      m_operands = { OPERAND_IMM25, OPERAND_NONE, OPERAND_NONE };
+      return Opcode::COP2;
+    }
+    else if (cop_opcode & (1 << 4)) { // COP0 instruction
       const u16 cop0_opcode_sec = op_cop0_sec();
 
-      // RFE is the only COP0 instruction implemented on PlayStation hardware
+      // RFE is the only COP0 instruction implemented on PlayStation hardware with this encoding
       Ensures(cop0_opcode_sec == 0b010000);
 
       return Opcode::RFE;
@@ -36,10 +39,11 @@ Opcode Instruction::decode() {
   case opcode: m_operands = { operand1, operand2, operand3 }; return Opcode::mnemonic;
 #include <cpu/opcodes.def>
 #undef OPCODE_COP
-        default: return Opcode::INVALID;
+        default: goto prim_encoding; // LWC/SWC instructions use this encoding (op is first 6 bits)
       }
     }
   } else if (primary_opcode != 0) {  // non-SPECIAL insruction
+  prim_encoding:
     switch (primary_opcode) {
 #define OPCODE_PRIM(mnemonic, opcode, operand1, operand2, operand3) \
   case opcode: m_operands = { operand1, operand2, operand3 }; return Opcode::mnemonic;
@@ -78,7 +82,10 @@ std::string Instruction::disassemble() const {
       case OPERAND_IMM5: disasm_text += fmt::format("0x{:X}, ", imm5()); break;
       case OPERAND_IMM16: disasm_text += fmt::format("0x{:X}, ", imm16()); break;
       case OPERAND_IMM20: disasm_text += fmt::format("0x{:X}, ", imm20()); break;
+      case OPERAND_IMM25: disasm_text += fmt::format("0x{:X}, ", imm25()); break;
       case OPERAND_IMM26: disasm_text += fmt::format("0x{:X}, ", imm26()); break;
+      case OPERAND_GTE_GD: disasm_text += fmt::format("{}, ", gte::data_register_to_str(rd())); break;
+      case OPERAND_GTE_GC: disasm_text += fmt::format("{}, ", gte::control_register_to_str(rd())); break;
       default: disasm_text += "<invalid_operand>";
     }
   }

@@ -5,14 +5,17 @@
 
 #include <array>
 
-#define OPERAND_NONE 0    // No operand
-#define OPERAND_RS 1      // Register source
-#define OPERAND_RT 2      // Register target
-#define OPERAND_RD 4      // Register destination
-#define OPERAND_IMM5 8    // Immediate 5 bits
-#define OPERAND_IMM16 16  // Immediate 16 bits
-#define OPERAND_IMM20 20  // Immediate 20 bits
-#define OPERAND_IMM26 26  // Immediate 26 bits
+#define OPERAND_NONE 0     // No operand
+#define OPERAND_RS 1       // Register source
+#define OPERAND_RT 2       // Register target
+#define OPERAND_RD 3       // Register destination
+#define OPERAND_IMM5 4     // Immediate 5 bits
+#define OPERAND_IMM16 5    // Immediate 16 bits
+#define OPERAND_IMM20 6    // Immediate 20 bits
+#define OPERAND_IMM25 7    // Immediate 25 bits
+#define OPERAND_IMM26 8    // Immediate 26 bits
+#define OPERAND_GTE_GD 9   // GTE data register
+#define OPERAND_GTE_GC 10  // GTE control register
 
 namespace cpu {
 
@@ -45,10 +48,17 @@ class Instruction {
   constexpr s16 imm16_se() const { return (m_word & 0b00000000'00000000'11111111'11111111) >> 0; }
   // Immediate 20 field [20:0]
   constexpr u32 imm20() const { return (m_word & 0b00000000'00001111'11111111'11111111) >> 0; }
+  // Immediate 25 field [25:0]
+  constexpr u32 imm25() const { return (m_word & 0b00000001'11111111'11111111'11111111) >> 0; }
   // Immediate 26 field [26:0]
   constexpr u32 imm26() const { return (m_word & 0b00000011'11111111'11111111'11111111) >> 0; }
 
+  constexpr bool is_cop2_cmd() const {
+    return (m_word & 0b11111110'00000000'00000000'00000000) >> 25 == 0b0100101;
+  }
+
   constexpr Opcode opcode() const { return m_opcode; }
+  constexpr u32 word() const { return m_word; }
 
   std::string disassemble() const;
 
