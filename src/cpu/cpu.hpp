@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cpu/gte.hpp>
 #include <cpu/instruction.hpp>
 #include <util/types.hpp>
 
@@ -232,6 +233,7 @@ class Cpu {
   //  #endif
 
   bus::Bus& m_bus;
+  cpu::gte::Gte m_gte;
 };
 
 static const char* register_to_str(u8 reg_idx) {

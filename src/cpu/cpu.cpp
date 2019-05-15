@@ -24,7 +24,7 @@
 
 namespace cpu {
 
-Cpu::Cpu(bus::Bus& bus) : m_bus(bus) {}
+Cpu::Cpu(bus::Bus& bus) : m_bus(bus), m_gte(*this) {}
 
 void Cpu::step(u32 cycles_to_execute) {
   for (u32 cycle = 0; cycle < cycles_to_execute; cycle += APPROX_CYCLES_PER_INSTRUCTION) {
@@ -243,9 +243,39 @@ void Cpu::execute_instruction(const Instruction& i) {
     case Opcode::MFHI: set_rd(i, m_hi); break;
     case Opcode::MTLO: m_lo = rs(i); break;
     case Opcode::MTHI: m_hi = rs(i); break;
-    case Opcode::RFE: op_rfe(i); break;
+    case Opcode::RFE:
+      op_rfe(i);
+      break;
+      // Co-processor 2 (Geometry Transformation Engine
+    case Opcode::MFC2: {
+      auto val = m_gte.load_data_reg(i.rd());
+      LOG_WARN("{:<23}     |   0x{:08X}   |     0x{:08X} at 0x{:08X}", i.disassemble(), val, i.word(),
+               m_pc_current);
 
-    default: LOG_ERROR("Unimplemented instruction executed"); assert(0);
+      issue_delayed_load(i.rt(), val);
+      break;
+    }
+    case Opcode::CFC2: {
+      const auto val = m_gte.load_control_reg(i.rd());
+      LOG_WARN("{:<23}     |   0x{:08X}   |     0x{:08X} at 0x{:08X}", i.disassemble(), val, i.word(),
+               m_pc_current);
+      issue_delayed_load(i.rt(), val);
+      break;
+    }
+    case Opcode::MTC2:
+      LOG_WARN("{:<23}     |   0x{:08X}   |     0x{:08X} at 0x{:08X}", i.disassemble(), gpr(i.rt()),
+               i.word(), m_pc_current);
+      m_gte.store_data_reg(i.rd(), gpr(i.rt()));
+      break;
+    case Opcode::CTC2:
+      LOG_WARN("{:<23}     |   0x{:08X}   |     0x{:08X} at 0x{:08X}", i.disassemble(), gpr(i.rt()),
+               i.word(), m_pc_current);
+      m_gte.store_control_reg(i.rd(), gpr(i.rt()));
+      break;
+    default:
+      LOG_WARN("Unimplemented instruction 0x{:08X} (op: {}) at 0x{:08X} executed, disasm: {}", i.word(),
+               opcode_to_str(i.opcode()), m_pc_current, i.disassemble());
+      assert(0);
   }
 }
 

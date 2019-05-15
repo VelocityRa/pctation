@@ -4,7 +4,9 @@ add_library(cpu STATIC cpu.cpp
                        instruction.hpp
                        opcode.hpp
                        opcodes.def
+                       interrupt.cpp
                        interrupt.hpp
-                       interrupt.cpp)
+                       gte.cpp
+                       gte.hpp)
 
 target_link_libraries(cpu PUBLIC util bus)
