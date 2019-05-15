@@ -1,10 +1,12 @@
 #pragma once
 
+#include <bus/bus.hpp>
 #include <cpu/cpu.hpp>
-#include <functional>
-#include <unordered_map>
 #include <util/log.hpp>
 #include <util/types.hpp>
+
+#include <functional>
+#include <unordered_map>
 
 namespace bios {
 struct Function {
@@ -29,9 +31,15 @@ inline bool dbg_output_char(cpu::Cpu& cpu) {
 }
 
 inline bool dbg_output_string(cpu::Cpu& cpu) {
-  // TODO
-  LOG_TODO();
-  return true;
+  for (u8 i = 0; i < 80; ++i) {
+    char c = cpu.bus().read8(cpu.gpr(4) + i);
+    if (c == 0) {
+      cpu.m_tty_out_log += '\n';
+      return false;
+    }
+    cpu.m_tty_out_log += c;
+  }
+  return false;
 }
 
 inline bool halt_system(cpu::Cpu& cpu) {
