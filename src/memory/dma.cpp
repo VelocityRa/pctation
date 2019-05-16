@@ -2,6 +2,7 @@
 
 #include <cpu/interrupt.hpp>
 #include <gpu/gpu.hpp>
+#include <io/cdrom_drive.hpp>
 #include <memory/dma_channel.hpp>
 #include <memory/ram.hpp>
 #include <util/log.hpp>
@@ -142,6 +143,7 @@ void Dma::do_block_transfer(DmaPort port) {
             src_word = m_gpu.get_vram_pos(m_gpu.m_vram_transfer_x, m_gpu.m_vram_transfer_y);
             m_gpu.advance_vram_transfer_pos();
             break;
+          case DmaPort::Cdrom: src_word = m_cdrom.read_word(); break;
           default: LOG_WARN("DMA transfer to unimplemented port {} requested", static_cast<u8>(port));
         }
         m_ram.write<u32>(addr_cur, src_word);

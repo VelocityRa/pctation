@@ -18,13 +18,17 @@ namespace cpu {
 class Interrupts;
 }
 
+namespace io {
+class CdromDrive;
+}
+
 namespace memory {
 
 enum class DmaPort {
   MdecIn = 0,   // Macroblock decoder input
   MdecOut = 1,  // Macroblock decoder output
   Gpu = 2,      // Graphics Processing Unit
-  CdRom = 3,    // CD-ROM drive
+  Cdrom = 3,    // CD-ROM drive
   Spu = 4,      // Sound Processing Unit
   Pio = 5,      // Extension port
   Otc = 6,      // Used to clear the ordering table
@@ -35,7 +39,7 @@ static const char* dma_port_to_str(DmaPort dma_port) {
     case DmaPort::MdecIn: return "MDECin";
     case DmaPort::MdecOut: return "MDECout";
     case DmaPort::Gpu: return "GPU";
-    case DmaPort::CdRom: return "CD-ROM";
+    case DmaPort::Cdrom: return "CD-ROM";
     case DmaPort::Spu: return "SPU";
     case DmaPort::Pio: return "PIO";
     case DmaPort::Otc: return "OTC";
@@ -85,10 +89,11 @@ union DmaInterruptRegister {
 
 class Dma {
  public:
-  explicit Dma(memory::Ram& ram, gpu::Gpu& gpu, cpu::Interrupts& interrupts)
+  explicit Dma(memory::Ram& ram, gpu::Gpu& gpu, cpu::Interrupts& interrupts, io::CdromDrive& cdrom)
       : m_ram(ram),
         m_gpu(gpu),
-        m_interrupts(interrupts) {}
+        m_interrupts(interrupts),
+        m_cdrom(cdrom) {}
 
   void write_reg(address addr, u32 val);
   u32 read_reg(address addr) const;
@@ -112,6 +117,7 @@ class Dma {
   memory::Ram& m_ram;
   gpu::Gpu& m_gpu;
   cpu::Interrupts& m_interrupts;
+  io::CdromDrive& m_cdrom;
 };
 
 }  // namespace memory
