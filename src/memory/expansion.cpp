@@ -13,7 +13,7 @@ namespace memory {
 Expansion::Expansion(fs::path const& bootstrap_path) {
   // Init Expansion memory with 0xFF
   m_data = std::make_unique<std::array<byte, memory::EXPANSION_1_SIZE>>();
-  std::fill(m_data->begin(), m_data->end(), 0xFF);
+  std::fill(m_data->begin(), m_data->end(), 0);
 
   // Load bootstrap
   if (!bootstrap_path.empty()) {
