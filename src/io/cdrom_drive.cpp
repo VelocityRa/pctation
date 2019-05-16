@@ -292,13 +292,16 @@ void CdromDrive::execute_command(u8 cmd) {
       break;
     }
     case 0x1A: {  // GetID
-      const bool has_disk = !m_disk.read(CDROM_INDEX_1_POS).empty();
+      const bool has_disk = !m_disk.is_empty();
 
-      if (has_disk) {  // Disk
+      if (m_stat_code.shell_open) {
+        push_response(ErrorInt5, { 0x11, 0x80 });
+      } else if (has_disk) {  // Disk
+        push_response(FirstInt3, m_stat_code.byte);
         push_response(SecondInt2, { 0x02, 0x00, 0x20, 0x00, 'S', 'C', 'E', 'A' });
       } else {  // No Disk
-        push_response(ErrorInt5, m_stat_code.byte);
-        push_response(SecondInt2, { 0x08, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 });
+        push_response(FirstInt3, m_stat_code.byte);
+        push_response(ErrorInt5, { 0x08, 0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 });
       }
       break;
     }

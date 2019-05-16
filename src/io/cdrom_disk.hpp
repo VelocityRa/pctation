@@ -114,6 +114,8 @@ class CdromDisk {
     return nullptr;
   }
 
+  bool is_empty() const { return m_tracks.empty(); }
+
  private:
   void create_track_for_bin(const std::string& bin_path);
 
