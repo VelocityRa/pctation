@@ -2,18 +2,23 @@
 
 #include <util/fs.hpp>
 
+#include <algorithm>
 #include <tuple>
 
 namespace emulator {
 
-Emulator::Emulator(fs::path bios_path, fs::path psx_exe_path, fs::path bootstrap_path)
+Emulator::Emulator(const fs::path& bios_path,
+                   const fs::path& psx_exe_path,
+                   const fs::path& bootstrap_path,
+                   const fs::path& cdrom_path)
     : m_bios(bios_path),
       m_expansion(bootstrap_path),
       m_interrupts(),
       m_ram(psx_exe_path),
       m_gpu(),
       m_spu(),
-      m_dma(m_ram, m_gpu, m_interrupts),
+      m_cdrom(),
+      m_dma(m_ram, m_gpu, m_interrupts, m_cdrom),
       m_bus(m_bios,
             m_expansion,
             m_interrupts,
@@ -28,10 +33,16 @@ Emulator::Emulator(fs::path bios_path, fs::path psx_exe_path, fs::path bootstrap
   m_interrupts.init(&m_cpu);
   m_joypad.init(&m_interrupts);
   m_cdrom.init(&m_interrupts);
+
+  if (!cdrom_path.empty())
+    ;  // TODO:
+
   m_screen_renderer.set_texture_size(gpu::VRAM_WIDTH, gpu::VRAM_HEIGHT);
 }
 
 void Emulator::advance_frame() {
+  // Run in 300 cycle chunks
+  // Estimate that the CPU effectively runs at a 1/3 of the system clock (due to memory delays etc)
   const u32 system_cycle_quantum = 300;
   const u32 cpu_cycle_quantum = system_cycle_quantum / 3;
 

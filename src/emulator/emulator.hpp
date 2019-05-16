@@ -24,7 +24,10 @@ namespace emulator {
 
 class Emulator {
  public:
-  explicit Emulator(fs::path bios_path, fs::path psx_exe_path, fs::path bootstrap_path);
+  explicit Emulator(const fs::path& bios_path,
+                    const fs::path& psx_exe_path,
+                    const fs::path& bootstrap_path,
+                    const fs::path& cdrom_path);
 
   // Advances the emulator state approximately one frame
   void advance_frame();

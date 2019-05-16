@@ -12,25 +12,6 @@ constexpr auto NOCASH_BIOS_2_0_PATH = "data/bios/no$psx_bios/NO$PSX_BIOS_2.0_2x.
 constexpr auto NOCASH_BIOS_1_2_PATH = "data/bios/no$psx_bios/NO$PSX_BIOS_1.2_2x.ROM";
 constexpr auto BIOS_PATH = "data/bios/SCPH1001.BIN";
 
-void exe_select_screen(gui::Gui& gui, std::string& exe_path) {
-  auto event = gui::GuiEvent::None;
-
-  while (true) {
-    while (gui.poll_events()) {
-      event = gui.process_events_exe_select();
-
-      if (event == gui::GuiEvent::GameSelected || event == gui::GuiEvent::Exit)
-        return;
-    }
-    gui.clear();
-
-    if (gui.draw_exe_select(exe_path))
-      break;
-
-    gui.swap();
-  }
-}
-
 // Entry point
 s32 main(s32 argc, char** argv) {
   gui::Gui gui;
@@ -38,8 +19,9 @@ s32 main(s32 argc, char** argv) {
   try {
     logging::init();
 
-    std::string exe_path;
     std::string bootstrap_path;
+    std::string exe_path;
+    std::string cdrom_path;  // Either a cue sheet or a raw CD-ROM binary file
 
     //    if (argc > 1)
     //      exe_path = argv[1];
@@ -51,11 +33,12 @@ s32 main(s32 argc, char** argv) {
     gui.init();
 
     // If no executable was specified in cmd args, show Executable Select screen
-    if (exe_path.empty())
-      exe_select_screen(gui, exe_path);
+    if (exe_path.empty() && cdrom_path.empty())
+      gui.file_select_windows(gui, exe_path, cdrom_path);
 
     // Init emulator
-    auto emulator = std::make_unique<emulator::Emulator>(BIOS_PATH, exe_path, bootstrap_path);
+    auto emulator =
+        std::make_unique<emulator::Emulator>(BIOS_PATH, exe_path, bootstrap_path, cdrom_path);
 
     // Link GUI with Emulator
     gui.set_joypad(&emulator->joypad());

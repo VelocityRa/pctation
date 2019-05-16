@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cpu/gte.hpp>
 #include <util/types.hpp>
 
 #include <SDL.h>
@@ -41,7 +42,7 @@ class Gui {
   GuiEvent process_events();
   GuiEvent process_events_exe_select() const;
   void draw(const emulator::Emulator& emulator);
-  bool draw_exe_select(std::string& psxexe_path) const;  // Returns true if a psx was selected
+  void file_select_windows(gui::Gui& gui, std::string& exe_path, std::string& bin_path);
   void swap();
   void deinit();
   void clear() const;
@@ -58,7 +59,12 @@ class Gui {
   template <size_t RamSize>
   void draw_dialog_ram(const std::array<byte, RamSize>& data);
   void draw_gpu_registers(const gpu::Gpu& gpu);
-  void draw_cpu_info(const cpu::Cpu& cpu);  void update_window_title() const;
+  void draw_cpu_info(const cpu::Cpu& cpu);
+
+  bool draw_exe_select(std::string& psxexe_path) const;    // Returns true if a psx was selected
+  bool draw_cdrom_select(std::string& psxexe_path) const;  // Returns true if a bin was selected
+
+  void update_window_title() const;
   void update_fps_counter();
   void process_exit_events(GuiEvent& ret_event) const;
 

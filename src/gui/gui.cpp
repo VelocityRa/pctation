@@ -1,34 +1,35 @@
 #include <gui/gui.hpp>
 
 #include <cpu/cpu.hpp>
+#include <emulator/emulator.hpp>
+#include <emulator/settings.hpp>
 #include <gpu/gpu.hpp>
 #include <util/fs.hpp>
 #include <util/log.hpp>
 
-#include <emulator/emulator.hpp>
-#include <emulator/settings.hpp>
-
-#include <SDL2/SDL.h>
 #pragma warning(disable : 4251)  // hide some glbinding warnings
 #include <glbinding-aux/types_to_string.h>
 #include <glbinding/Binding.h>
 #include <glbinding/gl/gl.h>
 #include <glbinding/glbinding.h>
 #pragma warning(default : 4251)
+#include <SDL2/SDL.h>
 #include <imgui.h>
 #include <imgui_sdl2_gl3_backend/imgui_impl_opengl3.h>
 #include <imgui_sdl2_gl3_backend/imgui_impl_sdl.h>
 
+#include <algorithm>
 #include <cassert>
 #include <chrono>
 #include <exception>
 #include <sstream>
+#include <string>
 
 #define RGBA_TO_FLOAT(r, g, b, a) ImVec4(r / 255.f, g / 255.f, b / 255.f, a / 255.f)
 
 using namespace gl;
 
-const auto SCREEN_SCALE = 1;
+const auto SCREEN_SCALE = 1.5;
 
 const auto GUI_CLEAR_COLOR = RGBA_TO_FLOAT(46, 63, 95, 255);
 const auto GUI_COLOR_BLACK_HALF_TRANSPARENT = RGBA_TO_FLOAT(0, 0, 0, 128);
@@ -267,17 +268,44 @@ void Gui::imgui_end_frame() const {
   ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 }
 
+void Gui::file_select_windows(gui::Gui& gui, std::string& exe_path, std::string& cdrom_path) {
+  auto event = gui::GuiEvent::None;
+
+  while (true) {
+    bool selected{};
+
+    while (gui.poll_events()) {
+      event = gui.process_events_exe_select();
+
+      if (event == gui::GuiEvent::GameSelected || event == gui::GuiEvent::Exit) {
+        selected = true;
+        return;
+      }
+    }
+    gui.clear();
+
+    imgui_start_frame();
+
+    if (gui.draw_exe_select(exe_path))
+      selected = true;
+    if (gui.draw_cdrom_select(cdrom_path))
+      selected = true;
+
+    imgui_end_frame();
+
+    gui.swap();
+
+    if (selected)
+      return;
+  }
+}
+
 bool Gui::draw_exe_select(std::string& exe_path) const {
   const auto EXE_PATH = "data/exe";
 
   bool selected = false;
 
-  imgui_start_frame();
-
   if (ImGui::Begin("PSX-EXE Explorer")) {
-    if (ImGui::Selectable("None"))
-      selected = true;
-
     for (auto& p : fs::recursive_directory_iterator(EXE_PATH)) {
       const auto ext = p.path().extension();
       if (ext == ".exe" || ext == ".psx") {
@@ -293,7 +321,57 @@ bool Gui::draw_exe_select(std::string& exe_path) const {
   }
   ImGui::End();
 
-  imgui_end_frame();
+  return selected;
+}
+
+bool Gui::draw_cdrom_select(std::string& cdrom_path) const {
+  const auto CDROM_PATH = "data/cdrom";
+
+  bool selected = false;
+
+  auto search_for_ext = [&](const fs::directory_entry& dir, std::vector<const char*> extensions,
+                            bool select_path) -> bool {
+    for (auto& f : fs::recursive_directory_iterator(dir)) {
+      const auto file_path = f.path().string();
+      auto ext = f.path().extension().string();
+      std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+
+      if (std::find(extensions.begin(), extensions.end(), ext) != extensions.end()) {
+        if (select_path)
+          cdrom_path = file_path;
+        return true;
+      }
+    }
+    return false;
+  };
+
+  if (ImGui::Begin("CD-ROM Explorer")) {
+    if (ImGui::Selectable("None"))
+      selected = true;
+
+    for (auto& p : fs::recursive_directory_iterator(CDROM_PATH)) {
+      if (fs::is_directory(p)) {
+        const auto dir_path = p.path().string();
+        const auto rel_dir_path = dir_path.substr(sizeof(CDROM_PATH));
+
+        if (search_for_ext(p, { ".bin", ".iso" }, false)) {  // todo: ".cue"
+          if (ImGui::Selectable(rel_dir_path.c_str())) {
+            // First look for a cue sheet
+            // selected = search_for_ext(p, { ".cue"}, true);
+
+            // If we found nothing, fall back to binary formats
+            if (!selected)
+              selected = search_for_ext(p, { ".bin", ".iso" }, true);
+
+            if (selected)
+              LOG_INFO("Opening file: {}", cdrom_path);
+          }
+        }
+      }
+    }
+  }
+
+  ImGui::End();
 
   return selected;
 }
