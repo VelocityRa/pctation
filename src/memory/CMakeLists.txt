@@ -11,4 +11,4 @@ add_library(memory STATIC addressable.hpp
                           expansion.cpp
                           expansion.hpp)
 
-target_link_libraries(memory PUBLIC util)
+target_link_libraries(memory PUBLIC io util)

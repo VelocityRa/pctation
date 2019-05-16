@@ -211,10 +211,11 @@ void Dma::transfer_finished(DmaChannel& channel, DmaPort port) {
   channel.transfer_finished();
 
   bool is_enabled = m_reg_interrupt.is_port_enabled(port);
-  if (is_enabled)
-    m_reg_interrupt.set_port_flags(port, true);
 
-  m_irq_pending = m_reg_interrupt.get_irq_master_flag();
+  if (is_enabled) {
+    m_reg_interrupt.set_port_flags(port, true);
+    m_irq_pending = m_reg_interrupt.get_irq_master_flag();
+  }
 }
 
 }  // namespace memory
