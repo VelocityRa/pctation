@@ -20,6 +20,7 @@ void CdromDrive::insert_disk_file(const fs::path& file_path) {
     m_disk.init_from_cue(file_path.string().c_str());
   else
     m_disk.init_from_bin(file_path.string().c_str());
+  m_stat_code.shell_open = false;
 }
 
 void CdromDrive::init(cpu::Interrupts* interrupts) {

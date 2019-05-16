@@ -83,7 +83,7 @@ union CdromStatusCode {
     u8 playing : 1;
   };
 
-  CdromStatusCode() { shell_open = false; }
+  CdromStatusCode() { shell_open = true; }
 
   // Does not reset shell open state
   void reset() { error = spindle_motor_on = seek_error = id_error = reading = seeking = playing = 0; }
