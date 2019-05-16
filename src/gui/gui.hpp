@@ -58,7 +58,7 @@ class Gui {
   template <size_t RamSize>
   void draw_dialog_ram(const std::array<byte, RamSize>& data);
   void draw_gpu_registers(const gpu::Gpu& gpu);
-  void update_window_title() const;
+  void draw_cpu_info(const cpu::Cpu& cpu);  void update_window_title() const;
   void update_fps_counter();
   void process_exit_events(GuiEvent& ret_event) const;
 
@@ -88,6 +88,9 @@ class Gui {
 
   // GPU Registers dialog fields
   bool m_draw_gpu_registers{ true };
+
+  // CPU execution dialog fields
+  bool m_draw_cpu_info{ true };
 
   io::Joypad* m_joypad;
   emulator::Settings* m_settings;

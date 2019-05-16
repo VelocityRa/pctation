@@ -8,6 +8,10 @@
 
 #include <array>
 
+namespace gui {
+class Gui;
+}
+
 namespace bus {
 class Bus;
 }
@@ -76,11 +80,14 @@ enum class ExceptionCause : u8 {
 
 class Cpu {
   friend class Interrupts;
+  friend class gui::Gui;  // for debug info
 
  public:
   explicit Cpu(bus::Bus& bus);
 
   void step(u32 cycles_to_execute);
+
+  bus::Bus& bus() const { return m_bus; }
 
   // Debug UI fields
   std::string m_tty_out_log;

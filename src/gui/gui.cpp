@@ -384,6 +384,7 @@ void Gui::imgui_draw(const emulator::Emulator& emulator) {
         ImGui::MenuItem("BIOS Function Calls", "Ctrl+B", &m_draw_bios_calls, LOG_BIOS_CALLS);
         ImGui::MenuItem("RAM Contents", "Ctrl+R", &m_draw_ram);
         ImGui::MenuItem("GPU Registers", "Ctrl+U", &m_draw_gpu_registers);
+        ImGui::MenuItem("CPU Info", "Ctrl+C", &m_draw_cpu_info);
         ImGui::EndMenu();
       }
 
@@ -429,6 +430,8 @@ void Gui::imgui_draw(const emulator::Emulator& emulator) {
       draw_dialog_ram(emulator.ram().data());
     if (m_draw_gpu_registers)
       draw_gpu_registers(emulator.gpu());
+    if (m_draw_cpu_info)
+      draw_cpu_info(emulator.cpu());
   }
 }
 
@@ -645,6 +648,29 @@ void Gui::draw_gpu_registers(const gpu::Gpu& gpu) {
 
   ImGui::Columns(1);
   ImGui::EndChild();
+
+  ImGui::End();
+}
+
+void Gui::draw_cpu_info(const cpu::Cpu& cpu) {
+  if (ImGui::Begin("CPU Info", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+    ImGui::Text("pc: %08X", cpu.m_pc_current);
+    ImGui::Text("ra: %08X", cpu.gpr(31));
+
+    if (ImGui::CollapsingHeader("All CPU Registers", { true })) {
+      ImGui::Text("             ");
+      ImGui::SameLine();
+
+      u32 i = 1;
+      auto print_reg = [&cpu](u32 i) { ImGui::Text("%s: %08X", cpu::register_to_str(i), cpu.gpr(i)); };
+      print_reg(i);
+      while (i < 30) {
+        print_reg(i++);
+        ImGui::SameLine();
+        print_reg(i++);
+      }
+    }
+  }
 
   ImGui::End();
 }
