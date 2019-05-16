@@ -2,7 +2,7 @@
 #include <bus/bus.hpp>
 #include <cpu/interrupt.hpp>
 #include <gpu/gpu.hpp>
-#include <io/cdrom.hpp>
+#include <io/cdrom_drive.hpp>
 #include <io/joypad.hpp>
 #include <memory/dma.hpp>
 #include <memory/expansion.hpp>

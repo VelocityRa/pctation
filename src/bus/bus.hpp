@@ -27,7 +27,7 @@ class Spu;
 
 namespace io {
 class Joypad;
-class Cdrom;
+class CdromDrive;
 }  // namespace io
 
 namespace bus {
@@ -43,7 +43,7 @@ class Bus {
                gpu::Gpu& gpu,
                spu::Spu& spu,
                io::Joypad& joypad,
-               io::Cdrom& cdrom)
+               io::CdromDrive& cdrom)
 
       : m_interrupts(interrupts),
         m_ram(ram),
@@ -74,7 +74,7 @@ class Bus {
   gpu::Gpu& m_gpu;
   spu::Spu& m_spu;
   io::Joypad& m_joypad;
-  io::Cdrom& m_cdrom;
+  io::CdromDrive& m_cdrom;
 };
 
 }  // namespace bus

@@ -6,7 +6,7 @@
 #include <cpu/interrupt.hpp>
 #include <emulator/settings.hpp>
 #include <gpu/gpu.hpp>
-#include <io/cdrom.hpp>
+#include <io/cdrom_drive.hpp>
 #include <io/joypad.hpp>
 #include <memory/dma.hpp>
 #include <memory/expansion.hpp>
@@ -52,7 +52,7 @@ class Emulator {
   gpu::Gpu m_gpu;
   spu::Spu m_spu;
   io::Joypad m_joypad;
-  io::Cdrom m_cdrom;
+  io::CdromDrive m_cdrom;
   memory::Dma m_dma;
   bus::Bus m_bus;
 

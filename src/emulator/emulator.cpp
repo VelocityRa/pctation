@@ -35,7 +35,7 @@ Emulator::Emulator(const fs::path& bios_path,
   m_cdrom.init(&m_interrupts);
 
   if (!cdrom_path.empty())
-    ;  // TODO:
+    m_cdrom.insert_disk_file(cdrom_path);
 
   m_screen_renderer.set_texture_size(gpu::VRAM_WIDTH, gpu::VRAM_HEIGHT);
 }
