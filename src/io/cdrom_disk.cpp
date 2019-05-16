@@ -3,6 +3,9 @@
 #include <util/fs.hpp>
 #include <util/log.hpp>
 
+#include <algorithm>
+#include <array>
+
 namespace io {
 
 void CdromDisk::init_from_bin(const std::string& bin_path) {
@@ -36,6 +39,15 @@ buffer CdromDisk::read(CdromPosition pos) {
   track->file.seekg(seek_pos);
   track->file.read((char*)sector_buf.data(), SECTOR_SIZE);
 
+  const std::array<u8, 12> SYNC_MAGIC = { { 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+                                            0xff, 0x00 } };
+  auto sync_match = std::equal(SYNC_MAGIC.begin(), SYNC_MAGIC.end(), sector_buf.begin());
+
+  if (track->type == CdromTrack::DataType::Data && !sync_match)
+    LOG_ERROR("Invalid sync data in read Data sector");
+  else if (track->type == CdromTrack::DataType::Audio && sync_match)
+    LOG_ERROR("Sync data found in Data sector");
+
   return sector_buf;
 }
 
@@ -49,7 +61,7 @@ void CdromDisk::create_track_for_bin(const std::string& bin_path) {
   bin_track.filepath = bin_path;
   bin_track.number = 1;  // Track number 01
   bin_track.type = CdromTrack::DataType::Data;
-  bin_track.frame_count = filesize / SECTOR_SIZE;
+  bin_track.frame_count = static_cast<u32>(filesize) / SECTOR_SIZE;
   // the rest of the fields are correct as default-initialized
 
   m_tracks.clear();
