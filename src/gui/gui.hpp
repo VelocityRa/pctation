@@ -65,10 +65,10 @@ class Gui {
   template <size_t RamSize>
   void draw_dialog_ram(const std::array<byte, RamSize>& data);
   void draw_gpu_registers(const gpu::Gpu& gpu);
-  void draw_cpu_info(const cpu::Cpu& cpu);
+  void draw_cpu_registers(const cpu::Cpu& cpu);
   bool draw_exe_select(std::string& psxexe_path) const;    // Returns true if a file was selected
   bool draw_cdrom_select(std::string& psxexe_path) const;  // Returns true if a file was selected
-
+  void draw_gp0_commands(const gpu::Gpu& gpu);
 
  private:
   // SDL
@@ -98,7 +98,10 @@ class Gui {
   bool m_draw_gpu_registers{ true };
 
   // CPU execution dialog fields
-  bool m_draw_cpu_info{ true };
+  bool m_draw_cpu_registers{ true };
+
+  // GP0 Commands dialog fields
+  bool m_draw_gp0_commands{ true };
 
   io::Joypad* m_joypad;
   emulator::Settings* m_settings;

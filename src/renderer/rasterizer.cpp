@@ -247,14 +247,12 @@ void Rasterizer::draw_polygon_impl(Position4 positions,
   }
 }
 
-void Rasterizer::draw_polygon(const DrawCommand::Polygon& polygon) {
-  const auto gp0_cmd = m_gpu.gp0_cmd();
+void Rasterizer::extract_draw_data_polygon(const DrawCommand::Polygon& polygon,
+                                           const std::vector<u32>& gp0_cmd,
+                                           Position4& positions,
+                                           Color4& colors,
+                                           TextureInfo& tex_info) const {
   const auto vertex_count = polygon.get_vertex_count();
-
-  Position4 positions;
-  Color4 colors;
-  TextureInfo tex_info{};
-
   u8 arg_idx = 1;
 
   // Gather data from command words
@@ -279,16 +277,25 @@ void Rasterizer::draw_polygon(const DrawCommand::Polygon& polygon) {
   // TODO: semi transparency
   // TODO: raw textures
   // TODO: dithering
+}
+
+void Rasterizer::draw_polygon(const DrawCommand::Polygon& polygon) {
+  const auto gp0_cmd = m_gpu.gp0_cmd();
+
+  Position4 positions;
+  Color4 colors;
+  TextureInfo tex_info{};
+
+  extract_draw_data_polygon(polygon, gp0_cmd, positions, colors, tex_info);
 
   draw_polygon_impl(positions, colors, tex_info, polygon.is_quad(), *(DrawCommand::Flags*)&polygon);
 }
 
-void Rasterizer::draw_rectangle(const DrawCommand::Rectangle& rectangle) {
-  Position4 positions;
-  Color4 colors;
-  TextureInfo tex_info{};
-  Size size;
-
+void Rasterizer::extract_draw_data_rectangle(const DrawCommand::Rectangle& rectangle,
+                                             Position4& positions,
+                                             Color4& colors,
+                                             TextureInfo& tex_info,
+                                             Size& size) const {
   const auto gp0_cmd = m_gpu.gp0_cmd();
   const auto is_textured = rectangle.texture_mapping;
 
@@ -319,6 +326,15 @@ void Rasterizer::draw_rectangle(const DrawCommand::Rectangle& rectangle) {
     uv[2] = uv[0] + Texcoord{ 0, size.height };
     uv[3] = uv[0] + Texcoord{ size.width, size.height };
   }
+}
+
+void Rasterizer::draw_rectangle(const DrawCommand::Rectangle& rectangle) {
+  Position4 positions;
+  Color4 colors;
+  TextureInfo tex_info{};
+  Size size;
+
+  extract_draw_data_rectangle(rectangle, positions, colors, tex_info, size);
   // TODO: semi transparency
   // TODO: raw textures
   const auto is_quad = true;

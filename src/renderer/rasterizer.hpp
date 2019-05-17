@@ -290,6 +290,17 @@ class Rasterizer {
   void draw_polygon(const DrawCommand::Polygon& polygon);
   void draw_rectangle(const DrawCommand::Rectangle& polygon);
 
+  void extract_draw_data_polygon(const DrawCommand::Polygon& polygon,
+                                 const std::vector<u32>& gp0_cmd,
+                                 Position4& positions,
+                                 Color4& colors,
+                                 TextureInfo& tex_info) const;
+  void extract_draw_data_rectangle(const DrawCommand::Rectangle& rectangle,
+                                   Position4& positions,
+                                   Color4& colors,
+                                   TextureInfo& tex_info,
+                                   Size& size) const;
+
  private:
   void draw_polygon_impl(Position4 positions,
                          Color4 colors,

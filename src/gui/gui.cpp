@@ -4,6 +4,7 @@
 #include <emulator/emulator.hpp>
 #include <emulator/settings.hpp>
 #include <gpu/gpu.hpp>
+#include <renderer/rasterizer.hpp>
 #include <util/fs.hpp>
 #include <util/log.hpp>
 
@@ -368,7 +369,8 @@ void Gui::imgui_draw(const emulator::Emulator& emulator) {
         ImGui::MenuItem("BIOS Function Calls", "Ctrl+B", &m_draw_bios_calls, LOG_BIOS_CALLS);
         ImGui::MenuItem("RAM Contents", "Ctrl+R", &m_draw_ram);
         ImGui::MenuItem("GPU Registers", "Ctrl+U", &m_draw_gpu_registers);
-        ImGui::MenuItem("CPU Info", "Ctrl+C", &m_draw_cpu_info);
+        ImGui::MenuItem("CPU Registers", "Ctrl+C", &m_draw_cpu_registers);
+        ImGui::MenuItem("GP0 Commands", "Ctrl+C", &m_draw_cpu_registers, gpu::GP0_DEBUG_RECORD);
         ImGui::EndMenu();
       }
 
@@ -414,8 +416,10 @@ void Gui::imgui_draw(const emulator::Emulator& emulator) {
       draw_dialog_ram(emulator.ram().data());
     if (m_draw_gpu_registers)
       draw_gpu_registers(emulator.gpu());
-    if (m_draw_cpu_info)
-      draw_cpu_info(emulator.cpu());
+    if (m_draw_cpu_registers)
+      draw_cpu_registers(emulator.cpu());
+    if (m_draw_gp0_commands)
+      draw_gp0_commands(emulator.gpu());
   }
 }
 
@@ -556,6 +560,222 @@ bool Gui::draw_cdrom_select(std::string& cdrom_path) const {
   ImGui::End();
 
   return selected;
+}
+
+void Gui::draw_gp0_commands(const gpu::Gpu& gpu) {
+  using namespace renderer::rasterizer;
+
+  auto draw_positions = [](Position4& positions, bool is_quad) {
+    if (ImGui::TreeNodeEx("Positions", ImGuiTreeNodeFlags_DefaultOpen)) {
+      s32 pos_x[4] = { (s32)positions[0].x, (s32)positions[1].x, (s32)positions[2].x,
+                       (s32)positions[3].x };
+      if (is_quad)
+        ImGui::SliderInt4("X", pos_x, 0, gpu::VRAM_WIDTH, "%d");
+      else
+        ImGui::SliderInt3("X", pos_x, 0, gpu::VRAM_WIDTH, "%d");
+      s32 pos_y[4] = { (s32)positions[0].y, (s32)positions[1].y, (s32)positions[2].y,
+                       (s32)positions[3].y };
+      if (is_quad)
+        ImGui::SliderInt4("Y", pos_y, 0, gpu::VRAM_HEIGHT, "%d");
+      else
+        ImGui::SliderInt3("Y", pos_y, 0, gpu::VRAM_HEIGHT, "%d");
+      ImGui::TreePop();
+    }
+  };
+
+  auto draw_colors = [](Color colors[], bool is_flat, u32 vertex_count) {
+    if (ImGui::TreeNodeEx("Colors", ImGuiTreeNodeFlags_DefaultOpen)) {
+      const auto color_count = is_flat ? 1 : vertex_count;
+      for (auto i = 0; i < color_count; ++i) {
+        float col[3] = { (float)colors[i].r / 255.f, (float)colors[i].g / 255.f,
+                         (float)colors[i].b / 255.f };
+        ImGui::ColorEdit3("", col,
+                          ImGuiColorEditFlags_NoAlpha | ImGuiColorEditFlags_NoInputs |
+                              ImGuiColorEditFlags_NoPicker | ImGuiColorEditFlags_NoOptions |
+                              ImGuiColorEditFlags_NoDragDrop | ImGuiColorEditFlags_RGB);
+        ImGui::SameLine();
+      }
+      ImGui::NewLine();
+      ImGui::TreePop();
+    }
+  };
+
+  auto draw_texcoords = [](Texcoord4& texcoords, bool is_quad) {
+    if (ImGui::TreeNodeEx("Texture Coordinates", ImGuiTreeNodeFlags_DefaultOpen)) {
+      s32 texcoord_x[4] = { (s32)texcoords[0].x, (s32)texcoords[1].x, (s32)texcoords[2].x,
+                            (s32)texcoords[3].x };
+      if (is_quad)
+        ImGui::SliderInt4("X", texcoord_x, 0, gpu::VRAM_WIDTH, "%d");
+      else
+        ImGui::SliderInt3("X", texcoord_x, 0, gpu::VRAM_WIDTH, "%d");
+      s32 texcoord_y[4] = { (s32)texcoords[0].y, (s32)texcoords[1].y, (s32)texcoords[2].y,
+                            (s32)texcoords[3].y };
+      if (is_quad)
+        ImGui::SliderInt4("Y", texcoord_y, 0, gpu::VRAM_HEIGHT, "%d");
+      else
+        ImGui::SliderInt3("Y", texcoord_y, 0, gpu::VRAM_HEIGHT, "%d");
+      ImGui::TreePop();
+    }
+  };
+
+  auto draw_size = [](Size& size) {
+    if (ImGui::TreeNodeEx("Size", ImGuiTreeNodeFlags_DefaultOpen)) {
+      s32 sz[2] = { (s32)size.width, size.height };
+      ImGui::SliderInt("Width", &sz[0], 0, gpu::VRAM_WIDTH);
+      ImGui::SliderInt("Height", &sz[1], 0, gpu::VRAM_HEIGHT);
+      ImGui::TreePop();
+    }
+  };
+
+  auto draw_misc_flags = [](bool is_textured, bool is_raw, bool is_flat) {
+    if (ImGui::TreeNodeEx("Other", ImGuiTreeNodeFlags_DefaultOpen)) {
+      ImGui::Columns(3);
+      ImGui::Checkbox("Textured", &is_textured);
+      ImGui::NextColumn();
+      ImGui::Checkbox("Raw", &is_raw);
+      ImGui::NextColumn();
+      ImGui::Checkbox("Flat", &is_flat);
+      ImGui::Columns(1);
+      ImGui::TreePop();
+    }
+  };
+
+  if (ImGui::Begin("GP0 Commands", &m_draw_gp0_commands)) {
+    ImGui::PushStyleVar(ImGuiStyleVar_GrabMinSize, 4);
+    ImGui::PushStyleVar(ImGuiStyleVar_GrabRounding, 0);
+
+    // For each frame (-1 for the latest one)
+    for (s32 cmds_i = -1; cmds_i < (s32)gpu.m_gp0_cmds_record.size(); ++cmds_i) {
+      gpu::Gpu::Gp0CmdDebugRecordsFrame const* frame_cmds{};
+      std::string frame_str;
+
+      // Before every frame show the latest one
+      if (cmds_i == -1) {
+        // Find last frame that has commands
+        for (auto cmds_it = gpu.m_gp0_cmds_record.crbegin(); cmds_it != gpu.m_gp0_cmds_record.crend();
+             ++cmds_it) {
+          if (cmds_it->size() != 0) {
+            frame_cmds = &(*cmds_it);
+            break;
+          }
+        }
+        if (!frame_cmds)
+          continue;
+
+        frame_str = fmt::format("Frame [latest]");
+        ImGui::Spacing();
+      } else {
+        frame_cmds = &gpu.m_gp0_cmds_record[cmds_i];
+        frame_str = fmt::format("Frame #{}", cmds_i);
+      }
+
+      const auto cmds_count = frame_cmds->size();
+
+      // Skip frames with no commands
+      if (cmds_count == 0)
+        continue;
+
+      if (ImGui::TreeNode(frame_str.c_str())) {
+        // For each command
+        for (u32 cmd_i = 0; cmd_i < cmds_count; ++cmd_i) {
+          const auto& cmd = (*frame_cmds)[cmd_i];
+          const auto cmd_id = std::to_string(cmd_i);
+          const auto cmd_type = cmd.type;
+          const auto& cmd_words = cmd.cmd;
+          const auto cmd_word_first = cmd_words.front();
+          const u8 opcode = cmd_word_first >> 24;
+
+          std::string cmd_string_title;
+          if (cmd_type == gpu::Gp0CommandType::DrawPolygon) {
+            const auto is_quad = DrawCommand{ opcode }.polygon.is_quad();
+            cmd_string_title = is_quad ? "Draw Quad" : "Draw Triangle";
+          } else
+            cmd_string_title = gpu::gp0_cmd_type_to_str(cmd_type);
+
+          const auto cmd_string = fmt::format("Command #{}: {}", cmd_i, cmd_string_title);
+
+          if (ImGui::TreeNode(cmd_id.c_str(), cmd_string.c_str())) {
+            switch (cmd_type) {
+              case gpu::Gp0CommandType::DrawLine: break;
+              case gpu::Gp0CommandType::DrawRectangle: {
+                auto rectangle = DrawCommand{ opcode }.rectangle;
+
+                Position4 positions;
+                Color4 colors;
+                TextureInfo tex_info{};
+                Size size;
+
+                gpu.m_rasterizer.extract_draw_data_rectangle(rectangle, positions, colors, tex_info,
+                                                             size);
+
+                // Positions
+                const auto is_quad = true;
+                draw_positions(positions, is_quad);
+
+                // Sizes
+                draw_size(size);
+
+                // Colors
+                bool is_flat = true;
+                const u32 vertex_count = 4;
+                draw_colors(colors.data(), is_flat, vertex_count);
+
+                bool is_textured = (bool)rectangle.texture_mapping;
+                if (is_textured)
+                  draw_texcoords(tex_info.uv, is_quad);
+
+                // Misc
+                bool is_raw = (rectangle.texture_mode == DrawCommand::TextureMode::Raw);
+                draw_misc_flags(is_textured, is_raw, is_flat);
+
+                break;
+              }
+              case gpu::Gp0CommandType::DrawPolygon: {
+                auto polygon = DrawCommand{ opcode }.polygon;
+
+                Position4 positions;
+                Color4 colors;
+                TextureInfo tex_info{};
+
+                gpu.m_rasterizer.extract_draw_data_polygon(polygon, cmd_words, positions, colors,
+                                                           tex_info);
+
+                const auto vertex_count = polygon.get_vertex_count();
+
+                // Positions
+                const auto is_quad = polygon.is_quad();
+                draw_positions(positions, is_quad);
+
+                // Colors
+                bool is_flat = (polygon.shading == DrawCommand::Shading::Flat);
+                draw_colors(colors.data(), is_flat, vertex_count);
+
+                bool is_textured = (bool)polygon.texture_mapping;
+                if (is_textured)
+                  draw_texcoords(tex_info.uv, is_quad);
+
+                // Misc
+                bool is_raw = (polygon.texture_mode == DrawCommand::TextureMode::Raw);
+                draw_misc_flags(is_textured, is_raw, is_flat);
+
+                break;
+              }
+              case gpu::Gp0CommandType::FillRectangleInVram: break;
+              case gpu::Gp0CommandType::CopyCpuToVram: break;
+              case gpu::Gp0CommandType::CopyCpuToVramTransferring: break;
+              case gpu::Gp0CommandType::CopyVramToCpu: break;
+            }
+
+            ImGui::TreePop();
+            ImGui::Separator();
+          }
+        }
+        ImGui::TreePop();
+      }
+    }
+    ImGui::PopStyleVar(2);
+  }
+  ImGui::End();
 }
 
 template <size_t RamSize>
@@ -731,21 +951,23 @@ void Gui::draw_gpu_registers(const gpu::Gpu& gpu) {
   ImGui::End();
 }
 
-void Gui::draw_cpu_info(const cpu::Cpu& cpu) {
-  if (ImGui::Begin("CPU Info", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+void Gui::draw_cpu_registers(const cpu::Cpu& cpu) {
+  if (ImGui::Begin("CPU Registers", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
     ImGui::Text("pc: %08X", cpu.m_pc_current);
     ImGui::Text("ra: %08X", cpu.gpr(31));
 
-    if (ImGui::CollapsingHeader("All CPU Registers", { true })) {
-      ImGui::Text("             ");
-      ImGui::SameLine();
+    if (ImGui::CollapsingHeader("Show All", { true })) {
+      auto print_reg = [&cpu](u32 reg_idx) {
+        ImGui::Text("%s: %08X", cpu::register_to_str(reg_idx), cpu.gpr(reg_idx));
+      };
 
       u32 i = 1;
-      auto print_reg = [&cpu](u32 i) { ImGui::Text("%s: %08X", cpu::register_to_str(i), cpu.gpr(i)); };
-      print_reg(i);
-      while (i < 30) {
+      print_reg(i++);
+      while (true) {
         print_reg(i++);
         ImGui::SameLine();
+        if (i == 31)
+          break;
         print_reg(i++);
       }
     }
