@@ -71,6 +71,9 @@ bool Gpu::step(u32 cycles_to_emulate) {
   if (trigger_vblank)
     m_vblank_cycles_left += CPU_CYCLES_PER_FRAME;
 
+  if (trigger_vblank)
+    ++m_frames;
+
   return trigger_vblank;
 }
 

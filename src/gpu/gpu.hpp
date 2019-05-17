@@ -193,6 +193,8 @@ class Gpu {
   u16 m_vram_transfer_width{};
   u16 m_vram_transfer_height{};
 
+  u32 m_frames{};
+
   std::array<u16, VRAM_WIDTH * VRAM_HEIGHT> const& vram() const { return *m_vram.get(); }
   std::array<u16, VRAM_WIDTH * VRAM_HEIGHT>& vram() { return *m_vram.get(); }
 
@@ -203,7 +205,8 @@ class Gpu {
     gpustat |= 1 << 26;     // Ready to receive command: true
     gpustat |= 1 << 27;     // Ready to send VRAM to CPU: true
     gpustat |= 1 << 28;     // Ready to receive DMA block: true
-    gpustat &= ~(1 << 19);  // Vertical Resolution: 240
+//    gpustat &= ~(1 << 19);  // Vertical Resolution: 240
+    gpustat |= ((m_frames % 2 == 0) ? 1 : 0) << 31;
 
     // Not sure what this is
     Ensures(m_gpustat.reverse_flag == false);
