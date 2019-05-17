@@ -9,6 +9,10 @@
 #include <memory>
 #include <vector>
 
+namespace gui {
+class Gui;
+}
+
 namespace gpu {
 
 constexpr u32 CPU_CYCLES_PER_SECOND = 33'868'800;
@@ -19,6 +23,8 @@ constexpr u32 MAX_GP0_CMD_LEN = 32;
 
 constexpr u32 VRAM_WIDTH = 1024;
 constexpr u32 VRAM_HEIGHT = 512;
+
+constexpr bool GP0_DEBUG_RECORD = true;  // For debugging
 
 enum DmaDirection {
   Off = 0,
@@ -165,6 +171,7 @@ struct DisplayResolution {
 };
 
 class Gpu {
+  friend class gui::Gui;  // for debug info
  public:
   Gpu();
 
@@ -202,10 +209,10 @@ class Gpu {
     auto gpustat = static_cast<u32>(m_gpustat.word);
 
     // Hardcode the following for now
-    gpustat |= 1 << 26;     // Ready to receive command: true
-    gpustat |= 1 << 27;     // Ready to send VRAM to CPU: true
-    gpustat |= 1 << 28;     // Ready to receive DMA block: true
-//    gpustat &= ~(1 << 19);  // Vertical Resolution: 240
+    gpustat |= 1 << 26;  // Ready to receive command: true
+    gpustat |= 1 << 27;  // Ready to send VRAM to CPU: true
+    gpustat |= 1 << 28;  // Ready to receive DMA block: true
+                         //    gpustat &= ~(1 << 19);  // Vertical Resolution: 240
     gpustat |= ((m_frames % 2 == 0) ? 1 : 0) << 31;
 
     // Not sure what this is
@@ -272,6 +279,30 @@ class Gpu {
 
   // VBLANK
   s32 m_vblank_cycles_left{ CPU_CYCLES_PER_FRAME };
+
+  // Debugging
+  struct Gp0CmdDebugRecord {
+    Gp0CommandType type;
+    std::vector<u32> cmd;
+  };
+  using Gp0CmdDebugRecordsFrame = std::vector<Gp0CmdDebugRecord>;
+  Gp0CmdDebugRecordsFrame m_gp0_cmds_cur_frame;
+  std::vector<Gp0CmdDebugRecordsFrame> m_gp0_cmds_record;
 };
+
+static const char* gp0_cmd_type_to_str(Gp0CommandType cmd_type) {
+  switch (cmd_type) {
+    case Gp0CommandType::None: return "None";
+    case Gp0CommandType::DrawLine: return "Draw Line";
+    case Gp0CommandType::DrawRectangle: return "Draw Rectangle";
+    case Gp0CommandType::DrawPolygon: return "Draw Polygon";
+    case Gp0CommandType::FillRectangleInVram: return "Fill Rectangle In VRAM";
+    case Gp0CommandType::CopyCpuToVram: return "CopyCpuToVram";
+    case Gp0CommandType::CopyCpuToVramTransferring: return "Copy CPU to VRAM - Transferring";
+    case Gp0CommandType::CopyVramToCpu: return "Copy VRAM to CPU";
+    case Gp0CommandType::Invalid: return "Invalid";
+    default: return "<unknown>";
+  }
+}
 
 }  // namespace gpu

@@ -8,12 +8,13 @@
 #include <bitset>
 #include <functional>
 #include <unordered_map>
+#include <utility>
 
 namespace gpu {
 
 Gpu::Gpu() {
-  m_gp0_cmd.reserve(MAX_GP0_CMD_LEN);
   m_vram = std::make_unique<std::array<u16, VRAM_WIDTH * VRAM_HEIGHT>>();
+  m_gp0_cmd.reserve(MAX_GP0_CMD_LEN);
 }
 
 u32 Gpu::read_reg(u32 addr) {
@@ -68,11 +69,16 @@ bool Gpu::step(u32 cycles_to_emulate) {
 
   bool trigger_vblank = (m_vblank_cycles_left <= 0);
 
-  if (trigger_vblank)
+  if (trigger_vblank) {
     m_vblank_cycles_left += CPU_CYCLES_PER_FRAME;
-
-  if (trigger_vblank)
     ++m_frames;
+
+    if (GP0_DEBUG_RECORD) {
+      if (m_gp0_cmds_record.size() == 5000)  // Cull at 5000 records
+        m_gp0_cmds_record.clear();
+      m_gp0_cmds_record.emplace_back(std::move(m_gp0_cmds_cur_frame));
+    }
+  }
 
   return trigger_vblank;
 }
@@ -129,7 +135,7 @@ void Gpu::gp0(u32 cmd) {
     m_gp0_arg_index = 0;
     m_gp0_arg_count = 0;
 
-    LOG_DEBUG("GP0 cmd: {:08X}", cmd);
+    //    LOG_TRACE("GP0 cmd: {:08X}", cmd);
 
     if (opcode == 0x00) {         // Nop
     } else if (opcode == 0x02) {  // Fill Rectangle in VRAM
@@ -177,7 +183,7 @@ void Gpu::gp0(u32 cmd) {
   // image data
 
   m_gp0_arg_index++;
-  LOG_TRACE("  GP0 arg: {:08X}", cmd);
+  //  LOG_TRACE("  GP0 arg: {:08X}", cmd);
 
   const bool is_transfer_data = (m_gp0_cmd_type == Gp0CommandType::CopyCpuToVramTransferring);
 
@@ -198,6 +204,9 @@ void Gpu::gp0(u32 cmd) {
         command_issued = true;
 
   if (command_issued) {
+    if (GP0_DEBUG_RECORD)
+      m_gp0_cmds_cur_frame.push_back({ m_gp0_cmd_type, m_gp0_cmd });
+
     // Save temporary and reset it here instead of at the end, because following
     // handlers might change it themselves type and we wouldn't want to override that
     const auto cmd_type = m_gp0_cmd_type;
@@ -207,22 +216,22 @@ void Gpu::gp0(u32 cmd) {
     switch (cmd_type) {
       case Gp0CommandType::DrawPolygon: {
         const u8 opcode = m_gp0_cmd[0] >> 24;
-        auto draw_cmd = renderer::rasterizer::DrawCommand{ opcode }.polygon;
-        m_rasterizer.draw_polygon(draw_cmd);
+        auto polygon = renderer::rasterizer::DrawCommand{ opcode }.polygon;
+        m_rasterizer.draw_polygon(polygon);
         break;
       }
       case Gp0CommandType::DrawLine: {
         const u8 opcode = m_gp0_cmd[0] >> 24;
-        auto draw_cmd = renderer::rasterizer::DrawCommand{ opcode }.line;
+        auto line = renderer::rasterizer::DrawCommand{ opcode }.line;
         // TODO:
-        LOG_WARN("Unimplemented rendering of {} line (op: {:02X})",
-                 draw_cmd.is_poly() ? "poly" : "single", opcode);
+        LOG_WARN("Unimplemented rendering of {} line (op: {:02X})", line.is_poly() ? "poly" : "single",
+                 opcode);
         break;
       }
       case Gp0CommandType::DrawRectangle: {
         const u8 opcode = m_gp0_cmd[0] >> 24;
-        auto draw_cmd = renderer::rasterizer::DrawCommand{ opcode }.rectangle;
-        m_rasterizer.draw_rectangle(draw_cmd);
+        auto rectangle = renderer::rasterizer::DrawCommand{ opcode }.rectangle;
+        m_rasterizer.draw_rectangle(rectangle);
         break;
       }
       case Gp0CommandType::FillRectangleInVram: gp0_fill_rect_in_vram(); break;
@@ -347,7 +356,7 @@ void Gpu::gp1(u32 cmd) {
   const auto opcode = (cmd >> 24) & 0xFF;
   const auto args = cmd & 0xFFFFFF;
 
-  LOG_DEBUG("GP1 cmd: op: {:02X} args: {:06X}", opcode, args);
+  //  LOG_DEBUG("GP1 cmd: op: {:02X} args: {:06X}", opcode, args);
 
   switch (opcode) {
     case 0x00: gp1_soft_reset(); break;
