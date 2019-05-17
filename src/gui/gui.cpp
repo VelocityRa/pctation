@@ -268,134 +268,6 @@ void Gui::imgui_end_frame() const {
   ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 }
 
-void Gui::file_select_windows(gui::Gui& gui, std::string& exe_path, std::string& cdrom_path) {
-  auto event = gui::GuiEvent::None;
-
-  while (true) {
-    bool selected{};
-
-    while (gui.poll_events()) {
-      event = gui.process_events_exe_select();
-
-      if (event == gui::GuiEvent::GameSelected || event == gui::GuiEvent::Exit) {
-        selected = true;
-        return;
-      }
-    }
-    gui.clear();
-
-    imgui_start_frame();
-
-    if (gui.draw_exe_select(exe_path))
-      selected = true;
-    if (gui.draw_cdrom_select(cdrom_path))
-      selected = true;
-
-    imgui_end_frame();
-
-    gui.swap();
-
-    if (selected)
-      return;
-  }
-}
-
-bool Gui::draw_exe_select(std::string& exe_path) const {
-  const auto EXE_PATH = "data/exe";
-
-  bool selected = false;
-
-  if (ImGui::Begin("PSX-EXE Explorer")) {
-    for (auto& p : fs::recursive_directory_iterator(EXE_PATH)) {
-      const auto ext = p.path().extension();
-      if (ext == ".exe" || ext == ".psx") {
-        const auto path = p.path().string();
-        const auto rel_path = path.substr(sizeof(EXE_PATH));
-
-        if (ImGui::Selectable(rel_path.c_str())) {
-          exe_path = path;
-          selected = true;
-        }
-      }
-    }
-  }
-  ImGui::End();
-
-  return selected;
-}
-
-bool Gui::draw_cdrom_select(std::string& cdrom_path) const {
-  const auto CDROM_PATH = "data/cdrom";
-
-  bool selected = false;
-
-  auto search_for_ext = [&](const fs::directory_entry& dir, std::vector<const char*> extensions,
-                            bool select_path) -> bool {
-    for (auto& f : fs::recursive_directory_iterator(dir)) {
-      const auto file_path = f.path().string();
-      auto ext = f.path().extension().string();
-      std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
-
-      if (std::find(extensions.begin(), extensions.end(), ext) != extensions.end()) {
-        if (select_path)
-          cdrom_path = file_path;
-        return true;
-      }
-    }
-    return false;
-  };
-
-  if (ImGui::Begin("CD-ROM Explorer")) {
-    if (ImGui::Selectable("None"))
-      selected = true;
-
-    for (auto& p : fs::recursive_directory_iterator(CDROM_PATH)) {
-      if (fs::is_directory(p)) {
-        const auto dir_path = p.path().string();
-        const auto rel_dir_path = dir_path.substr(sizeof(CDROM_PATH));
-
-        if (search_for_ext(p, { ".bin", ".iso" }, false)) {  // todo: ".cue"
-          if (ImGui::Selectable(rel_dir_path.c_str())) {
-            // First look for a cue sheet
-            // selected = search_for_ext(p, { ".cue"}, true);
-
-            // If we found nothing, fall back to binary formats
-            if (!selected)
-              selected = search_for_ext(p, { ".bin", ".iso" }, true);
-
-            if (selected)
-              LOG_INFO("Opening file: {}", cdrom_path);
-          }
-        }
-      }
-    }
-  }
-
-  ImGui::End();
-
-  return selected;
-}
-
-GuiEvent Gui::process_events_exe_select() const {
-  auto ret_event = GuiEvent::None;
-
-  // Let ImGui process events
-  ImGui_ImplSDL2_ProcessEvent(&m_event);
-
-  // Exit events
-  process_exit_events(ret_event);
-
-  return ret_event;
-}
-
-void Gui::process_exit_events(GuiEvent& ret_event) const {
-  if (m_event.type == SDL_QUIT)
-    ret_event = GuiEvent::Exit;
-  else if (m_event.type == SDL_WINDOWEVENT && m_event.window.event == SDL_WINDOWEVENT_CLOSE &&
-           m_event.window.windowID == SDL_GetWindowID(m_window))
-    ret_event = GuiEvent::Exit;
-}
-
 void Gui::draw(const emulator::Emulator& emulator) {
   imgui_start_frame();
 
@@ -427,6 +299,36 @@ void Gui::apply_settings() const {
     SDL_GL_SetSwapInterval(m_settings->limit_framerate ? -1 : 0);
 }
 
+void Gui::deinit() {
+  SDL_GL_DeleteContext(m_gl_context);
+  SDL_Quit();
+}
+
+void Gui::clear() const {
+  glClearColor(GUI_CLEAR_COLOR.x, GUI_CLEAR_COLOR.y, GUI_CLEAR_COLOR.z, GUI_CLEAR_COLOR.w);
+  glClear(GL_COLOR_BUFFER_BIT);
+}
+
+GuiEvent Gui::process_events_file_select() const {
+  auto ret_event = GuiEvent::None;
+
+  // Let ImGui process events
+  ImGui_ImplSDL2_ProcessEvent(&m_event);
+
+  // Exit events
+  process_exit_events(ret_event);
+
+  return ret_event;
+}
+
+void Gui::process_exit_events(GuiEvent& ret_event) const {
+  if (m_event.type == SDL_QUIT)
+    ret_event = GuiEvent::Exit;
+  else if (m_event.type == SDL_WINDOWEVENT && m_event.window.event == SDL_WINDOWEVENT_CLOSE &&
+           m_event.window.windowID == SDL_GetWindowID(m_window))
+    ret_event = GuiEvent::Exit;
+}
+
 void Gui::update_fps_counter() {
   ++m_fps_counter_frames;
 
@@ -453,6 +355,10 @@ void Gui::update_window_title() const {
 
   SDL_SetWindowTitle(m_window, window_title.c_str());
 }
+
+//
+// GUI Components (imgui)
+//
 
 void Gui::imgui_draw(const emulator::Emulator& emulator) {
   if (m_settings->show_gui) {
@@ -513,19 +419,6 @@ void Gui::imgui_draw(const emulator::Emulator& emulator) {
   }
 }
 
-void Gui::deinit() {
-  SDL_GL_DeleteContext(m_gl_context);
-
-  SDL_Quit();
-}
-
-void Gui::clear() const {
-  glClearColor(GUI_CLEAR_COLOR.x, GUI_CLEAR_COLOR.y, GUI_CLEAR_COLOR.z, GUI_CLEAR_COLOR.w);
-  glClear(GL_COLOR_BUFFER_BIT);
-}
-
-// Dialogs
-
 void Gui::draw_dialog_log(const char* title,
                           bool& should_draw,
                           bool& should_autoscroll,
@@ -555,6 +448,114 @@ void Gui::draw_dialog_log(const char* title,
   ImGui::EndChild();
 
   ImGui::End();
+}
+
+void Gui::draw_file_select(gui::Gui& gui, std::string& exe_path, std::string& cdrom_path) {
+  auto event = gui::GuiEvent::None;
+
+  while (true) {
+    bool selected{};
+
+    while (gui.poll_events()) {
+      event = gui.process_events_file_select();
+
+      if (event == gui::GuiEvent::GameSelected || event == gui::GuiEvent::Exit) {
+        selected = true;
+        return;
+      }
+    }
+    gui.clear();
+
+    imgui_start_frame();
+
+    if (gui.draw_exe_select(exe_path))
+      selected = true;
+    if (gui.draw_cdrom_select(cdrom_path))
+      selected = true;
+
+    imgui_end_frame();
+
+    gui.swap();
+
+    if (selected)
+      return;
+  }
+}
+
+bool Gui::draw_exe_select(std::string& exe_path) const {
+  const auto EXE_PATH = "data/exe";
+
+  bool selected = false;
+
+  if (ImGui::Begin("PSX-EXE Explorer")) {
+    for (auto& p : fs::recursive_directory_iterator(EXE_PATH)) {
+      const auto ext = p.path().extension();
+      if (ext == ".exe" || ext == ".psx") {
+        const auto path = p.path().string();
+        const auto rel_path = path.substr(sizeof(EXE_PATH));
+
+        if (ImGui::Selectable(rel_path.c_str())) {
+          exe_path = path;
+          selected = true;
+        }
+      }
+    }
+  }
+  ImGui::End();
+
+  return selected;
+}
+
+bool Gui::draw_cdrom_select(std::string& cdrom_path) const {
+  const auto CDROM_PATH = "D:\\Nikos\\PSX\\Games";
+
+  bool selected = false;
+
+  auto search_for_ext = [&](const fs::directory_entry& dir, std::vector<const char*> extensions,
+                            bool select_path) -> bool {
+    for (auto& f : fs::recursive_directory_iterator(dir)) {
+      const auto file_path = f.path().string();
+      auto ext = f.path().extension().string();
+      std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+
+      if (std::find(extensions.begin(), extensions.end(), ext) != extensions.end()) {
+        if (select_path)
+          cdrom_path = file_path;
+        return true;
+      }
+    }
+    return false;
+  };
+
+  if (ImGui::Begin("CD-ROM Explorer")) {
+    if (ImGui::Selectable("None"))
+      selected = true;
+
+    for (auto& p : fs::recursive_directory_iterator(CDROM_PATH)) {
+      if (fs::is_directory(p)) {
+        const auto dir_path = p.path().string();
+        const auto rel_dir_path = dir_path.substr(sizeof(CDROM_PATH));
+
+        if (search_for_ext(p, { ".bin", ".iso" }, false)) {  // todo: ".cue"
+          if (ImGui::Selectable(rel_dir_path.c_str())) {
+            // First look for a cue sheet
+            // selected = search_for_ext(p, { ".cue"}, true);
+
+            // If we found nothing, fall back to binary formats
+            if (!selected)
+              selected = search_for_ext(p, { ".bin", ".iso" }, true);
+
+            if (selected)
+              LOG_INFO("Opening file: {}", cdrom_path);
+          }
+        }
+      }
+    }
+  }
+
+  ImGui::End();
+
+  return selected;
 }
 
 template <size_t RamSize>

@@ -40,9 +40,9 @@ class Gui {
   void apply_settings() const;
   bool poll_events();  // Returns true if there are any pending events
   GuiEvent process_events();
-  GuiEvent process_events_exe_select() const;
+  GuiEvent process_events_file_select() const;
   void draw(const emulator::Emulator& emulator);
-  void file_select_windows(gui::Gui& gui, std::string& exe_path, std::string& bin_path);
+  void draw_file_select(gui::Gui& gui, std::string& exe_path, std::string& bin_path);
   void swap();
   void deinit();
   void clear() const;
@@ -52,6 +52,12 @@ class Gui {
   void imgui_end_frame() const;
   void imgui_draw(const emulator::Emulator& emulator);  // Draws all imgui GUI elements
 
+  void update_window_title() const;
+  void update_fps_counter();
+  void process_exit_events(GuiEvent& ret_event) const;
+
+  // GUI Components
+
   void draw_dialog_log(const char* title,
                        bool& should_draw,
                        bool& should_autoscroll,
@@ -60,13 +66,9 @@ class Gui {
   void draw_dialog_ram(const std::array<byte, RamSize>& data);
   void draw_gpu_registers(const gpu::Gpu& gpu);
   void draw_cpu_info(const cpu::Cpu& cpu);
+  bool draw_exe_select(std::string& psxexe_path) const;    // Returns true if a file was selected
+  bool draw_cdrom_select(std::string& psxexe_path) const;  // Returns true if a file was selected
 
-  bool draw_exe_select(std::string& psxexe_path) const;    // Returns true if a psx was selected
-  bool draw_cdrom_select(std::string& psxexe_path) const;  // Returns true if a bin was selected
-
-  void update_window_title() const;
-  void update_fps_counter();
-  void process_exit_events(GuiEvent& ret_event) const;
 
  private:
   // SDL

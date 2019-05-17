@@ -34,7 +34,7 @@ s32 main(s32 argc, char** argv) {
 
     // If no executable was specified in cmd args, show Executable Select screen
     if (exe_path.empty() && cdrom_path.empty())
-      gui.file_select_windows(gui, exe_path, cdrom_path);
+      gui.draw_file_select(gui, exe_path, cdrom_path);
 
     // Init emulator
     auto emulator =
