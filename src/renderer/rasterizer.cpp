@@ -248,7 +248,7 @@ void Rasterizer::draw_polygon_impl(Position4 positions,
 }
 
 void Rasterizer::draw_polygon(const DrawCommand::Polygon& polygon) {
-  const auto gp0_cmd = m_gpu.get_gp0_cmd();
+  const auto gp0_cmd = m_gpu.gp0_cmd();
   const auto vertex_count = polygon.get_vertex_count();
 
   Position4 positions;
@@ -289,7 +289,7 @@ void Rasterizer::draw_rectangle(const DrawCommand::Rectangle& rectangle) {
   TextureInfo tex_info{};
   Size size;
 
-  const auto gp0_cmd = m_gpu.get_gp0_cmd();
+  const auto gp0_cmd = m_gpu.gp0_cmd();
   const auto is_textured = rectangle.texture_mapping;
 
   u8 arg_idx = 1;

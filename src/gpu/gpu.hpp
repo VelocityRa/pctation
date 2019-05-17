@@ -235,7 +235,7 @@ class Gpu {
   // Returns true to signals that a frame is ready for presenting (VBLANK)
   bool step(u32 cycles_to_emualate);
 
-  std::vector<u32> const& get_gp0_cmd() const { return m_gp0_cmd; }
+  std::vector<u32> const& gp0_cmd() const { return m_gp0_cmd; }
 
   void gp0(u32 cmd);
 
