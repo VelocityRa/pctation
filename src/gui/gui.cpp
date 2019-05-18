@@ -726,13 +726,13 @@ void Gui::draw_gp0_commands(const gpu::Gpu& gpu) {
               case gpu::Gp0CommandType::DrawRectangle: {
                 auto rectangle = DrawCommand{ opcode }.rectangle;
 
-                Position4 positions;
-                Color4 colors;
+                Position4 positions{};
+                Color4 colors{};
                 TextureInfo tex_info{};
-                Size size;
+                Size size{};
 
-                gpu.m_rasterizer.extract_draw_data_rectangle(rectangle, positions, colors, tex_info,
-                                                             size);
+                gpu.m_rasterizer.extract_draw_data_rectangle(rectangle, cmd_words, positions, colors,
+                                                             tex_info, size);
 
                 // Positions
                 const auto is_quad = true;

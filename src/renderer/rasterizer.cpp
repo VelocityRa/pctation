@@ -282,8 +282,8 @@ void Rasterizer::extract_draw_data_polygon(const DrawCommand::Polygon& polygon,
 void Rasterizer::draw_polygon(const DrawCommand::Polygon& polygon) {
   const auto gp0_cmd = m_gpu.gp0_cmd();
 
-  Position4 positions;
-  Color4 colors;
+  Position4 positions{};
+  Color4 colors{};
   TextureInfo tex_info{};
 
   extract_draw_data_polygon(polygon, gp0_cmd, positions, colors, tex_info);
@@ -292,11 +292,11 @@ void Rasterizer::draw_polygon(const DrawCommand::Polygon& polygon) {
 }
 
 void Rasterizer::extract_draw_data_rectangle(const DrawCommand::Rectangle& rectangle,
+                                             const std::vector<u32>& gp0_cmd,
                                              Position4& positions,
                                              Color4& colors,
                                              TextureInfo& tex_info,
                                              Size& size) const {
-  const auto gp0_cmd = m_gpu.gp0_cmd();
   const auto is_textured = rectangle.texture_mapping;
 
   u8 arg_idx = 1;
@@ -329,12 +329,12 @@ void Rasterizer::extract_draw_data_rectangle(const DrawCommand::Rectangle& recta
 }
 
 void Rasterizer::draw_rectangle(const DrawCommand::Rectangle& rectangle) {
-  Position4 positions;
-  Color4 colors;
+  Position4 positions{};
+  Color4 colors{};
   TextureInfo tex_info{};
-  Size size;
+  Size size{};
 
-  extract_draw_data_rectangle(rectangle, positions, colors, tex_info, size);
+  extract_draw_data_rectangle(rectangle, m_gpu.gp0_cmd(), positions, colors, tex_info, size);
   // TODO: semi transparency
   // TODO: raw textures
   const auto is_quad = true;

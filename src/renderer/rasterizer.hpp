@@ -296,6 +296,7 @@ class Rasterizer {
                                  Color4& colors,
                                  TextureInfo& tex_info) const;
   void extract_draw_data_rectangle(const DrawCommand::Rectangle& rectangle,
+                                   const std::vector<u32>& gp0_cmd,
                                    Position4& positions,
                                    Color4& colors,
                                    TextureInfo& tex_info,
