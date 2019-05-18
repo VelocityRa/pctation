@@ -84,8 +84,9 @@ std::string Instruction::disassemble() const {
       case OPERAND_IMM20: disasm_text += fmt::format("0x{:X}, ", imm20()); break;
       case OPERAND_IMM25: disasm_text += fmt::format("0x{:X}, ", imm25()); break;
       case OPERAND_IMM26: disasm_text += fmt::format("0x{:X}, ", imm26()); break;
-      case OPERAND_GTE_GD: disasm_text += fmt::format("{}, ", gte::data_register_to_str(rd())); break;
-      case OPERAND_GTE_GC: disasm_text += fmt::format("{}, ", gte::control_register_to_str(rd())); break;
+      case OPERAND_GTE_REG:  // fall-through
+      case OPERAND_GTE_GD: disasm_text += fmt::format("{}, ", gte::reg_to_str(rd())); break;
+      case OPERAND_GTE_GC: disasm_text += fmt::format("{}, ", gte::reg_to_str(rd() + 32)); break;
       default: disasm_text += "<invalid_operand>";
     }
   }

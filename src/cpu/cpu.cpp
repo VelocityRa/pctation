@@ -246,32 +246,73 @@ void Cpu::execute_instruction(const Instruction& i) {
     case Opcode::RFE:
       op_rfe(i);
       break;
-      // Co-processor 2 (Geometry Transformation Engine
+      // Co-processor 2 (Geometry Transformation Engine)
     case Opcode::MFC2: {
-      auto val = m_gte.load_data_reg(i.rd());
-      LOG_WARN("{:<23}     |   0x{:08X}   |     0x{:08X} at 0x{:08X}", i.disassemble(), val, i.word(),
+      auto val = m_gte.read_reg(i.rd());
+#if TRACE_GTE
+      LOG_WARN("{:<23}      | val: 0x{:08X} | 0x{:08X} at 0x{:08X}", i.disassemble(), val, i.word(),
                m_pc_current);
-
+#endif
       issue_delayed_load(i.rt(), val);
       break;
     }
     case Opcode::CFC2: {
-      const auto val = m_gte.load_control_reg(i.rd());
-      LOG_WARN("{:<23}     |   0x{:08X}   |     0x{:08X} at 0x{:08X}", i.disassemble(), val, i.word(),
+      const auto val = m_gte.read_reg(i.rd() + 32);  // Add 32 because it's a Control Register
+#if TRACE_GTE
+      LOG_WARN("{:<23}      | val: 0x{:08X} | 0x{:08X} at 0x{:08X}", i.disassemble(), val, i.word(),
                m_pc_current);
+#endif
       issue_delayed_load(i.rt(), val);
       break;
     }
     case Opcode::MTC2:
-      LOG_WARN("{:<23}     |   0x{:08X}   |     0x{:08X} at 0x{:08X}", i.disassemble(), gpr(i.rt()),
-               i.word(), m_pc_current);
-      m_gte.store_data_reg(i.rd(), gpr(i.rt()));
+#if TRACE_GTE
+      LOG_WARN("{:<23}      | val: 0x{:08X} | 0x{:08X} at 0x{:08X}", i.disassemble(), rt(i), i.word(),
+               m_pc_current);
+#endif
+      m_gte.write_reg(i.rd(), rt(i));
       break;
     case Opcode::CTC2:
-      LOG_WARN("{:<23}     |   0x{:08X}   |     0x{:08X} at 0x{:08X}", i.disassemble(), gpr(i.rt()),
-               i.word(), m_pc_current);
-      m_gte.store_control_reg(i.rd(), gpr(i.rt()));
+#if TRACE_GTE
+      LOG_WARN("{:<23}      | val: 0x{:08X} | 0x{:08X} at 0x{:08X}", i.disassemble(), rt(i), i.word(),
+               m_pc_current);
+#endif
+      m_gte.write_reg(i.rd() + 32, rt(i));  // Add 32 because it's a Control Register
       break;
+    case Opcode::LWC2: {
+      const address addr = rs(i) + i.imm16_se();
+
+      const auto dest_reg = i.rt();
+      Expects(dest_reg < 64);
+
+      const auto val = m_bus.read32(addr);
+
+#if TRACE_GTE
+      LOG_WARN("{:<23}    | val: 0x{:08X} | 0x{:08X} at 0x{:08X}", i.disassemble(), val, i.word(),
+               m_pc_current);
+#endif
+      m_gte.write_reg(dest_reg, val);
+      break;
+    }
+    case Opcode::SWC2: {
+      const address addr = rs(i) + i.imm16_se();
+
+      const auto dest_reg = i.rt();
+      Expects(dest_reg < 64);
+
+      const auto val = m_gte.read_reg(dest_reg);
+
+#if TRACE_GTE
+      LOG_WARN("{:<23}    | val: 0x{:08X} | 0x{:08X} at 0x{:08X}", i.disassemble(), val, i.word(),
+               m_pc_current);
+#endif
+      m_bus.write32(addr, val);
+      break;
+    }
+    case Opcode::COP2: {
+      m_gte.cmd(i.word());
+      break;
+    }
     default:
       LOG_WARN("Unimplemented instruction 0x{:08X} (op: {}) at 0x{:08X} executed, disasm: {}", i.word(),
                opcode_to_str(i.opcode()), m_pc_current, i.disassemble());

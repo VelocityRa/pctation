@@ -14,8 +14,9 @@
 #define OPERAND_IMM20 6    // Immediate 20 bits
 #define OPERAND_IMM25 7    // Immediate 25 bits
 #define OPERAND_IMM26 8    // Immediate 26 bits
-#define OPERAND_GTE_GD 9   // GTE data register
-#define OPERAND_GTE_GC 10  // GTE control register
+#define OPERAND_GTE_REG 9  // GTE either data or control register
+#define OPERAND_GTE_GD 10  // GTE data register
+#define OPERAND_GTE_GC 11  // GTE control register
 
 namespace cpu {
 

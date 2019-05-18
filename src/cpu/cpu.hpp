@@ -152,6 +152,7 @@ class Cpu {
     //    Ensures(index <= 31);
     return m_gpr[index];
   }
+  Register current_pc() const { return m_pc_current; }
 
  private:
   // Register setters
