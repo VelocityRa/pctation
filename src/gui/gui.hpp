@@ -102,6 +102,8 @@ class Gui {
 
   // GP0 Commands dialog fields
   bool m_draw_gp0_commands{ true };
+  bool m_draw_gp0_overlay_rising{ true };
+  u8 m_draw_gp0_overlay_alpha{};
 
   io::Joypad* m_joypad;
   emulator::Settings* m_settings;

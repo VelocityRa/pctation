@@ -30,7 +30,7 @@
 
 using namespace gl;
 
-const auto SCREEN_SCALE = 1.5;
+const auto SCREEN_SCALE = 1.5f;
 
 const auto GUI_CLEAR_COLOR = RGBA_TO_FLOAT(46, 63, 95, 255);
 const auto GUI_COLOR_BLACK_HALF_TRANSPARENT = RGBA_TO_FLOAT(0, 0, 0, 128);
@@ -586,7 +586,7 @@ void Gui::draw_gp0_commands(const gpu::Gpu& gpu) {
   auto draw_colors = [](Color colors[], bool is_flat, u32 vertex_count) {
     if (ImGui::TreeNodeEx("Colors", ImGuiTreeNodeFlags_DefaultOpen)) {
       const auto color_count = is_flat ? 1 : vertex_count;
-      for (auto i = 0; i < color_count; ++i) {
+      for (u32 i = 0; i < color_count; ++i) {
         float col[3] = { (float)colors[i].r / 255.f, (float)colors[i].g / 255.f,
                          (float)colors[i].b / 255.f };
         ImGui::ColorEdit3("", col,
@@ -640,9 +640,35 @@ void Gui::draw_gp0_commands(const gpu::Gpu& gpu) {
     }
   };
 
+  auto draw_poly_overlay = [this](Position4& positions, bool is_quad) {
+    auto draw_list = ImGui::GetWindowDrawList();
+    draw_list->PushClipRectFullScreen();  // TODO: clip to display area
+    const auto overlay_color = 0x00FFFFFF | m_draw_gp0_overlay_alpha << 24;
+
+    if (is_quad)
+      draw_list->AddQuadFilled(
+          { (f32)positions[0].x * SCREEN_SCALE, (f32)positions[0].y * SCREEN_SCALE },
+          { (f32)positions[1].x * SCREEN_SCALE, (f32)positions[1].y * SCREEN_SCALE },
+          { (f32)positions[3].x * SCREEN_SCALE, (f32)positions[3].y * SCREEN_SCALE },
+          { (f32)positions[2].x * SCREEN_SCALE, (f32)positions[2].y * SCREEN_SCALE }, overlay_color);
+    else
+      draw_list->AddTriangleFilled(
+          { (f32)positions[0].x * SCREEN_SCALE, (f32)positions[0].y * SCREEN_SCALE },
+          { (f32)positions[1].x * SCREEN_SCALE, (f32)positions[1].y * SCREEN_SCALE },
+          { (f32)positions[2].x * SCREEN_SCALE, (f32)positions[2].y * SCREEN_SCALE }, overlay_color);
+    draw_list->PopClipRect();
+  };
+
   if (ImGui::Begin("GP0 Commands", &m_draw_gp0_commands)) {
     ImGui::PushStyleVar(ImGuiStyleVar_GrabMinSize, 4);
     ImGui::PushStyleVar(ImGuiStyleVar_GrabRounding, 0);
+
+    // Pulse overlay alpha
+    m_draw_gp0_overlay_alpha += m_draw_gp0_overlay_rising ? 10 : -10;
+    if (m_draw_gp0_overlay_alpha == 250)
+      m_draw_gp0_overlay_rising = false;
+    else if (m_draw_gp0_overlay_alpha == 0)
+      m_draw_gp0_overlay_rising = true;
 
     // For each frame (-1 for the latest one)
     for (s32 cmds_i = -1; cmds_i < (s32)gpu.m_gp0_cmds_record.size(); ++cmds_i) {
@@ -728,6 +754,9 @@ void Gui::draw_gp0_commands(const gpu::Gpu& gpu) {
                 bool is_raw = (rectangle.texture_mode == DrawCommand::TextureMode::Raw);
                 draw_misc_flags(is_textured, is_raw, is_flat);
 
+                // Draw overlay of primitive
+                draw_poly_overlay(positions, is_quad);
+
                 break;
               }
               case gpu::Gp0CommandType::DrawPolygon: {
@@ -757,6 +786,9 @@ void Gui::draw_gp0_commands(const gpu::Gpu& gpu) {
                 // Misc
                 bool is_raw = (polygon.texture_mode == DrawCommand::TextureMode::Raw);
                 draw_misc_flags(is_textured, is_raw, is_flat);
+
+                // Draw overlay of primitive
+                draw_poly_overlay(positions, is_quad);
 
                 break;
               }
