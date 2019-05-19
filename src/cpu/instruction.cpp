@@ -26,7 +26,7 @@ Opcode Instruction::decode() {
       m_operands = { OPERAND_IMM25, OPERAND_NONE, OPERAND_NONE };
       return Opcode::COP2;
     }
-    else if (cop_opcode & (1 << 4)) { // COP0 instruction
+    else if (cop_opcode == 0b010000'1'0000) { // COP0 instruction
       const u16 cop0_opcode_sec = op_cop0_sec();
 
       // RFE is the only COP0 instruction implemented on PlayStation hardware with this encoding
