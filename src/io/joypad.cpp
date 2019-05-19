@@ -121,7 +121,6 @@ void Joypad::do_tx_transfer(u8 val) {
       m_device_selected = Device::Controller;
     } else if (val == 0x81) {
       m_device_selected = Device::MemoryCard;
-      LOG_WARN("Memory card selected, unimplemented");
     } else
       LOG_ERROR("Unknown device selected");
   }
@@ -139,6 +138,9 @@ void Joypad::do_tx_transfer(u8 val) {
 
   if (m_device_selected == Device::MemoryCard) {
     LOG_WARN("Requested read from Memory Card, unimplemented");
+    m_device_selected = Device::None;
+    m_rx_data = 0xFF;
+    m_ack = true;
   }
 }
 
