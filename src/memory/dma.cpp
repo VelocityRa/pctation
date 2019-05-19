@@ -156,6 +156,10 @@ void Dma::do_block_transfer(DmaPort port) {
             // Send packet (which is part of a GP0 command, likely data) to the GPU
             m_gpu.gp0(src_word);
             break;
+          case DmaPort::Spu:
+            // TODO
+            LOG_INFO("DMA transfer of word 0x{:08X} to SPU port", src_word);
+            break;
           default:
             LOG_WARN("DMA transfer of word 0x{:08X} to unimplemented port {} requested", src_word,
                      static_cast<u8>(port));
