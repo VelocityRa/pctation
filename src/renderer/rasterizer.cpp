@@ -43,7 +43,9 @@ void Rasterizer::draw_pixel(Position pos,
     case PixelRenderType::TEXTURED_PALETTED_4BIT:
       out_color = calculate_pixel_tex_4bit(tex_info, texel);
       break;
-    case PixelRenderType::TEXTURED_PALETTED_8BIT: assert(0); break;
+    case PixelRenderType::TEXTURED_PALETTED_8BIT:
+      out_color = calculate_pixel_tex_8bit(tex_info, texel);
+      break;
     case PixelRenderType::TEXTURED_16BIT: out_color = calculate_pixel_tex_16bit(tex_info, texel); break;
     default: assert(0);
   }
@@ -95,6 +97,25 @@ gpu::RGB16 Rasterizer::calculate_pixel_tex_4bit(TextureInfo tex_info, TexelPos t
   const auto clut_y = tex_info.palette.y();
 
   u16 color = m_gpu.get_vram_pos(clut_x, clut_y);
+
+  return gpu::RGB16::from_word(color);
+}
+
+gpu::RGB16 Rasterizer::calculate_pixel_tex_8bit(TextureInfo tex_info, TexelPos texel_pos) const {
+  const auto texpage = gpu::Gp0DrawMode{ tex_info.page };
+
+  const auto index_x = texel_pos.x / 2 + texpage.tex_base_x();
+  const auto index_y = texel_pos.y + texpage.tex_base_y();
+
+  u16 index = m_gpu.get_vram_pos(index_x, index_y);
+
+  const auto index_shift = (texel_pos.x & 0b01) * 8;
+  u16 entry = (index >> index_shift) & 0xFF;
+
+  const auto clut_x = tex_info.palette.x() + entry;
+  const auto clut_y = tex_info.palette.y();
+
+  u16 color = m_gpu.get_vram_pos(clut_x % 1024, clut_y % 512);
 
   return gpu::RGB16::from_word(color);
 }
@@ -229,7 +250,7 @@ void Rasterizer::draw_polygon_impl(Position4 positions,
           draw_triangle<PixelRenderType::TEXTURED_PALETTED_4BIT>(tri_positions, tex_info, draw_flags);
           break;
         case PixelRenderType::TEXTURED_PALETTED_8BIT:
-          LOG_ERROR("Unimplemented TEXTURED_PALETTED_8BIT draw cmd");
+          draw_triangle<PixelRenderType::TEXTURED_PALETTED_8BIT>(tri_positions, tex_info, draw_flags);
           break;
         case PixelRenderType::TEXTURED_16BIT:
           draw_triangle<PixelRenderType::TEXTURED_16BIT>(tri_positions, tex_info, draw_flags);

@@ -312,6 +312,7 @@ class Rasterizer {
   TexelPos calculate_texel_pos(BarycentricCoords bar, Texcoord3 uv) const;
   static gpu::RGB16 calculate_pixel_shaded(Color3 colors, BarycentricCoords bar);
   gpu::RGB16 calculate_pixel_tex_4bit(TextureInfo tex_info, TexelPos texel_pos) const;
+  gpu::RGB16 calculate_pixel_tex_8bit(TextureInfo tex_info, TexelPos texel_pos) const;
   gpu::RGB16 calculate_pixel_tex_16bit(TextureInfo tex_info, TexelPos texel_pos) const;
 
  private:
