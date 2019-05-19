@@ -52,8 +52,10 @@ void Rasterizer::draw_pixel(Position pos,
   if (is_textured && out_color.word == 0x0000)
     return;
 
+  const auto is_raw = draw_flags.texture_mode == DrawCommand::TextureMode::Raw;
+
   // Apply texture color or (TODO) shading
-  if (is_textured) {
+  if (is_textured && !is_raw) {
     glm::vec3 brightness;
     if (draw_flags.shading == DrawCommand::Shading::Flat) {
       brightness = gpu::RGB32::from_word(tex_info.color.word()).to_vec();
