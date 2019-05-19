@@ -116,26 +116,29 @@ void Joypad::do_tx_transfer(u8 val) {
 
   u8 port = (m_reg_ctrl >> 13) & 0b1;
 
-  switch (m_device_selected) {
-    case Device::None: {
-      if (val == 0x01) {
-        m_device_selected = Device::Controller;
-      } else if (val == 0x81) {
-        m_device_selected = Device::MemoryCard;
-        LOG_WARN("Memory card selected, unimplemented");
-      } else
-        LOG_ERROR("Unknown device selected");
-    }
-    case Device::Controller:
-      m_rx_data = m_digital_controllers[port].read(val);
-      m_ack = m_digital_controllers[port].ack();
-      if (m_ack)
-        m_irq_timer = 5;
-      if (m_digital_controllers[port].m_read_idx == 0)
-        m_device_selected = Device::None;
-      break;
-    case Device::MemoryCard: LOG_WARN("Requested read from Memory Card, unimplemented"); break;
-    default: LOG_ERROR("Invalid device"); assert(0);
+  if (m_device_selected == Device::None) {
+    if (val == 0x01) {
+      m_device_selected = Device::Controller;
+    } else if (val == 0x81) {
+      m_device_selected = Device::MemoryCard;
+      LOG_WARN("Memory card selected, unimplemented");
+    } else
+      LOG_ERROR("Unknown device selected");
+  }
+
+  // Read from seleted device immediately
+
+  if (m_device_selected == Device::Controller) {
+    m_rx_data = m_digital_controllers[port].read(val);
+    m_ack = m_digital_controllers[port].ack();
+    if (m_ack)
+      m_irq_timer = 5;
+    if (m_digital_controllers[port].m_read_idx == 0)
+      m_device_selected = Device::None;
+  }
+
+  if (m_device_selected == Device::MemoryCard) {
+    LOG_WARN("Requested read from Memory Card, unimplemented");
   }
 }
 
