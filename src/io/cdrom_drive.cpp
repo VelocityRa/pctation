@@ -39,7 +39,7 @@ void CdromDrive::step() {
   }
 
   if (m_stat_code.playing) {
-    LOG_ERROR("Playing CD audio unsupported");
+    LOG_ERROR_CDROM("Playing CD audio unsupported");
     return;
   }
 
@@ -84,11 +84,11 @@ u8 CdromDrive::read_reg(address addr_rebased) {
     if (!m_irq_fifo.empty())
       val |= m_irq_fifo.front() & 0b111;
   } else {
-    LOG_CRITICAL("Unknown combination, CDREG{}.{}", reg, reg_index);
+    LOG_ERROR_CDROM("Unknown combination, CDREG{}.{}", reg, reg_index);
   }
 
-  auto reg_name = get_reg_name(reg, reg_index, true);
-  LOG_ERROR("CDROM read {} (CDREG{}.{}) val: 0x{:02X} ({:#010b})", reg_name, reg, reg_index, val, val);
+  LOG_TRACE_CDROM("CDROM read {} (CDREG{}.{}) val: 0x{:02X} ({:#010b})",
+                  get_reg_name(reg, reg_index, true), reg, reg_index, val, val);
 
   return val;
 }
@@ -149,16 +149,16 @@ void CdromDrive::write_reg(address addr_rebased, u8 val) {
   } else if (reg == 3 && reg_index == 2) {  // Audio Volume for Left-CD-Out to Right-SPU-Input
   } else if (reg == 3 && reg_index == 3) {  // Audio Volume Apply Changes
   } else {
-    LOG_CRITICAL("Unknown combination, CDREG{}.{} val: {:02X}", reg, reg_index, val);
+    LOG_ERROR_CDROM("Unknown combination, CDREG{}.{} val: {:02X}", reg, reg_index, val);
   }
 
-  auto reg_name = get_reg_name(reg, reg_index, false);
-  LOG_ERROR("CDROM write {} (CDREG{}.{}) val: 0x{:02X} ({:#010b})", reg_name, reg, reg_index, val, val);
+  LOG_TRACE_CDROM("CDROM write {} (CDREG{}.{}) val: 0x{:02X} ({:#010b})",
+                  get_reg_name(reg, reg_index, false), reg, reg_index, val, val);
 }
 
 u8 CdromDrive::read_byte() {
   if (is_data_buf_empty()) {
-    LOG_WARN("Tried to read with an empty buffer");
+    LOG_WARN_CDROM("Tried to read with an empty buffer");
     return 0;
   }
 
@@ -189,10 +189,10 @@ void CdromDrive::execute_command(u8 cmd) {
   m_irq_fifo.clear();
   m_resp_fifo.clear();
 
-  LOG_CRITICAL("CDROM command issued: {} ({:02X})", get_cmd_name(cmd), cmd);
+  LOG_DEBUG_CDROM("CDROM command issued: {} ({:02X})", get_cmd_name(cmd), cmd);
 
   if (!m_param_fifo.empty())
-    LOG_CRITICAL("Parameters: [{:02X}]", fmt::join(m_param_fifo, ", "));
+    LOG_DEBUG_CDROM("Parameters: [{:02X}]", fmt::join(m_param_fifo, ", "));
 
   switch (cmd) {
     case 0x01:  // Getstat
@@ -278,7 +278,8 @@ void CdromDrive::execute_command(u8 cmd) {
     }
     case 0x19: {  // Test
       const auto subfunction = get_param();
-      LOG_CRITICAL("  CDROM command subfuncion: {:02X}", subfunction);
+
+      LOG_DEBUG_CDROM("  CDROM command subfuncion: {:02X}", subfunction);
 
       switch (subfunction) {
         case 0x20:  // Get CDROM BIOS date/version (yy,mm,dd,ver)
@@ -288,7 +289,7 @@ void CdromDrive::execute_command(u8 cmd) {
           break;
         default: {
           command_error();
-          LOG_CRITICAL("Unhandled Test subfunction {:02X}", subfunction);
+          LOG_ERROR_CDROM("Unhandled Test subfunction {:02X}", subfunction);
           break;
         }
       }
@@ -328,13 +329,13 @@ void CdromDrive::execute_command(u8 cmd) {
     }
     default: {
       command_error();
-      LOG_CRITICAL("Unhandled CDROM command {:02X}", cmd);
+      LOG_ERROR_CDROM("Unhandled CDROM command {:02X}", cmd);
       break;
     }
   }
 
   if (!m_resp_fifo.empty())
-    LOG_CRITICAL("Response: [{:02X}]", fmt::join(m_resp_fifo, ", "));
+    LOG_DEBUG_CDROM("Response: [{:02X}]", fmt::join(m_resp_fifo, ", "));
 
   m_param_fifo.clear();
 
@@ -370,7 +371,7 @@ void CdromDrive::push_response(CdromResponseType type, std::initializer_list<u8>
       m_resp_fifo.push_back(response_byte);
       m_reg_status.response_fifo_not_empty = true;
     } else
-      LOG_WARN("CDROM response 0x{:02} lost, FIFO was full", response_byte);
+      LOG_WARN_CDROM("CDROM response 0x{:02} lost, FIFO was full", response_byte);
   }
 }
 

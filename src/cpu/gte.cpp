@@ -242,7 +242,7 @@ void Gte::write_reg(u32 dest_reg, u32 val) {
 void Gte::cmd(u32 word) {
   gte::GteCommand cmd(word);
 
-  LOG_WARN("COP2: {:<4}  | 0x{:08X} at 0x{:08X}", cmd.to_str(), word, m_cpu.current_pc());
+  LOG_DEBUG_GTE("COP2: {:<4}  | 0x{:08X} at 0x{:08X}", cmd.to_str(), word, m_cpu.current_pc());
 
   flag.reset();
 

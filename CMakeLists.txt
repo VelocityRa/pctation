@@ -41,8 +41,13 @@ endif()
 
 # spdlog
 find_package(spdlog CONFIG REQUIRED)
-target_compile_definitions(spdlog::spdlog INTERFACE SPDLOG_WCHAR_FILENAMES=1 SPDLOG_NO_THREAD_ID=1 SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_TRACE
-                                                    _SILENCE_CXX17_CODECVT_HEADER_DEPRECATION_WARNING)
+target_compile_definitions(spdlog::spdlog INTERFACE SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_TRACE
+                                                    SPDLOG_NO_THREAD_ID=1
+                                                    SPDLOG_NO_DATETIME=1
+                                                    SPDLOG_NO_NAME=1
+                                                    SPDLOG_NO_ATOMIC_LEVELS=1
+                                                    _SILENCE_CXX17_CODECVT_HEADER_DEPRECATION_WARNING
+)
 
 # GSL
 find_path(GSL_INCLUDE_DIR gsl-lite.hpp)

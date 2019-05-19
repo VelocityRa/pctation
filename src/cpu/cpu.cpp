@@ -74,12 +74,12 @@ void Cpu::step(u32 cycles_to_execute) {
     std::snprintf(debug_str, 512, "[%08X]: at:%X v0:%X v1:%X a0:%X a1:%X a2:%X a3:%X t0:%X t2:%X t3:%X t4:%X t5:%X t6:%X t7:%X s0:%X s1:%X s2:%X s3:%X s4:%X s5:%X s6:%X s7:%X t8:%X t9:%X k0:%X k1:%X gp:%X sp:%X fp:%X ra:%X hi:%X lo:%X",
       m_pc, m_gpr[1], m_gpr[2], m_gpr[3], m_gpr[4], m_gpr[5], m_gpr[6], m_gpr[7], m_gpr[8], m_gpr[10], m_gpr[11], m_gpr[12], m_gpr[13], m_gpr[14], m_gpr[15], m_gpr[16], m_gpr[17], m_gpr[18], m_gpr[19], m_gpr[20], m_gpr[21], m_gpr[22], m_gpr[23], m_gpr[24], m_gpr[25], m_gpr[26], m_gpr[27], m_gpr[28], m_gpr[29], m_gpr[30], m_gpr[31], m_hi, m_lo);
     // clang-format on
-    LOG_CPU_NOFMT(debug_str);
+    LOG_TRACE_CPU_NOFMT(debug_str);
 #elif TRACE_MODE == TRACE_DISASM   // Log instruction disassembly
-    LOG_CPU("[{:08X}]: {:08X} {}", m_pc, cur_instr, instr.disassemble());
+    LOG_TRACE_CPU("[{:08X}]: {:08X} {}", m_pc, cur_instr, instr.disassemble());
     // In PC_ONLY mode we print the PC-4 for branch delay slot instructions (to match no$psx's output)
 #elif TRACE_MODE == TRACE_PC_ONLY  // Log PC register only
-    LOG_CPU("{:08X}", m_pc);
+    LOG_TRACE_CPU("{:08X}", m_pc);
 #endif
 
     // Advance PC
@@ -249,34 +249,26 @@ void Cpu::execute_instruction(const Instruction& i) {
       // Co-processor 2 (Geometry Transformation Engine)
     case Opcode::MFC2: {
       auto val = m_gte.read_reg(i.rd());
-#if TRACE_GTE
-      LOG_WARN("{:<23}      | val: 0x{:08X} | 0x{:08X} at 0x{:08X}", i.disassemble(), val, i.word(),
-               m_pc_current);
-#endif
+      LOG_TRACE_GTE("{:<23}      | val: 0x{:08X} | 0x{:08X} at 0x{:08X}", i.disassemble(), val, i.word(),
+                    m_pc_current);
       issue_delayed_load(i.rt(), val);
       break;
     }
     case Opcode::CFC2: {
       const auto val = m_gte.read_reg(i.rd() + 32);  // Add 32 because it's a Control Register
-#if TRACE_GTE
-      LOG_WARN("{:<23}      | val: 0x{:08X} | 0x{:08X} at 0x{:08X}", i.disassemble(), val, i.word(),
-               m_pc_current);
-#endif
+      LOG_TRACE_GTE("{:<23}      | val: 0x{:08X} | 0x{:08X} at 0x{:08X}", i.disassemble(), val, i.word(),
+                    m_pc_current);
       issue_delayed_load(i.rt(), val);
       break;
     }
     case Opcode::MTC2:
-#if TRACE_GTE
-      LOG_WARN("{:<23}      | val: 0x{:08X} | 0x{:08X} at 0x{:08X}", i.disassemble(), rt(i), i.word(),
-               m_pc_current);
-#endif
+      LOG_TRACE_GTE("{:<23}      | val: 0x{:08X} | 0x{:08X} at 0x{:08X}", i.disassemble(), rt(i),
+                    i.word(), m_pc_current);
       m_gte.write_reg(i.rd(), rt(i));
       break;
     case Opcode::CTC2:
-#if TRACE_GTE
-      LOG_WARN("{:<23}      | val: 0x{:08X} | 0x{:08X} at 0x{:08X}", i.disassemble(), rt(i), i.word(),
-               m_pc_current);
-#endif
+      LOG_TRACE_GTE("{:<23}      | val: 0x{:08X} | 0x{:08X} at 0x{:08X}", i.disassemble(), rt(i),
+                    i.word(), m_pc_current);
       m_gte.write_reg(i.rd() + 32, rt(i));  // Add 32 because it's a Control Register
       break;
     case Opcode::LWC2: {
@@ -287,10 +279,8 @@ void Cpu::execute_instruction(const Instruction& i) {
 
       const auto val = m_bus.read32(addr);
 
-#if TRACE_GTE
-      LOG_WARN("{:<23}    | val: 0x{:08X} | 0x{:08X} at 0x{:08X}", i.disassemble(), val, i.word(),
-               m_pc_current);
-#endif
+      LOG_TRACE_GTE("{:<23}    | val: 0x{:08X} | 0x{:08X} at 0x{:08X}", i.disassemble(), val, i.word(),
+                    m_pc_current);
       m_gte.write_reg(dest_reg, val);
       break;
     }
@@ -302,10 +292,8 @@ void Cpu::execute_instruction(const Instruction& i) {
 
       const auto val = m_gte.read_reg(dest_reg);
 
-#if TRACE_GTE
-      LOG_WARN("{:<23}    | val: 0x{:08X} | 0x{:08X} at 0x{:08X}", i.disassemble(), val, i.word(),
-               m_pc_current);
-#endif
+      LOG_TRACE_GTE("{:<23}    | val: 0x{:08X} | 0x{:08X} at 0x{:08X}", i.disassemble(), val, i.word(),
+                    m_pc_current);
       m_bus.write32(addr, val);
       break;
     }
@@ -420,7 +408,7 @@ void Cpu::trigger_exception(ExceptionCause cause) {
     if (m_branch_taken_saved)
       m_cop0_cause.branch_delay_taken = true;  // Another edge case, if the branch was actually taken
 
-    m_cop0_jumpdest = m_pc;  // Update JUMPDEST ()
+    m_cop0_jumpdest = m_pc;  // Update JUMPDEST
   }
 
   if (cause == ExceptionCause::Breakpoint)

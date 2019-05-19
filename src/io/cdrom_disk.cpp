@@ -25,7 +25,7 @@ buffer CdromDisk::read(CdromPosition pos) {
   auto track = get_track_by_pos(pos);
 
   if (!track) {
-    LOG_WARN("Reading failed, no disk loaded");
+    LOG_WARN_CDROM("Reading failed, no disk loaded");
     return {};
   }
 
@@ -34,6 +34,8 @@ buffer CdromDisk::read(CdromPosition pos) {
   // Convert physical position (as on real CDROMs) to logical (as on .BIN files)
   if (track->number == 1 && track->type == CdromTrack::DataType::Data)
     pos.physical_to_logical();
+
+  LOG_TRACE_CDROM("Reading {} track: {:02} pos: {}", track->type_to_str(), track->number, pos.to_str());
 
   const auto seek_pos = pos.to_lba() * SECTOR_SIZE;
   track->file.seekg(seek_pos);
@@ -44,9 +46,9 @@ buffer CdromDisk::read(CdromPosition pos) {
   auto sync_match = std::equal(SYNC_MAGIC.begin(), SYNC_MAGIC.end(), sector_buf.begin());
 
   if (track->type == CdromTrack::DataType::Data && !sync_match)
-    LOG_ERROR("Invalid sync data in read Data sector");
+    LOG_ERROR_CDROM("Invalid sync data in read Data sector");
   else if (track->type == CdromTrack::DataType::Audio && sync_match)
-    LOG_ERROR("Sync data found in Data sector");
+    LOG_ERROR_CDROM("Sync data found in Data sector");
 
   return sector_buf;
 }

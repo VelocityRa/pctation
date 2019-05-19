@@ -2,6 +2,8 @@
 
 #include <util/types.hpp>
 
+#include <fmt/format.h>
+
 #include <fstream>
 #include <string>
 #include <vector>
@@ -33,6 +35,7 @@ struct CdromPosition {
   u32 to_lba() const {
     return (minutes * 60 * SECTORS_PER_SECOND) + (seconds * SECTORS_PER_SECOND) + frames;
   }
+  std::string to_str() const { return fmt::format("{:02}:{:02}:{:02}", minutes, seconds, frames); }
 
   CdromPosition operator+(const CdromPosition& lhs) const { return from_lba(to_lba() + lhs.to_lba()); }
   CdromPosition operator-(const CdromPosition& lhs) const { return from_lba(to_lba() - lhs.to_lba()); }
@@ -63,6 +66,15 @@ struct CdromTrack {
   u32 frame_count{};
 
   std::ifstream file;
+
+  const char* type_to_str() const {
+    switch (type) {
+      case DataType::Invalid: return "Invalid";
+      case DataType::Audio: return "Audio";
+      case DataType::Data: return "Data";
+      default: return "<unknown>";
+    }
+  }
 };
 
 class CdromDisk {
