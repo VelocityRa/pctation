@@ -129,7 +129,7 @@ void CdromDrive::write_reg(address addr_rebased, u8 val) {
   } else if (reg == 3 && reg_index == 0) {  // Request Register
     if (val & 0x80) {                       // Want data
       if (is_data_buf_empty()) {  // Only update data buffer if everything from it has been read
-        m_data_buf = m_read_buf;
+        m_data_buf = std::move(m_read_buf);
         m_data_buffer_index = 0;
         m_reg_status.data_fifo_not_empty = true;
       }
@@ -211,6 +211,8 @@ void CdromDrive::execute_command(u8 cmd) {
       break;
     }
     case 0x06:  // ReadN
+      m_read_sector = m_seek_sector;
+
       m_stat_code.set_state(CdromReadState::Reading);
 
       push_response_stat(FirstInt3);
@@ -243,9 +245,9 @@ void CdromDrive::execute_command(u8 cmd) {
 
       push_response_stat(FirstInt3);
       break;
-    case 0x13: {  // GetTN
-      const auto index = util::dec_to_bcd(0x01);
-      const auto track_count = util::dec_to_bcd(0x01);  // TODO
+    case 0x13: {                                  // GetTN
+      const auto index = util::dec_to_bcd(0x01);  // TODO
+      const auto track_count = util::dec_to_bcd(m_disk.get_track_count());
       push_response(FirstInt3, { m_stat_code.byte, index, track_count });
       break;
     }
@@ -307,6 +309,8 @@ void CdromDrive::execute_command(u8 cmd) {
       break;
     }
     case 0x1B:  // ReadS
+      m_read_sector = m_seek_sector;
+
       m_stat_code.set_state(CdromReadState::Reading);
 
       push_response_stat(FirstInt3);
