@@ -247,6 +247,8 @@ void Gpu::gp0_mono_polyline_opaque(u32 cmd) {
 }
 
 void Gpu::gp0_draw_mode(u32 cmd) {
+  m_draw_mode.word = cmd;
+
   const u32 draw_mode_to_gpustat_mask = 0b11111111111u;
 
   // GPUSTAT.0-10 = GP0(E1).0-10
