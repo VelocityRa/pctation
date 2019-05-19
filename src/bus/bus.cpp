@@ -16,7 +16,7 @@ namespace bus {
 // TODO: refactor IO reads/writes
 
 u32 Bus::read32(u32 addr) const {
-  addr = memory::mask_region(addr);
+  addr = memory::mask_region(addr) & 0x1FFFFFFC;
 
   address addr_rebased;
 
@@ -51,7 +51,7 @@ u32 Bus::read32(u32 addr) const {
 }
 
 u16 Bus::read16(u32 addr) const {
-  addr = memory::mask_region(addr);
+  addr = memory::mask_region(addr) & 0x1FFFFFFE;
 
   address addr_rebased;
 
@@ -125,7 +125,7 @@ u8 Bus::read8(u32 addr) const {
 }
 
 void Bus::write32(u32 addr, u32 val) {
-  addr = memory::mask_region(addr);
+  addr = memory::mask_region(addr) & 0x1FFFFFFC;
 
   address addr_rebased;
 
@@ -186,7 +186,7 @@ void Bus::write32(u32 addr, u32 val) {
 }
 
 void Bus::write16(u32 addr, u16 val) {
-  addr = memory::mask_region(addr);
+  addr = memory::mask_region(addr) & 0x1FFFFFFE;
 
   address addr_rebased;
 
