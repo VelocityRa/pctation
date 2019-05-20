@@ -152,9 +152,9 @@ enum class PixelRenderType {
 };
 
 struct BarycentricCoords {
-  float a;
-  float b;
-  float c;
+  s32 a;
+  s32 b;
+  s32 c;
 };
 
 struct TexelPos {
@@ -279,6 +279,7 @@ class Rasterizer {
   void draw_pixel(Position pos,
                   DrawTriVariableArgs draw_args,
                   BarycentricCoords bar,
+                  s32 area,
                   DrawCommand::Flags draw_flags);
 
   template <PixelRenderType RenderType>
@@ -305,8 +306,12 @@ class Rasterizer {
                          TextureInfo tex_info,
                          bool is_quad,
                          DrawCommand::Flags draw_flags);
+  void draw_triangle_textured(TextureInfo tex_info,
+                              DrawCommand::Flags draw_flags,
+                              PixelRenderType pixel_render_type,
+                              Position3 tri_positions);
 
-  TexelPos calculate_texel_pos(BarycentricCoords bar, Texcoord3 uv) const;
+  TexelPos calculate_texel_pos(BarycentricCoords bar, s32 area, Texcoord3 uv) const;
   static gpu::RGB16 calculate_pixel_shaded(Color3 colors, BarycentricCoords bar);
   gpu::RGB16 calculate_pixel_tex_4bit(TextureInfo tex_info, TexelPos texel_pos) const;
   gpu::RGB16 calculate_pixel_tex_8bit(TextureInfo tex_info, TexelPos texel_pos) const;

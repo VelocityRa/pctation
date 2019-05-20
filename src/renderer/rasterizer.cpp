@@ -20,6 +20,7 @@ template <PixelRenderType RenderType>
 void Rasterizer::draw_pixel(Position pos,
                             DrawTriVariableArgs draw_args,
                             BarycentricCoords bar,
+                            s32 area,
                             DrawCommand::Flags draw_flags) {
   // Texture stuff, unused for SHADED render type
   TextureInfo tex_info{};
@@ -29,7 +30,7 @@ void Rasterizer::draw_pixel(Position pos,
 
   if (is_textured) {
     tex_info = std::get<TextureInfo>(draw_args);
-    texel = calculate_texel_pos(bar, tex_info.uv_active);
+    texel = calculate_texel_pos(bar, area, tex_info.uv_active);
   }
 
   gpu::RGB16 out_color;
@@ -115,7 +116,7 @@ gpu::RGB16 Rasterizer::calculate_pixel_tex_8bit(TextureInfo tex_info, TexelPos t
   const auto clut_x = tex_info.palette.x() + entry;
   const auto clut_y = tex_info.palette.y();
 
-  u16 color = m_gpu.get_vram_pos(clut_x % 1024, clut_y % 512);
+  u16 color = m_gpu.get_vram_pos(clut_x, clut_y);
 
   return gpu::RGB16::from_word(color);
 }
@@ -131,11 +132,11 @@ gpu::RGB16 Rasterizer::calculate_pixel_tex_16bit(TextureInfo tex_info, TexelPos 
   return gpu::RGB16::from_word(color);
 }
 
-TexelPos Rasterizer::calculate_texel_pos(BarycentricCoords bar, Texcoord3 uv) const {
+TexelPos Rasterizer::calculate_texel_pos(BarycentricCoords bar, s32 area, Texcoord3 uv) const {
   TexelPos texel;
 
-  texel.x = (s32)(bar.a * uv[0].x + bar.b * uv[1].x + bar.c * uv[2].x);
-  texel.y = (s32)(bar.a * uv[0].y + bar.b * uv[1].y + bar.c * uv[2].y);
+  texel.x = (s32)(bar.a * uv[0].x + bar.b * uv[1].x + bar.c * uv[2].x) / area;
+  texel.y = (s32)(bar.a * uv[0].y + bar.b * uv[1].y + bar.c * uv[2].y) / area;
 
   // Texture repeats
   texel.x %= 256;
@@ -209,11 +210,29 @@ void Rasterizer::draw_triangle(Position3 positions,
         if (is_ccw)
           std::swap(w1, w2);
         const auto area_abs = std::abs(area);
-        const auto normalized_bar =
-            BarycentricCoords{ w0 / (float)area_abs, w1 / (float)area_abs, w2 / (float)area_abs };
-        draw_pixel<RenderType>(p_iter, draw_args, normalized_bar, draw_flags);
+        const auto bar = BarycentricCoords{ w0, w1, w2 };
+        draw_pixel<RenderType>(p_iter, draw_args, bar, area_abs, draw_flags);
       }
     }
+}
+
+void Rasterizer::draw_triangle_textured(TextureInfo tex_info,
+                                        DrawCommand::Flags draw_flags,
+                                        PixelRenderType pixel_render_type,
+                                        Position3 tri_positions) {
+  switch (pixel_render_type) {
+    case PixelRenderType::TEXTURED_PALETTED_4BIT:
+      draw_triangle<PixelRenderType::TEXTURED_PALETTED_4BIT>(tri_positions, tex_info, draw_flags);
+      break;
+    case PixelRenderType::TEXTURED_PALETTED_8BIT:
+      draw_triangle<PixelRenderType::TEXTURED_PALETTED_8BIT>(tri_positions, tex_info, draw_flags);
+      break;
+    case PixelRenderType::TEXTURED_16BIT:
+      draw_triangle<PixelRenderType::TEXTURED_16BIT>(tri_positions, tex_info, draw_flags);
+      break;
+    case PixelRenderType::SHADED:
+    default: LOG_ERROR("Invalid textured PixelRenderType"); break;
+  }
 }
 
 void Rasterizer::draw_polygon_impl(Position4 positions,
@@ -228,34 +247,27 @@ void Rasterizer::draw_polygon_impl(Position4 positions,
   const auto texpage = gpu::Gp0DrawMode{ tex_info.page };
   auto pixel_render_type = tex_page_col_to_render_type(texpage.tex_page_colors);
 
-  Position3 tri_positions = { positions[0], positions[1], positions[2] };
-  Color3 tri_colors = { colors[0], colors[1], colors[2] };
+  const Position3 tri_positions_first = { positions[0], positions[1], positions[2] };
+  const Color3 tri_colors_first = { colors[0], colors[1], colors[2] };
+
+  const Position3 tri_positions_second = { positions[1], positions[2], positions[3] };
+  const Color3 tri_colors_second = { colors[1], colors[2], colors[3] };
+
+  Position3 tri_positions = tri_positions_first;
+  Color3 tri_colors = tri_colors_first;
 
   QuadTriangleIndex tri_idx = QuadTriangleIndex::First;
   while (tri_idx <= end_tri_idx) {
-    if (is_textured) {                             // Textured
-      if (tri_idx == QuadTriangleIndex::Second) {  // rendering second triangle
-        tri_positions = { positions[1], positions[2], positions[3] };
-      }
+    if (is_textured) {                           // Textured
+      if (tri_idx == QuadTriangleIndex::Second)  // rendering second triangle
+        tri_positions = tri_positions_second;
       tex_info.update_active_triangle(tri_idx);
 
-      switch (pixel_render_type) {
-        case PixelRenderType::TEXTURED_PALETTED_4BIT:
-          draw_triangle<PixelRenderType::TEXTURED_PALETTED_4BIT>(tri_positions, tex_info, draw_flags);
-          break;
-        case PixelRenderType::TEXTURED_PALETTED_8BIT:
-          draw_triangle<PixelRenderType::TEXTURED_PALETTED_8BIT>(tri_positions, tex_info, draw_flags);
-          break;
-        case PixelRenderType::TEXTURED_16BIT:
-          draw_triangle<PixelRenderType::TEXTURED_16BIT>(tri_positions, tex_info, draw_flags);
-          break;
-        case PixelRenderType::SHADED:
-        default: LOG_ERROR("Invalid textured PixelRenderType"); assert(0);
-      }
+      draw_triangle_textured(tex_info, draw_flags, pixel_render_type, tri_positions);
     } else {                                       // Non-textured
       if (tri_idx == QuadTriangleIndex::Second) {  // rendering second triangle
-        tri_positions = { positions[1], positions[2], positions[3] };
-        tri_colors = { colors[1], colors[2], colors[3] };
+        tri_positions = tri_positions_second;
+        tri_colors = tri_colors_second;
       }
       draw_triangle<PixelRenderType::SHADED>(tri_positions, tri_colors, draw_flags);
     }
