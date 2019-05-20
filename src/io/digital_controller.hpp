@@ -18,7 +18,12 @@ class DigitalController {
     u16 word{ 0xFFFF };
     u8 byte[2];
   } m_buttons{};
-  u16 m_buttons_down_mask{};
+
+  // TODO: This does prevent some presses from getting lost, but not consecutive ones
+  union {
+    u16 word;
+    u8 byte[2];
+  } m_buttons_down_mask;
 };
 
 }  // namespace io

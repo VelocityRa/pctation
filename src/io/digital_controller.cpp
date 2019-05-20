@@ -27,15 +27,18 @@ u8 DigitalController::read(u8 val) {
     }
     case 3: {
       advance();
-      return m_buttons.byte[0];
+      const auto buttons0 =
+          m_buttons.byte[0];  // save buttons to return, since we'll mask the unpressed ones now
+      m_buttons.byte[0] |= m_buttons_down_mask.byte[0];  // mask buttons that have been unpressed
+      m_buttons_down_mask.byte[0] = 0;                   // reset unpressed mask
+      return buttons0;
     }
     case 4: {
       reset();  // reset reading state
-      const auto buttons1 =
-          m_buttons.byte[1];  // save buttons to return, since we'll mask the unpressed ones now
-      // TODO: This does prevent some presses from getting lost, but not consecutive ones
-      m_buttons.word |= m_buttons_down_mask;  // mask buttons that have been unpressed
-      m_buttons_down_mask = 0;                // reset unpressed mask
+      // Do the same as buttons[0], refer to comments above
+      const auto buttons1 = m_buttons.byte[1];
+      m_buttons.byte[1] |= m_buttons_down_mask.byte[1];
+      m_buttons_down_mask.byte[1] = 0;
       return buttons1;
     }
     default: return 0xFF;  // Invalid read index
@@ -48,7 +51,7 @@ void DigitalController::update_button(u8 button_index, bool was_pressed) {
     buttons.set(button_index, false);
     m_buttons.word = (u16)buttons.to_ulong();
   } else {
-    m_buttons_down_mask |= 1 << button_index;
+    m_buttons_down_mask.word |= 1 << button_index;
   }
 }
 
