@@ -182,14 +182,8 @@ void Rasterizer::draw_triangle(Position3 positions,
     return;
   const auto is_ccw = area < 0;
 
-  if (is_ccw) {
+  if (is_ccw)
     std::swap(v1, v2);
-
-    if (RenderType != PixelRenderType::SHADED) {
-      auto& tex_info = std::get<TextureInfo>(draw_args);
-      tex_info.swap_active_uv_coords();
-    }
-  }
 
   // Compute triangle bounding box and clip against drawing area bounds
   const auto da_left = m_gpu.m_drawing_area_top_left.y;
@@ -345,8 +339,8 @@ void Rasterizer::extract_draw_data_rectangle(const DrawCommand::Rectangle& recta
 
   if (is_textured) {
     auto& uv = tex_info.uv;
-    uv[1] = uv[0] + Texcoord{ size.width, 0 };
-    uv[2] = uv[0] + Texcoord{ 0, size.height };
+    uv[1] = uv[0] + Texcoord{ size.width, (s16)0 };
+    uv[2] = uv[0] + Texcoord{ (s16)0, size.height };
     uv[3] = uv[0] + Texcoord{ size.width, size.height };
   }
 }

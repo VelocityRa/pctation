@@ -126,7 +126,7 @@ struct TextureInfo {
   void update_active_triangle(QuadTriangleIndex triangle_index) {
     switch (triangle_index) {
       case QuadTriangleIndex::First: uv_active = { uv[0], uv[1], uv[2] }; break;
-      case QuadTriangleIndex::Second: uv_active = { uv[1], uv[3], uv[2] }; break;
+      case QuadTriangleIndex::Second: uv_active = { uv[1], uv[2], uv[3] }; break;
       case QuadTriangleIndex::None:
         /* fallthrough */
       default:
@@ -135,9 +135,6 @@ struct TextureInfo {
         break;
     }
   }
-
-  // Swap last two UV coords to make them match swapped vertices (for previously CCW-ordered triangles)
-  void swap_active_uv_coords() { std::swap(uv_active[1], uv_active[2]); }
 };
 
 // Tagged union for draw command arguments that vary between command types
