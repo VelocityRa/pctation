@@ -90,8 +90,8 @@ void Joypad::step() {
 }
 
 void Joypad::update_button(u8 button_index, bool was_pressed) {
-  for (auto& c : m_digital_controllers)
-    c.update_button(button_index, was_pressed);
+  // TODO: Player 2 support
+  m_digital_controllers[0].update_button(button_index, was_pressed);
 }
 
 const char* Joypad::addr_to_reg_name(address addr_rebased) {
