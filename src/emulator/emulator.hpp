@@ -8,6 +8,7 @@
 #include <gpu/gpu.hpp>
 #include <io/cdrom_drive.hpp>
 #include <io/joypad.hpp>
+#include <io/timers.hpp>
 #include <memory/dma.hpp>
 #include <memory/expansion.hpp>
 #include <memory/ram.hpp>
@@ -53,6 +54,7 @@ class Emulator {
   spu::Spu m_spu;
   io::Joypad m_joypad;
   io::CdromDrive m_cdrom;
+  io::Timers m_timers;
   memory::Dma m_dma;
   bus::Bus m_bus;
 

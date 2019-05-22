@@ -18,6 +18,8 @@ enum class IrqType : u16 {
   CONTROLLER = 7,  // also memory card
   SIO = 8,
   SPU = 9,
+
+  INVALID = 0xFFFF,
 };
 
 union Irq {

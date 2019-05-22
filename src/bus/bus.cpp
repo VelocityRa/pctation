@@ -4,6 +4,7 @@
 #include <gpu/gpu.hpp>
 #include <io/cdrom_drive.hpp>
 #include <io/joypad.hpp>
+#include <io/timers.hpp>
 #include <memory/dma.hpp>
 #include <memory/expansion.hpp>
 #include <memory/map.hpp>
@@ -35,9 +36,8 @@ u32 Bus::read32(u32 addr) const {
     return m_dma.read_reg(addr_rebased);
   if (memory::map::GPU.contains(addr, addr_rebased))
     return m_gpu.read_reg(addr_rebased);
-  if (memory::map::TIMERS.contains(addr, addr_rebased)) {
-    LOG_WARN("Unhandled 32-bit read of Timer register at 0x{:08X}", addr);
-    return 0;
+  if (memory::map::TIMERS.contains(addr, addr_rebased))
+    return static_cast<u32>(m_timers.read_reg(addr_rebased));
   }
   if (memory::map::EXPANSION_1.contains(addr, addr_rebased)) {
     if (addr_rebased == 0x020018)
@@ -83,6 +83,8 @@ u16 Bus::read16(u32 addr) const {
     LOG_WARN("Unhandled 16-bit read of SIO register at 0x{:04X}", addr);
     return 0;
   }
+  if (memory::map::TIMERS.contains(addr, addr_rebased))
+    return m_timers.read_reg(addr_rebased);
 
   LOG_ERROR("Unknown 16-bit read at 0x{:08X}", addr);
   assert(0);
@@ -179,7 +181,7 @@ void Bus::write32(u32 addr, u32 val) {
   if (memory::map::GPU.contains(addr, addr_rebased))
     return m_gpu.write_reg(addr_rebased, val);
   if (memory::map::TIMERS.contains(addr, addr_rebased)) {
-    LOG_WARN("Unhandled 32-bit write to Timer register: 0x{:08X} at 0x{:08X}", val, addr);
+    m_timers.write_reg(addr_rebased, static_cast<u16>(val));
     return;
   }
 
@@ -197,7 +199,7 @@ void Bus::write16(u32 addr, u16 val) {
   if (memory::map::SCRATCHPAD.contains(addr, addr_rebased))
     return m_scratchpad.write<u16>(addr_rebased, val);
   if (memory::map::TIMERS.contains(addr, addr_rebased)) {
-    LOG_WARN("Unhandled 16-bit write to Timer register: 0x{:04X} at 0x{:08X}", val, addr);
+    m_timers.write_reg(addr_rebased, val);
     return;
   }
   if (memory::map::SPU.contains(addr, addr_rebased)) {

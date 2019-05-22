@@ -18,6 +18,7 @@ Emulator::Emulator(const fs::path& bios_path,
       m_gpu(),
       m_spu(),
       m_cdrom(),
+      m_timers(),
       m_dma(m_ram, m_gpu, m_interrupts, m_cdrom),
       m_bus(m_bios,
             m_expansion,
@@ -28,10 +29,12 @@ Emulator::Emulator(const fs::path& bios_path,
             m_gpu,
             m_spu,
             m_joypad,
-            m_cdrom),
+            m_cdrom,
+            m_timers),
       m_cpu(m_bus) {
   m_interrupts.init(&m_cpu);
   m_joypad.init(&m_interrupts);
+  m_timers.init(&m_interrupts);
   m_cdrom.init(&m_interrupts);
 
   if (!cdrom_path.empty())
@@ -51,6 +54,7 @@ void Emulator::advance_frame() {
 
     m_dma.step();
     m_cdrom.step();
+    m_timers.step(system_cycle_quantum);
     m_joypad.step();
 
     if (m_gpu.step(system_cycle_quantum)) {
