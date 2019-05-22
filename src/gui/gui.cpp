@@ -286,14 +286,10 @@ void Gui::swap() {
 void Gui::apply_settings() const {
   if (m_settings->window_size_changed) {
     m_settings->window_size_changed = false;
-    s32 scale = 1;
-    switch (m_settings->screen_scale) {
-      case emulator::ScreenScale::x1: scale = 1; break;
-      case emulator::ScreenScale::x2: scale = 2; break;
-      case emulator::ScreenScale::x3: scale = 3; break;
-      case emulator::ScreenScale::x4: scale = 4; break;
-    }
-    SDL_SetWindowSize(m_window, m_settings->res_width * scale, m_settings->res_height * scale);
+
+    f32 scale = m_settings->get_screen_scale();
+    SDL_SetWindowSize(m_window, static_cast<s32>(m_settings->res_width * scale),
+                      static_cast<s32>(m_settings->res_height * scale));
   }
   if (m_settings->limit_framerate_changed)
     // Limit framerate via Vsync
@@ -381,15 +377,17 @@ void Gui::imgui_draw(const emulator::Emulator& emulator) {
         const char* const items_screen_view[] = { "VRAM", "Display" };
         ImGui::Text("View ");
         ImGui::SameLine();
-        ImGui::Combo("##screen_view", (s32*)&m_settings->screen_view, items_screen_view, 2);
+        ImGui::Combo("##screen_view", (s32*)&m_settings->screen_view, items_screen_view,
+                     ARRAYSIZE(items_screen_view));
         m_settings->window_size_changed = (screen_view_old != m_settings->screen_view);
 
         // Screen scale
         auto screen_scale_old = m_settings->screen_scale;
-        const char* const items_screen_scale[] = { "1x", "2x", "3x", "4x" };
+        const char* const items_screen_scale[] = { "1x", "1.5x", "2x", "3x", "4x" };
         ImGui::Text("Scale");
         ImGui::SameLine();
-        ImGui::Combo("##screen_scale", (s32*)&m_settings->screen_scale, items_screen_scale, 4);
+        ImGui::Combo("##screen_scale", (s32*)&m_settings->screen_scale, items_screen_scale,
+                     ARRAYSIZE(items_screen_scale));
         if (!m_settings->window_size_changed)
           m_settings->window_size_changed = (screen_scale_old != m_settings->screen_scale);
 
@@ -645,17 +643,19 @@ void Gui::draw_gp0_commands(const gpu::Gpu& gpu) {
     draw_list->PushClipRectFullScreen();  // TODO: clip to display area
     const auto overlay_color = 0x00FFFFFF | m_draw_gp0_overlay_alpha << 24;
 
+    const auto screen_scale = m_settings->get_screen_scale();
+
     if (is_quad)
-      draw_list->AddQuadFilled(
-          { (f32)positions[0].x * SCREEN_SCALE, (f32)positions[0].y * SCREEN_SCALE },
-          { (f32)positions[1].x * SCREEN_SCALE, (f32)positions[1].y * SCREEN_SCALE },
-          { (f32)positions[3].x * SCREEN_SCALE, (f32)positions[3].y * SCREEN_SCALE },
-          { (f32)positions[2].x * SCREEN_SCALE, (f32)positions[2].y * SCREEN_SCALE }, overlay_color);
+      draw_list->AddQuadFilled({ positions[0].x * screen_scale, positions[0].y * screen_scale },
+                               { positions[1].x * screen_scale, positions[1].y * screen_scale },
+                               { positions[3].x * screen_scale, positions[3].y * screen_scale },
+                               { positions[2].x * screen_scale, positions[2].y * screen_scale },
+                               overlay_color);
     else
-      draw_list->AddTriangleFilled(
-          { (f32)positions[0].x * SCREEN_SCALE, (f32)positions[0].y * SCREEN_SCALE },
-          { (f32)positions[1].x * SCREEN_SCALE, (f32)positions[1].y * SCREEN_SCALE },
-          { (f32)positions[2].x * SCREEN_SCALE, (f32)positions[2].y * SCREEN_SCALE }, overlay_color);
+      draw_list->AddTriangleFilled({ positions[0].x * screen_scale, positions[0].y * screen_scale },
+                                   { positions[1].x * screen_scale, positions[1].y * screen_scale },
+                                   { positions[2].x * screen_scale, positions[2].y * screen_scale },
+                                   overlay_color);
     draw_list->PopClipRect();
   };
 
