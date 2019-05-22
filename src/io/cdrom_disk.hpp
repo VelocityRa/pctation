@@ -81,7 +81,7 @@ struct CdromTrack {
 
 class CdromDisk {
  public:
-  buffer read(CdromPosition pos);
+  buffer read(CdromPosition pos, bool& read_failed);
 
   void init_from_bin(const std::string& bin_path);
   void init_from_cue(const std::string& cue_path);

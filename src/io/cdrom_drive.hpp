@@ -127,7 +127,6 @@ class CdromDrive {
   CdromStatusRegister m_reg_status{};
   CdromStatusCode m_stat_code{};
   CdromMode m_mode{};
-  CdromReadState m_read_state{};
 
   u32 m_seek_sector{};
   u32 m_read_sector{};

@@ -21,11 +21,12 @@ void CdromDisk::init_from_cue(const std::string& cue_path) {
   // TODO: Cue parsing
 }
 
-buffer CdromDisk::read(CdromPosition pos) {
+buffer CdromDisk::read(CdromPosition pos, bool& read_failed) {
   auto track = get_track_by_pos(pos);
 
   if (!track) {
     LOG_WARN_CDROM("Reading failed, no disk loaded");
+    read_failed = true;
     return {};
   }
 
@@ -41,15 +42,7 @@ buffer CdromDisk::read(CdromPosition pos) {
   track->file.seekg(seek_pos);
   track->file.read((char*)sector_buf.data(), SECTOR_SIZE);
 
-  const std::array<u8, 12> SYNC_MAGIC = { { 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-                                            0xff, 0x00 } };
-  auto sync_match = std::equal(SYNC_MAGIC.begin(), SYNC_MAGIC.end(), sector_buf.begin());
-
-  if (track->type == CdromTrack::DataType::Data && !sync_match)
-    LOG_ERROR_CDROM("Invalid sync data in read Data sector");
-  else if (track->type == CdromTrack::DataType::Audio && sync_match)
-    LOG_ERROR_CDROM("Sync data found in Data sector");
-
+  read_failed = false;
   return sector_buf;
 }
 

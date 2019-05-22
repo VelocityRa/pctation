@@ -1,5 +1,3 @@
-#pragma optimize("", off)
-
 #include <io/cdrom_drive.hpp>
 
 #include <cpu/interrupt.hpp>
@@ -38,22 +36,34 @@ void CdromDrive::step() {
       m_interrupts->trigger(cpu::IrqType::CDROM);
   }
 
-  if (m_stat_code.playing) {
-    LOG_ERROR_CDROM("Playing CD audio unsupported");
-    return;
-  }
+  constexpr std::array<u8, 12> SYNC_MAGIC = { { 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+                                                0xff, 0xff, 0x00 } };
 
-  if (m_stat_code.reading) {
+  if (m_stat_code.reading || m_stat_code.playing) {
     if (--m_steps_until_read_sect == 0) {
       m_steps_until_read_sect = READ_SECTOR_DELAY_STEPS;
 
+      bool read_failed;
       const auto pos_to_read = CdromPosition::from_lba(m_read_sector);
-      m_read_buf = m_disk.read(pos_to_read);
+      m_read_buf = m_disk.read(pos_to_read, read_failed);
 
       m_read_sector++;
 
-      // ack more data
-      push_response(SecondInt1, m_stat_code.byte);
+      if (read_failed)
+        return;
+
+      auto sync_match = std::equal(SYNC_MAGIC.begin(), SYNC_MAGIC.end(), m_read_buf.begin());
+
+      if (m_stat_code.playing) {
+        if (sync_match)
+          LOG_ERROR_CDROM("Sync data found in Audio sector");
+      } else {  // Reading
+        if (!sync_match)
+          LOG_ERROR_CDROM("Sync data mismach in Data sector");
+
+        // ack more data
+        push_response(SecondInt1, m_stat_code.byte);
+      }
     }
   }
 }
@@ -210,6 +220,14 @@ void CdromDrive::execute_command(u8 cmd) {
       push_response_stat(FirstInt3);
       break;
     }
+    case 0x03:                        // Play
+      Expects(m_param_fifo.empty());  // we don't handle the parameter
+      m_read_sector = m_seek_sector;
+
+      m_stat_code.set_state(CdromReadState::Playing);
+
+      push_response_stat(FirstInt3);
+      break;
     case 0x06:  // ReadN
       m_read_sector = m_seek_sector;
 
@@ -255,6 +273,9 @@ void CdromDrive::execute_command(u8 cmd) {
       m_muted = false;
 
       push_response_stat(FirstInt3);
+      break;
+    case 0x0F:                                                     // Getparam
+      push_response(FirstInt3, { m_stat_code.byte, 0x00, 0x00 });  // TODO: last arg is the filter
       break;
     case 0x13: {                                  // GetTN
       const auto index = util::dec_to_bcd(0x01);  // TODO
