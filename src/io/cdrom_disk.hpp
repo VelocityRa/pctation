@@ -4,6 +4,8 @@
 
 #include <fmt/format.h>
 
+#include <gsl-lite.hpp>
+
 #include <fstream>
 #include <string>
 #include <vector>
@@ -85,7 +87,11 @@ class CdromDisk {
   void init_from_cue(const std::string& cue_path);
 
   const CdromTrack& track(u32 track_number) const { return m_tracks[track_number]; }
-  size_t get_track_count() const { return m_tracks.size(); }
+  u8 get_track_count() const {
+    const auto track_count = m_tracks.size();
+    Ensures(track_count <= 99);  // There can't be more than 99 tracks
+    return static_cast<u8>(track_count);
+  }
 
   CdromSize size() const {
     u32 sectors{};
