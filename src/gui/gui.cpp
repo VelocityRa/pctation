@@ -194,6 +194,12 @@ void Gui::set_settings(emulator::Settings* settings) {
   m_settings = settings;
 }
 
+void Gui::set_game_title(const std::string& game_title) {
+  m_game_title = game_title;
+
+  update_window_title();
+}
+
 bool Gui::poll_events() {
   return SDL_PollEvent(&m_event);
 }
@@ -345,10 +351,16 @@ void Gui::update_fps_counter() {
 
 void Gui::update_window_title() const {
   auto speed_percent = static_cast<u32>(m_fps / 60.f * 100.f);
-  auto window_title = fmt::format("Pctation | {:0.2f} FPS", m_fps);
+  std::string window_title = "Pctation";
 
+  window_title += fmt::format(" | {:0.2f} FPS", m_fps);
+
+  // Don't show small deviations from full-speed
   if (99 > speed_percent || speed_percent > 100)
     window_title += fmt::format(" | {:>3d}%", speed_percent);
+
+  if (!m_game_title.empty())
+    window_title += std::string(" | ") + m_game_title;
 
   SDL_SetWindowTitle(m_window, window_title.c_str());
 }

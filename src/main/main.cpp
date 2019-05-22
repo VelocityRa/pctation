@@ -40,6 +40,12 @@ s32 main(s32 argc, char** argv) {
     auto emulator =
         std::make_unique<emulator::Emulator>(BIOS_PATH, exe_path, bootstrap_path, cdrom_path);
 
+    // Update window with exe/game title
+    if (!cdrom_path.empty())
+      gui.set_game_title(fs::path(cdrom_path).stem().string());
+    else if (!exe_path.empty())
+      gui.set_game_title(fs::path(exe_path).stem().string());
+
     // Link GUI with Emulator
     gui.set_joypad(&emulator->joypad());
     gui.set_settings(&emulator->settings());

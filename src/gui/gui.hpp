@@ -37,6 +37,7 @@ class Gui {
   void init();
   void set_joypad(io::Joypad* joypad);
   void set_settings(emulator::Settings* joypad);
+  void set_game_title(const std::string& game_title);
   void apply_settings() const;
   bool poll_events();  // Returns true if there are any pending events
   GuiEvent process_events();
@@ -104,6 +105,8 @@ class Gui {
   bool m_draw_gp0_commands{ true };
   bool m_draw_gp0_overlay_rising{ true };
   u8 m_draw_gp0_overlay_alpha{};
+
+  std::string m_game_title;
 
   io::Joypad* m_joypad;
   emulator::Settings* m_settings;
