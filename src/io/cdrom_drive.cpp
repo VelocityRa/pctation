@@ -217,6 +217,12 @@ void CdromDrive::execute_command(u8 cmd) {
 
       push_response_stat(FirstInt3);
       break;
+    case 0x07:  // MotorOn
+      m_stat_code.spindle_motor_on = true;
+
+      push_response_stat(FirstInt3);
+      push_response_stat(SecondInt2);
+      break;
     case 0x08:  // Stop
       m_stat_code.set_state(CdromReadState::Stopped);
       m_stat_code.spindle_motor_on = false;
@@ -240,6 +246,11 @@ void CdromDrive::execute_command(u8 cmd) {
       m_mode.byte = param;
       break;
     }
+    case 0x0B:  // Mute
+      m_muted = true;
+
+      push_response_stat(FirstInt3);
+      break;
     case 0x0C:  // Demute
       m_muted = false;
 
@@ -329,7 +340,7 @@ void CdromDrive::execute_command(u8 cmd) {
     }
     default: {
       command_error();
-      LOG_ERROR_CDROM("Unhandled CDROM command {:02X}", cmd);
+      LOG_ERROR_CDROM("Unhandled CDROM command 0x{:02X}", cmd);
       break;
     }
   }
