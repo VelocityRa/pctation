@@ -153,7 +153,10 @@ void Gpu::gp0(u32 cmd) {
       m_gp0_arg_count = renderer::rasterizer::DrawCommand{ opcode }.rectangle.get_arg_count();
     } else if (opcode == 0x1F)
       gp0_gpu_irq(cmd);
-    else if (opcode == 0xA0) {  // Copy rectangle (CPU -> VRAM)
+    else if (opcode == 0x80) {  // Copy rectangle (VRAM -> VRAM)
+      m_gp0_cmd_type = Gp0CommandType::CopyVramToVram;
+      m_gp0_arg_count = 3;
+    } else if (opcode == 0xA0) {  // Copy rectangle (CPU -> VRAM)
       m_gp0_cmd_type = Gp0CommandType::CopyCpuToVram;
       m_gp0_arg_count = 2;
     } else if (opcode == 0xC0) {  // Copy rectangle (VRAM -> CPU)
@@ -237,6 +240,7 @@ void Gpu::gp0(u32 cmd) {
       case Gp0CommandType::FillRectangleInVram: gp0_fill_rect_in_vram(); break;
       case Gp0CommandType::CopyCpuToVram: gp0_copy_rect_cpu_to_vram(); break;
       case Gp0CommandType::CopyVramToCpu: gp0_copy_rect_vram_to_cpu(); break;
+      case Gp0CommandType::CopyVramToVram: gp0_copy_rect_vram_to_vram(); break;
       case Gp0CommandType::Invalid: break;
     }
   }
@@ -316,6 +320,42 @@ void Gpu::gp0_copy_rect_vram_to_cpu() {
             m_vram_transfer_y, m_vram_transfer_width, m_vram_transfer_height, pixel_count);
 }
 
+void Gpu::gp0_copy_rect_vram_to_vram() {
+  const auto pos_word = m_gp0_cmd[1];
+  const auto dest_pos_word = m_gp0_cmd[2];
+  const auto size_word = m_gp0_cmd[3];
+
+  u16 dest_x = dest_pos_word & 0x3FF;
+  u16 dest_y = (dest_pos_word >> 16) & 0x1FF;
+
+  const auto dest_x_start = dest_x;
+
+  auto pixel_count = setup_vram_transfer(pos_word, size_word);
+
+  LOG_DEBUG("Copying rect (x:{} y:{} w:{} h:{} count:{} hw) from VRAM to VRAM, dest (x:{} y:{})",
+            m_vram_transfer_x, m_vram_transfer_y, m_vram_transfer_width, m_vram_transfer_height,
+            pixel_count, dest_x, dest_y);
+
+  while (pixel_count--) {
+    const auto src_word = get_vram_pos(m_vram_transfer_x, m_vram_transfer_y);
+
+    set_vram_pos(dest_x, dest_y, src_word, false);
+
+    advance_vram_transfer_pos();
+
+    // advance dest pos
+    const auto dest_rect_x = dest_x - dest_x_start;
+    if (dest_rect_x == m_vram_transfer_width - 1) {
+      dest_x = dest_x_start;
+      dest_y++;
+    } else
+      dest_x++;
+  }
+
+  // Transfer done, start processing new commands
+  m_gp0_cmd_type = Gp0CommandType::None;
+}
+
 void Gpu::do_cpu_to_vram_transfer(u32 cmd) {
   for (auto i = 0; i < 2; ++i) {
     u16 src_word;
@@ -331,7 +371,7 @@ void Gpu::do_cpu_to_vram_transfer(u32 cmd) {
     advance_vram_transfer_pos();
   }
   if (m_gp0_arg_index == m_gp0_arg_count) {
-    // Load done, start processing new commands
+    // Transfer done, start processing new commands
     m_gp0_cmd_type = Gp0CommandType::None;
   }
 }
@@ -366,10 +406,7 @@ void Gpu::gp1(u32 cmd) {
     case 0x02: gp1_ack_gpu_interrupt(); break;
     case 0x03: gp1_disp_enable(cmd); break;
     case 0x04: gp1_dma_direction(cmd); break;
-    case 0x05:
-      Ensures((cmd & 0xFF) == 0);
-      m_display_area.word = cmd;
-      break;
+    case 0x05: m_display_area.word = cmd; break;
     case 0x06: m_hdisplay_range.word = cmd; break;
     case 0x07: m_vdisplay_range.word = cmd; break;
     case 0x08: gp1_disp_mode(cmd); break;
@@ -440,6 +477,9 @@ void Gpu::gp1_disp_mode(u32 cmd) {
   m_gpustat.horizontal_res_2 = (cmd & (1 << 6)) >> 6;
   // GPUSTAT.14 = GP1(E8).7
   m_gpustat.reverse_flag = (cmd & (1 << 7)) >> 7;
+
+  // TODO: 24bit/direct mode
+  //  Ensures(m_gpustat.disp_color_depth == 0);
 }
 
 }  // namespace gpu

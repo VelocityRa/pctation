@@ -126,6 +126,7 @@ enum class Gp0CommandType {
   CopyCpuToVram,
   CopyCpuToVramTransferring,  // Extra state to denote that GP0 is receiving image data
   CopyVramToCpu,
+  CopyVramToVram,
   Invalid,
 };
 
@@ -254,6 +255,7 @@ class Gpu {
   void gp0_fill_rect_in_vram();
   void gp0_copy_rect_cpu_to_vram();
   void gp0_copy_rect_vram_to_cpu();
+  void gp0_copy_rect_vram_to_vram();
 
   void gp1(u32 cmd);
   void gp1_soft_reset();
