@@ -149,7 +149,7 @@ union GpuStatus {
     u32 horizontal_res_1 : 2;      //  17-18 Horizontal Resolution 1
     u32 vertical_res : 1;          //  19    Vertical Resolution
     u32 video_mode : 1;            //  20    Video Mode (0=NTSC/60Hz, 1=PAL/50Hz)
-    u32 disk_color_depth : 1;      //  21    Display Area Color Depth (0=15bit, 1=24bit)
+    u32 disp_color_depth : 1;      //  21    Display Area Color Depth (0=15bit, 1=24bit)
     u32 vertical_interlace : 1;    //  22    Vertical Interlace (0=Off, 1=On)
     u32 disp_disabled : 1;         //  23    Display Status (0=Enabled, 1=Disabled)
     u32 interrupt : 1;             //  24    Interrupt Request (IRQ1) (0=Off, 1=IRQ)

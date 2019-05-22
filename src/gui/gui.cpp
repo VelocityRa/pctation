@@ -929,7 +929,7 @@ void Gui::draw_gpu_registers(const gpu::Gpu& gpu) {
     { "15", "Texture Disable", fmt::format("{}", gs.tex_disable) },
     { "16-19", "Resolution", fmt::format("{}", resolution_str()) },
     { "20", "Video mode", video_mode_str[gs.video_mode] },
-    { "21", "Display Color Depth", disp_color_depth_str[gs.disk_color_depth] },
+    { "21", "Display Color Depth", disp_color_depth_str[gs.disp_color_depth] },
     { "22", "Vertical Interlace", fmt::format("{}", gs.vertical_interlace) },
     { "23", "Display Enabled", on_off_str[gs.disp_disabled] },
     { "24", "Interrupt Request", fmt::format("{}", gs.interrupt) },
