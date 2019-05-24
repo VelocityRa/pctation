@@ -43,21 +43,24 @@ void CdromDrive::step() {
     if (--m_steps_until_read_sect == 0) {
       m_steps_until_read_sect = READ_SECTOR_DELAY_STEPS;
 
-      bool read_failed;
+      CdromTrack::DataType sector_type;
       const auto pos_to_read = CdromPosition::from_lba(m_read_sector);
-      m_read_buf = m_disk.read(pos_to_read, read_failed);
+      m_read_buf = m_disk.read(pos_to_read, sector_type);
 
       m_read_sector++;
 
-      if (read_failed)
+      if (sector_type == CdromTrack::DataType::Invalid)
         return;
+
+      const auto sector_has_data = (sector_type == CdromTrack::DataType::Data);
+      const auto sector_has_audio = (sector_type == CdromTrack::DataType::Audio);
 
       auto sync_match = std::equal(SYNC_MAGIC.begin(), SYNC_MAGIC.end(), m_read_buf.begin());
 
-      if (m_stat_code.playing) {
+      if (m_stat_code.playing && sector_has_audio) {  // Reading audio
         if (sync_match)
           LOG_ERROR_CDROM("Sync data found in Audio sector");
-      } else {  // Reading
+      } else if (m_stat_code.reading && sector_has_data) {  // Reading data
         if (!sync_match)
           LOG_ERROR_CDROM("Sync data mismach in Data sector");
 

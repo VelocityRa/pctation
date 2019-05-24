@@ -21,12 +21,12 @@ void CdromDisk::init_from_cue(const std::string& cue_path) {
   // TODO: Cue parsing
 }
 
-buffer CdromDisk::read(CdromPosition pos, bool& read_failed) {
+buffer CdromDisk::read(CdromPosition pos, CdromTrack::DataType& sector_type) {
   auto track = get_track_by_pos(pos);
 
   if (!track) {
     LOG_WARN_CDROM("Reading failed, no disk loaded");
-    read_failed = true;
+    sector_type = CdromTrack::DataType::Invalid;
     return {};
   }
 
@@ -36,13 +36,13 @@ buffer CdromDisk::read(CdromPosition pos, bool& read_failed) {
   if (track->number == 1 && track->type == CdromTrack::DataType::Data)
     pos.physical_to_logical();
 
-  LOG_TRACE_CDROM("Reading {} track: {:02} pos: {}", track->type_to_str(), track->number, pos.to_str());
+  LOG_INFO_CDROM("Reading {} track: {:02} pos: {}", track->type_to_str(), track->number, pos.to_str());
 
   const auto seek_pos = pos.to_lba() * SECTOR_SIZE;
   track->file.seekg(seek_pos);
   track->file.read((char*)sector_buf.data(), SECTOR_SIZE);
 
-  read_failed = false;
+  sector_type = track->type;
   return sector_buf;
 }
 
