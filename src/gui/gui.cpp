@@ -4,6 +4,7 @@
 #include <emulator/emulator.hpp>
 #include <emulator/settings.hpp>
 #include <gpu/gpu.hpp>
+#include <io/timers.hpp>
 #include <renderer/rasterizer.hpp>
 #include <util/fs.hpp>
 #include <util/log.hpp>
@@ -432,6 +433,8 @@ void Gui::imgui_draw(const emulator::Emulator& emulator) {
       draw_window_cpu_registers(emulator.cpu());
     if (m_draw_gp0_commands)
       draw_window_gp0_commands(emulator.gpu());
+    if (m_draw_timers)
+      draw_window_timers(emulator.timers());
   }
 }
 
@@ -821,6 +824,80 @@ void Gui::draw_window_gp0_commands(const gpu::Gpu& gpu) {
     }
     ImGui::PopStyleVar(2);
   }
+  ImGui::End();
+}
+
+void Gui::draw_window_timers(const io::Timers& timers) {
+  if (ImGui::Begin("Timers", &m_draw_timers)) {
+    ImGui::PushStyleVar(ImGuiStyleVar_GrabMinSize, 6);
+    ImGui::PushStyleVar(ImGuiStyleVar_GrabRounding, 0);
+
+    for (auto i = io::TimerIndex::Timer0; i < io::TimerIndex::TimerMax;
+         i = (io::TimerIndex)((u16)i + 1)) {
+      // Shorthands
+      const auto& value = timers.m_timer_value[i];
+      const auto& mode = timers.m_timer_mode[i];
+      const auto& target = timers.m_timer_target[i];
+
+      const auto idx = static_cast<u16>(i);
+      const auto timer_str =
+          fmt::format("Timer #{} ({:04X},{:04X},{:04X})###timer_{}", idx, value, mode.word, target, idx);
+
+      if (ImGui::CollapsingHeader(timer_str.c_str())) {
+        s32 value_temp = value;
+        s32 target_temp = target;
+
+        ImGui::SliderInt("Value", &value_temp, 0, 0xFFFF, "%04X");
+        ImGui::SliderInt("Target", &target_temp, 0, 0xFFFF, "%04X");
+
+        ImGui::Columns(2);
+
+        // First column: Titles
+        ImGui::Text("Sync:");
+        ImGui::Text("Sync Mode:");
+        ImGui::Text("Reset on Target:");
+        ImGui::Text("IRQ on Target:");
+        ImGui::Text("IRQ on Max:");
+        ImGui::Text("IRQ Repeat Mode:");
+        ImGui::Text("IRQ Toggle Mode:");
+        ImGui::Text("Clock Source:");
+        ImGui::Text("IRQ:");
+        ImGui::Text("Reached Target:");
+        ImGui::Text("Reached Max:");
+
+        ImGui::NextColumn();
+
+        // Limit vertical size of checkboxes so that they align with the text on the left column
+        ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, { ImGui::GetStyle().FramePadding.x, 0 });
+
+        // Second column: Values
+        auto sync_en = static_cast<bool>(mode.sync_enable);
+        ImGui::Checkbox("", &sync_en);
+        ImGui::Text("%d", mode.sync_mode);  // TODO: prettify
+        auto reset_on_target = static_cast<bool>(mode.reset_on_target);
+        ImGui::Checkbox("", &reset_on_target);
+        auto irq_on_target = static_cast<bool>(mode.irq_on_target);
+        ImGui::Checkbox("", &irq_on_target);
+        auto irq_on_max = static_cast<bool>(mode.irq_on_max);
+        ImGui::Checkbox("", &irq_on_max);
+        ImGui::Text(mode._irq_repeat_mode ? "Repeat" : "One-shot");
+        ImGui::Text(mode._irq_toggle_mode ? "Pulse" : "Toggle");
+        ImGui::Text("%d", mode.clock_source);  // TODO: prettify
+        auto irq = !mode.irq_not;              // Invert
+        ImGui::Checkbox("", &irq);
+        auto reached_target = static_cast<bool>(mode.reached_target);
+        ImGui::Checkbox("", &reached_target);
+        auto reached_max = static_cast<bool>(mode.reached_max);
+        ImGui::Checkbox("", &reached_max);
+
+        ImGui::PopStyleVar();  // Pop frame padding change
+
+        ImGui::Columns(1);
+      }
+    }
+    ImGui::PopStyleVar(2);  // Pop Grab changes
+  }
+
   ImGui::End();
 }
 

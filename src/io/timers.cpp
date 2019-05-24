@@ -5,6 +5,8 @@
 
 namespace io {
 
+static cpu::IrqType timer_index_to_irq(TimerIndex i);
+
 void Timers::init(cpu::Interrupts* interrupts) {
   m_interrupts = interrupts;
 }
@@ -14,7 +16,7 @@ void Timers::step(u32 cycles) {
                                    source1() ? cycles : cycles,  // TODO
                                    source2() ? cycles / 8 : cycles };
 
-  for (auto i = Timer0; i < TimerMax; i = (Index)((u16)i + 1)) {
+  for (auto i = Timer0; i < TimerMax; i = (TimerIndex)((u16)i + 1)) {
     if (i == 2 && timer2_paused())  // TODO: other sync modes
       break;
 
@@ -88,7 +90,7 @@ void Timers::write_reg(address addr, u16 val) {
   }
 }
 
-void Timers::step_irq(Index i) {
+void Timers::step_irq(TimerIndex i) {
   // TODO: pulse/repeat modes
   m_interrupts->trigger(timer_index_to_irq(i));
 }
@@ -114,7 +116,7 @@ bool Timers::timer2_paused() const {
          (m_timer_mode[2].sync_mode == 0 || m_timer_mode[2].sync_mode == 3);
 }
 
-cpu::IrqType Timers::timer_index_to_irq(Index i) {
+static cpu::IrqType timer_index_to_irq(TimerIndex i) {
   switch (i) {
     case 0: return cpu::IrqType::TIMER0;
     case 1: return cpu::IrqType::TIMER1;

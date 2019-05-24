@@ -40,6 +40,7 @@ class Emulator {
   const memory::Ram& ram() const { return m_ram; }
   const gpu::Gpu& gpu() const { return m_gpu; }
   io::Joypad& joypad() { return m_joypad; }
+  const io::Timers& timers() const { return m_timers; }
   Settings& settings() { return m_settings; }
   void update_settings();
 

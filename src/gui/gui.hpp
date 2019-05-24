@@ -1,6 +1,5 @@
 #pragma once
 
-#include <cpu/gte.hpp>
 #include <util/types.hpp>
 
 #include <SDL.h>
@@ -10,10 +9,6 @@
 
 #include <chrono>
 #include <string>
-
-namespace io {
-class Joypad;
-}
 
 namespace emulator {
 class Emulator;
@@ -27,6 +22,11 @@ class Cpu;
 namespace gpu {
 class Gpu;
 }
+
+namespace io {
+class Joypad;
+class Timers;
+}  // namespace io
 
 namespace gui {
 
@@ -75,6 +75,7 @@ class Gui {
   void draw_window_gpu_registers(const gpu::Gpu& gpu);
   void draw_window_cpu_registers(const cpu::Cpu& cpu);
   void draw_window_gp0_commands(const gpu::Gpu& gpu);
+  void draw_window_timers(const io::Timers& timers);
 
  private:
   // SDL
@@ -110,6 +111,9 @@ class Gui {
   bool m_draw_gp0_commands{ true };
   bool m_draw_gp0_overlay_rising{ true };
   u8 m_draw_gp0_overlay_alpha{};
+
+  // Timers window fields
+  bool m_draw_timers{ true };
 
   std::string m_game_title;
 

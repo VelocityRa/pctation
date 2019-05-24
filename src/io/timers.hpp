@@ -6,6 +6,10 @@ namespace cpu {
 class Interrupts;
 }
 
+namespace gui {
+class Gui;
+}
+
 namespace io {
 
 union TimerMode {
@@ -35,14 +39,16 @@ union TimerMode {
   }
 };
 
-class Timers {
-  enum Index : u16 {
-    Timer0 = 0,
-    Timer1 = 1,
-    Timer2 = 2,
+enum TimerIndex : u16 {
+  Timer0 = 0,
+  Timer1 = 1,
+  Timer2 = 2,
 
-    TimerMax,
-  };
+  TimerMax,
+};
+
+class Timers {
+  friend class gui::Gui;  // for debug info
 
  public:
   void init(cpu::Interrupts* interrupts);
@@ -52,7 +58,7 @@ class Timers {
   void write_reg(address addr, u16 val);
 
  private:
-  void step_irq(Index i);  // Returns whether an IRQ should occur
+  void step_irq(TimerIndex i);  // Returns whether an IRQ should occur
   static u8 timer_from_addr(address addr);
 
   bool source0() const;
@@ -60,8 +66,6 @@ class Timers {
   bool source2() const;
 
   bool timer2_paused() const;
-
-  static cpu::IrqType timer_index_to_irq(Index i);
 
  private:
   cpu::Interrupts* m_interrupts{};
