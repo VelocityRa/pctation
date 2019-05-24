@@ -411,6 +411,8 @@ void Gui::imgui_draw(const emulator::Emulator& emulator) {
         // Gui visibility
         ImGui::MenuItem("Show GUI", "Ctrl+G", &m_settings->show_gui);
 
+        ImGui::MenuItem("Trace CPU", "Ctrl+P", &m_settings->log_trace_cpu);
+
         ImGui::PopItemWidth();
         ImGui::EndMenu();
       }
@@ -418,22 +420,22 @@ void Gui::imgui_draw(const emulator::Emulator& emulator) {
     }
 
     if (m_draw_tty && (LOG_TTY_OUTPUT_WITH_HOOK || LOG_BIOS_CALLS))
-      draw_dialog_log("TTY Output", m_draw_tty, m_tty_autoscroll, emulator.cpu().m_tty_out_log.c_str());
+      draw_window_log("TTY Output", m_draw_tty, m_tty_autoscroll, emulator.cpu().m_tty_out_log.c_str());
     if (m_draw_bios_calls && LOG_BIOS_CALLS)
-      draw_dialog_log("BIOS Function Calls", m_draw_bios_calls, m_bios_calls_autoscroll,
+      draw_window_log("BIOS Function Calls", m_draw_bios_calls, m_bios_calls_autoscroll,
                       emulator.cpu().m_bios_calls_log.c_str());
     if (m_draw_ram)
-      draw_dialog_ram(emulator.ram().data());
+      draw_window_ram(emulator.ram().data());
     if (m_draw_gpu_registers)
-      draw_gpu_registers(emulator.gpu());
+      draw_window_gpu_registers(emulator.gpu());
     if (m_draw_cpu_registers)
-      draw_cpu_registers(emulator.cpu());
+      draw_window_cpu_registers(emulator.cpu());
     if (m_draw_gp0_commands)
-      draw_gp0_commands(emulator.gpu());
+      draw_window_gp0_commands(emulator.gpu());
   }
 }
 
-void Gui::draw_dialog_log(const char* title,
+void Gui::draw_window_log(const char* title,
                           bool& should_draw,
                           bool& should_autoscroll,
                           const char* text_contents) const {
@@ -482,9 +484,9 @@ void Gui::draw_file_select(gui::Gui& gui, std::string& exe_path, std::string& cd
 
     imgui_start_frame();
 
-    if (gui.draw_exe_select(exe_path))
+    if (gui.draw_window_exe_select(exe_path))
       selected = true;
-    if (gui.draw_cdrom_select(cdrom_path))
+    if (gui.draw_window_cdrom_select(cdrom_path))
       selected = true;
 
     imgui_end_frame();
@@ -496,7 +498,7 @@ void Gui::draw_file_select(gui::Gui& gui, std::string& exe_path, std::string& cd
   }
 }
 
-bool Gui::draw_exe_select(std::string& exe_path) const {
+bool Gui::draw_window_exe_select(std::string& exe_path) const {
   const auto EXE_PATH = "data/exe";
 
   bool selected = false;
@@ -520,7 +522,7 @@ bool Gui::draw_exe_select(std::string& exe_path) const {
   return selected;
 }
 
-bool Gui::draw_cdrom_select(std::string& cdrom_path) const {
+bool Gui::draw_window_cdrom_select(std::string& cdrom_path) const {
   const auto CDROM_PATH = "D:\\Nikos\\PSX\\Games";
 
   bool selected = false;
@@ -572,7 +574,7 @@ bool Gui::draw_cdrom_select(std::string& cdrom_path) const {
   return selected;
 }
 
-void Gui::draw_gp0_commands(const gpu::Gpu& gpu) {
+void Gui::draw_window_gp0_commands(const gpu::Gpu& gpu) {
   using namespace renderer::rasterizer;
 
   auto draw_positions = [](Position4& positions, bool is_quad) {
@@ -823,7 +825,7 @@ void Gui::draw_gp0_commands(const gpu::Gpu& gpu) {
 }
 
 template <size_t RamSize>
-void Gui::draw_dialog_ram(const std::array<byte, RamSize>& ram_data) {
+void Gui::draw_window_ram(const std::array<byte, RamSize>& ram_data) {
   // Window style
   ImGui::SetNextWindowSize(ImVec2(500, 411), ImGuiCond_FirstUseEver);
 
@@ -893,7 +895,7 @@ static void draw_register_table(const char* title, const RegisterTableEntries ro
   ImGui::EndChild();
 }
 
-void Gui::draw_gpu_registers(const gpu::Gpu& gpu) {
+void Gui::draw_window_gpu_registers(const gpu::Gpu& gpu) {
   ImGui::SetNextWindowSize(ImVec2(REG_TABLE_WIDTH * REG_TABLE_COUNT, 0), ImGuiCond_FirstUseEver);
 
   if (!ImGui::Begin("GPU Registers", &m_draw_gpu_registers, 0)) {
@@ -995,7 +997,7 @@ void Gui::draw_gpu_registers(const gpu::Gpu& gpu) {
   ImGui::End();
 }
 
-void Gui::draw_cpu_registers(const cpu::Cpu& cpu) {
+void Gui::draw_window_cpu_registers(const cpu::Cpu& cpu) {
   if (ImGui::Begin("CPU Registers", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
     ImGui::Text("pc: %08X", cpu.m_pc_current);
     ImGui::Text("ra: %08X", cpu.gpr(31));

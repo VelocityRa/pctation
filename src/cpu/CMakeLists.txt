@@ -9,4 +9,4 @@ add_library(cpu STATIC cpu.cpp
                        gte.cpp
                        gte.hpp)
 
-target_link_libraries(cpu PUBLIC util bus)
+target_link_libraries(cpu PUBLIC emulator util bus)

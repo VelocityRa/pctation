@@ -20,6 +20,10 @@ class Emulator;
 struct Settings;
 }  // namespace emulator
 
+namespace cpu {
+class Cpu;
+}
+
 namespace gpu {
 class Gpu;
 }
@@ -59,17 +63,18 @@ class Gui {
 
   // GUI Components
 
-  void draw_dialog_log(const char* title,
+  bool draw_window_exe_select(std::string& psxexe_path) const;    // Returns true if a file was selected
+  bool draw_window_cdrom_select(std::string& psxexe_path) const;  // Returns true if a file was selected
+
+  void draw_window_log(const char* title,
                        bool& should_draw,
                        bool& should_autoscroll,
                        const char* text_contents) const;
   template <size_t RamSize>
-  void draw_dialog_ram(const std::array<byte, RamSize>& data);
-  void draw_gpu_registers(const gpu::Gpu& gpu);
-  void draw_cpu_registers(const cpu::Cpu& cpu);
-  bool draw_exe_select(std::string& psxexe_path) const;    // Returns true if a file was selected
-  bool draw_cdrom_select(std::string& psxexe_path) const;  // Returns true if a file was selected
-  void draw_gp0_commands(const gpu::Gpu& gpu);
+  void draw_window_ram(const std::array<byte, RamSize>& data);
+  void draw_window_gpu_registers(const gpu::Gpu& gpu);
+  void draw_window_cpu_registers(const cpu::Cpu& cpu);
+  void draw_window_gp0_commands(const gpu::Gpu& gpu);
 
  private:
   // SDL
@@ -83,25 +88,25 @@ class Gui {
   std::chrono::time_point<std::chrono::steady_clock> m_fps_counter_start{};
   f32 m_fps{};
 
-  // TTY dialog fields
+  // TTY window fields
   bool m_draw_tty{ true };
   bool m_tty_autoscroll{ true };
 
-  // Bios Calls dialog fields
+  // Bios Calls window fields
   bool m_draw_bios_calls{ true };
   bool m_bios_calls_autoscroll{ true };
 
-  // RAM Memory dialog fields
+  // RAM Memory window fields
   bool m_draw_ram{ true };
   MemoryEditor m_ram_memeditor;
 
-  // GPU Registers dialog fields
+  // GPU Registers window fields
   bool m_draw_gpu_registers{ true };
 
-  // CPU execution dialog fields
+  // CPU execution window fields
   bool m_draw_cpu_registers{ true };
 
-  // GP0 Commands dialog fields
+  // GP0 Commands window fields
   bool m_draw_gp0_commands{ true };
   bool m_draw_gp0_overlay_rising{ true };
   u8 m_draw_gp0_overlay_alpha{};

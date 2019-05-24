@@ -29,6 +29,9 @@ struct Settings {
   bool limit_framerate{ false };
   bool limit_framerate_changed{ true };
 
+  // Logging
+  bool log_trace_cpu{};
+
   f32 get_screen_scale() const {
     switch (screen_scale) {
       case ScreenScale::x1: return 1;

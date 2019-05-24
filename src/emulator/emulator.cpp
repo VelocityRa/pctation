@@ -11,7 +11,8 @@ Emulator::Emulator(const fs::path& bios_path,
                    const fs::path& psx_exe_path,
                    const fs::path& bootstrap_path,
                    const fs::path& cdrom_path)
-    : m_bios(bios_path),
+    : m_settings(),
+      m_bios(bios_path),
       m_expansion(bootstrap_path),
       m_interrupts(),
       m_ram(psx_exe_path),
@@ -31,7 +32,7 @@ Emulator::Emulator(const fs::path& bios_path,
             m_joypad,
             m_cdrom,
             m_timers),
-      m_cpu(m_bus) {
+      m_cpu(m_bus, m_settings) {
   m_interrupts.init(&m_cpu);
   m_joypad.init(&m_interrupts);
   m_timers.init(&m_interrupts);

@@ -20,6 +20,10 @@ namespace cpu {
 class Instruction;
 }
 
+namespace emulator {
+struct Settings;
+}
+
 #define LOG_TTY_OUTPUT_WITH_HOOK false  // No need to enable this if LOG_BIOS_CALLS is enabled
 #define LOG_BIOS_CALLS true             // If enabled, TTY output is logged anyways
 
@@ -83,7 +87,7 @@ class Cpu {
   friend class gui::Gui;  // for debug info
 
  public:
-  explicit Cpu(bus::Bus& bus);
+  explicit Cpu(bus::Bus& bus, const emulator::Settings& settings);
 
   void step(u32 cycles_to_execute);
 
@@ -240,8 +244,12 @@ class Cpu {
   //  u64 instr_counter{};
   //  #endif
 
-  bus::Bus& m_bus;
   cpu::gte::Gte m_gte;
+
+  // References
+
+  bus::Bus& m_bus;
+  const emulator::Settings& m_settings;
 };
 
 static const char* register_to_str(u8 reg_idx) {
