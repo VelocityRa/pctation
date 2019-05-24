@@ -130,6 +130,10 @@ void Dma::do_block_transfer(DmaPort port) {
         u32 src_word{};
 
         switch (port) {
+          case DmaPort::MdecOut:
+            // TODO
+            LOG_INFO("DMA transfer of word 0x{:08X} to MDEC-Out port", src_word);
+            break;
           // Not supposed to read from anywhere for OTC, values are specific and depend on the address
           case DmaPort::Otc:
             if (transfer_word_count == 1)
@@ -151,7 +155,12 @@ void Dma::do_block_transfer(DmaPort port) {
       }
       case DmaChannel::TransferDirection::FromRam: {
         u32 src_word = m_ram.read<u32>(addr_cur);
+
         switch (port) {
+          case DmaPort::MdecIn:
+            // TODO
+            LOG_INFO("DMA transfer of word 0x{:08X} to MDEC-In port", src_word);
+            break;
           case DmaPort::Gpu:
             // Send packet (which is part of a GP0 command, likely data) to the GPU
             m_gpu.gp0(src_word);
