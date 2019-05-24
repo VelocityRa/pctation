@@ -511,7 +511,7 @@ bool Gui::draw_window_exe_select(std::string& exe_path) const {
       const auto ext = p.path().extension();
       if (ext == ".exe" || ext == ".psx") {
         const auto path = p.path().string();
-        const auto rel_path = path.substr(sizeof(EXE_PATH));
+        const auto rel_path = path.substr(sizeof(EXE_PATH) + 1);
 
         if (ImGui::Selectable(rel_path.c_str())) {
           exe_path = path;
@@ -526,7 +526,7 @@ bool Gui::draw_window_exe_select(std::string& exe_path) const {
 }
 
 bool Gui::draw_window_cdrom_select(std::string& cdrom_path) const {
-  const auto CDROM_PATH = "D:\\Nikos\\PSX\\Games";
+  const char CDROM_PATH[] = "D:\\Nikos\\PSX\\Games";
 
   bool selected = false;
 
@@ -547,27 +547,41 @@ bool Gui::draw_window_cdrom_select(std::string& cdrom_path) const {
   };
 
   if (ImGui::Begin("CD-ROM Explorer")) {
-    if (ImGui::Selectable("None"))
+    if (ImGui::Selectable("Empty"))
       selected = true;
 
-    for (auto& p : fs::recursive_directory_iterator(CDROM_PATH)) {
-      if (fs::is_directory(p)) {
-        const auto dir_path = p.path().string();
-        const auto rel_dir_path = dir_path.substr(sizeof(CDROM_PATH));
+    for (auto& root_dir_iter : fs::directory_iterator(CDROM_PATH)) {
+      if (!fs::is_directory(root_dir_iter))
+        continue;
 
-        if (search_for_ext(p, { ".bin", ".iso" }, false)) {  // todo: ".cue"
+      const auto dir_path = root_dir_iter.path().string().substr(sizeof(CDROM_PATH));
+
+      if (ImGui::TreeNodeEx(dir_path.c_str(), ImGuiTreeNodeFlags_DefaultOpen)) {
+        for (auto& dir_iter_2 : fs::directory_iterator(root_dir_iter)) {
+          const auto dir_path_2 = dir_iter_2.path().string();
+          const auto rel_dir_path = dir_path_2.substr(sizeof(CDROM_PATH) + dir_path.size() + 1);
+
+          ImGui::TreePush();
+          ImGui::PushStyleColor(ImGuiCol_Text, TXT(0.62f));
           if (ImGui::Selectable(rel_dir_path.c_str())) {
-            // First look for a cue sheet
-            // selected = search_for_ext(p, { ".cue"}, true);
+            if (search_for_ext(dir_iter_2, { ".bin", ".img", ".iso" }, false)) {  // todo: ".cue"
 
-            // If we found nothing, fall back to binary formats
-            if (!selected)
-              selected = search_for_ext(p, { ".bin", ".iso" }, true);
+              // First look for a cue sheet
+              // selected = search_for_ext(p, { ".cue"}, true);
 
-            if (selected)
-              LOG_INFO("Opening file: {}", cdrom_path);
+              // If we found nothing, fall back to binary formats
+              if (!selected)
+                selected = search_for_ext(dir_iter_2, { ".bin", ".img", ".iso" }, true);
+
+              if (selected)
+                LOG_INFO("Opening file: {}", cdrom_path);
+            }
           }
+          ImGui::PopStyleColor();
+
+          ImGui::TreePop();
         }
+        ImGui::TreePop();
       }
     }
   }
