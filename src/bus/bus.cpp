@@ -71,7 +71,7 @@ u16 Bus::read16(u32 addr) const {
   }
   if (memory::map::JOYPAD.contains(addr, addr_rebased)) {
     auto val = (u16)m_joypad.read8(addr_rebased) | (u16)m_joypad.read8(addr_rebased + 1) << 8;
-    LOG_TRACE("{} 16-bit read of 0x{:04X}", io::Joypad::addr_to_reg_name(addr_rebased), val);
+    LOG_TRACE_JOYPAD("{} 16-bit read of 0x{:04X}", io::Joypad::addr_to_reg_name(addr_rebased), val);
     return val;
   }
   if (memory::map::EXPANSION_1.contains(addr, addr_rebased)) {
@@ -104,7 +104,7 @@ u8 Bus::read8(u32 addr) const {
     return m_bios.read<u8>(addr_rebased);
   if (memory::map::JOYPAD.contains(addr, addr_rebased)) {
     auto val = m_joypad.read8(addr_rebased);
-    LOG_TRACE("{} 8-bit read of 0x{:02X}", io::Joypad::addr_to_reg_name(addr_rebased), val);
+    LOG_TRACE_JOYPAD("{} 8-bit read of 0x{:02X}", io::Joypad::addr_to_reg_name(addr_rebased), val);
     return val;
   }
   if (memory::map::EXPANSION_1.contains(addr, addr_rebased)) {
@@ -214,7 +214,7 @@ void Bus::write16(u32 addr, u16 val) {
     return m_interrupts.write<u16>(addr_rebased, val);
   }
   if (memory::map::JOYPAD.contains(addr, addr_rebased)) {
-    LOG_TRACE("16-bit write of {:04X} to {}", val, io::Joypad::addr_to_reg_name(addr_rebased));
+    LOG_TRACE_JOYPAD("16-bit write of {:04X} to {}", val, io::Joypad::addr_to_reg_name(addr_rebased));
     m_joypad.write8(addr_rebased, val & 0xFF);
     m_joypad.write8(addr_rebased + 1, (val >> 8) & 0xFF);
     return;
@@ -238,7 +238,7 @@ void Bus::write8(u32 addr, u8 val) {
   if (memory::map::SCRATCHPAD.contains(addr, addr_rebased))
     return m_scratchpad.write<u8>(addr_rebased, val);
   if (memory::map::JOYPAD.contains(addr, addr_rebased)) {
-    LOG_TRACE("8-bit write of {:02X} to {}", val, io::Joypad::addr_to_reg_name(addr_rebased));
+    LOG_TRACE_JOYPAD("8-bit write of {:02X} to {}", val, io::Joypad::addr_to_reg_name(addr_rebased));
     m_joypad.write8(addr_rebased, val);
     return;
   }

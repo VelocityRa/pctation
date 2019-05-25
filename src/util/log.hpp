@@ -25,11 +25,19 @@
 #define LOG_ERROR_CDROM(...) SPDLOG_LOGGER_ERROR(logging::g_cdrom_logger, __VA_ARGS__)
 #define LOG_CRITICAL_CDROM(...) SPDLOG_LOGGER_CRITICAL(logging::g_cdrom_logger, __VA_ARGS__)
 
+#define LOG_TRACE_JOYPAD(...) SPDLOG_LOGGER_TRACE(logging::g_joypad_logger, __VA_ARGS__)
+#define LOG_DEBUG_JOYPAD(...) SPDLOG_LOGGER_DEBUG(logging::g_joypad_logger, __VA_ARGS__)
+#define LOG_INFO_JOYPAD(...) SPDLOG_LOGGER_INFO(logging::g_joypad_logger, __VA_ARGS__)
+#define LOG_WARN_JOYPAD(...) SPDLOG_LOGGER_WARN(logging::g_joypad_logger, __VA_ARGS__)
+#define LOG_ERROR_JOYPAD(...) SPDLOG_LOGGER_ERROR(logging::g_joypad_logger, __VA_ARGS__)
+#define LOG_CRITICAL_JOYPAD(...) SPDLOG_LOGGER_CRITICAL(logging::g_joypad_logger, __VA_ARGS__)
+
 namespace logging {
 
 extern std::shared_ptr<spdlog::logger> g_cpu_logger;
 extern std::shared_ptr<spdlog::logger> g_gte_logger;
 extern std::shared_ptr<spdlog::logger> g_cdrom_logger;
+extern std::shared_ptr<spdlog::logger> g_joypad_logger;
 
 void init();
 

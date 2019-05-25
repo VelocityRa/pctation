@@ -14,6 +14,7 @@ namespace logging {
 std::shared_ptr<spdlog::logger> g_cpu_logger;
 std::shared_ptr<spdlog::logger> g_gte_logger;
 std::shared_ptr<spdlog::logger> g_cdrom_logger;
+std::shared_ptr<spdlog::logger> g_joypad_logger;
 
 static constexpr auto ENABLE_FILE_LOGGING = false;
 
@@ -61,6 +62,12 @@ void init() {
   g_cdrom_logger->set_level(spdlog::level::trace);
   g_cdrom_logger->flush_on(spdlog::level::trace);
   g_cdrom_logger->set_pattern(DEFAULT_LOG_PATTERN);
+
+  // Set up Joypad logger
+  g_joypad_logger = std::make_shared<spdlog::logger>("joypad", main_sinks);
+  g_joypad_logger->set_level(spdlog::level::info);
+  g_joypad_logger->flush_on(spdlog::level::trace);
+  g_joypad_logger->set_pattern(DEFAULT_LOG_PATTERN);
 
   // Configure spdlog
   spdlog::set_default_logger(default_logger);

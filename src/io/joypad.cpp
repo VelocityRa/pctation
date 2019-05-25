@@ -33,7 +33,7 @@ u8 Joypad::read8(address addr_rebased) {
     } else if (reg_byte == 1) {
       return (m_irq << 1);
     } else {
-      LOG_WARN("JOY_STAT unimplemented byte read from");
+      LOG_WARN_JOYPAD("JOY_STAT unimplemented byte read from");
       return 0;
     }
   }
@@ -56,7 +56,7 @@ void Joypad::write8(address addr_rebased, u8 val) {
     do_tx_transfer(val);
     return;
   } else if (JOY_STAT.contains(addr_rebased, reg_byte)) {
-    LOG_WARN("Unhandled JOY_STAT[{}] write of {:02}", reg_byte, val);
+    LOG_WARN_JOYPAD("Unhandled JOY_STAT[{}] write of {:02}", reg_byte, val);
   } else if (JOY_MODE.contains(addr_rebased, reg_byte))
     *((u8*)&m_reg_mode + reg_byte) = val;
   else if (JOY_CTRL.contains(addr_rebased, reg_byte)) {
@@ -121,8 +121,7 @@ void Joypad::do_tx_transfer(u8 val) {
       m_device_selected = Device::Controller;
     } else if (val == 0x81) {
       m_device_selected = Device::MemoryCard;
-    } else
-      LOG_ERROR("Unknown device selected");
+    }
   }
 
   // Read from seleted device immediately
@@ -137,7 +136,7 @@ void Joypad::do_tx_transfer(u8 val) {
   }
 
   if (m_device_selected == Device::MemoryCard) {
-    LOG_WARN("Requested read from Memory Card, unimplemented");
+    LOG_WARN_JOYPAD("Requested read from Memory Card, unimplemented");
     m_device_selected = Device::None;
     m_rx_data = 0xFF;
     m_ack = true;
