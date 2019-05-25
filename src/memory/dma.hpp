@@ -1,6 +1,7 @@
 #pragma once
 
 #include <memory/dma_channel.hpp>
+#include <util/log.hpp>
 #include <util/types.hpp>
 
 #include <array>
@@ -95,8 +96,98 @@ class Dma {
         m_interrupts(interrupts),
         m_cdrom(cdrom) {}
 
-  void write_reg(address addr, u32 val);
-  u32 read_reg(address addr) const;
+  template <typename ValueType>
+  ValueType read(address addr_rebased) const {
+    const auto major = (addr_rebased & 0x70) >> 4;
+    const auto minor = addr_rebased & 0b1100;
+
+    const u32* reg = nullptr;
+
+    if (0 <= major && major <= 6) {
+      // Per-channel registers
+      const auto& channel = channel_control(static_cast<DmaPort>(major));
+
+      switch (minor) {
+        case 0: reg = &channel.m_base_addr; break;
+        case 4: reg = &channel.m_block_control.word; break;
+        case 8: reg = &channel.m_channel_control.word; break;
+        default: LOG_WARN("Unhandled read from DMA at offset 0x{:08X}", addr_rebased); return 0;
+      }
+    } else if (major == 7) {
+      // Common registers
+      switch (minor) {
+        case 0: reg = &m_reg_control; break;
+        case 4: reg = &m_reg_interrupt.word; break;
+        default: LOG_WARN("Unhandled read from DMA at offset 0x{:08X}", addr_rebased); break;
+      }
+    } else {
+      LOG_WARN("Unhandled read from DMA at offset 0x{:08X}", addr_rebased);
+      return 0;
+    }
+
+    // Do the read
+    const u32 reg_offset = addr_rebased & 0b11;
+    return *(ValueType*)((u8*)reg + reg_offset);
+  }
+
+  template <typename ValueType>
+  void write(address addr_rebased, ValueType val) {
+    const auto major = (addr_rebased & 0x70) >> 4;
+    const auto minor = addr_rebased & 0b1100;
+
+    const u32* reg = nullptr;
+    DmaChannel* channel = nullptr;
+
+    if (0 <= major && major <= 6) {
+      // Per-channel registers
+      channel = &channel_control(static_cast<DmaPort>(major));
+
+      switch (minor) {
+        case 0: reg = &channel->m_base_addr; break;
+        case 4: reg = &channel->m_block_control.word; break;
+        case 8: reg = &channel->m_channel_control.word; break;
+        default:
+          LOG_WARN("Unhandled write to DMA register: 0x{:08X} at offset 0x{:08X}", val, addr_rebased);
+          return;
+      }
+    } else if (major == 7) {
+      // Common registers
+      switch (minor) {
+        case 0: reg = &m_reg_control; break;
+        case 4: {
+          // Handle u32 case separately because we need to do masking
+
+          if (std::is_same<ValueType, u8>::value || std::is_same<ValueType, u16>::value) {
+            reg = &m_reg_interrupt.word;
+            break;
+          } else if (std::is_same<ValueType, u32>::value) {
+            // Clear acknowledged (1'ed) flag bits
+            u32 masked_flags = (((m_reg_interrupt.word & 0xFF000000) & ~(val & 0xFF000000)));
+            m_reg_interrupt.word = (val & 0x00FFFFFF) | masked_flags;
+            return;  // write handled here, we can return instead of breaking
+          } else
+            static_assert("16-bit write unsuported");
+        }
+        default:
+          LOG_WARN("Unhandled write to DMA register: 0x{:08X} at offset 0x{:08X}", val, addr_rebased);
+          return;
+      }
+    } else {
+      LOG_WARN("Unhandled write to DMA register: 0x{:08X} at offset 0x{:08X}", val, addr_rebased);
+      return;
+    }
+
+    // Do the write
+    const u32 reg_offset = addr_rebased & 0b11;
+    *(ValueType*)((u8*)reg + reg_offset) = val;
+
+    // Handle activated transfers
+    if (channel && channel->active()) {
+      const auto port = static_cast<DmaPort>(major);
+      do_transfer(port);
+    }
+  }
+
   DmaChannel const& channel_control(DmaPort port) const;
   DmaChannel& channel_control(DmaPort port);
   void step();

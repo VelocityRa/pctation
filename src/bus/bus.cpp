@@ -33,7 +33,7 @@ u32 Bus::read32(u32 addr) const {
   if (memory::map::BIOS.contains(addr, addr_rebased))
     return m_bios.read<u32>(addr_rebased);
   if (memory::map::DMA.contains(addr, addr_rebased))
-    return m_dma.read_reg(addr_rebased);
+    return m_dma.read<u32>(addr_rebased);
   if (memory::map::GPU.contains(addr, addr_rebased))
     return m_gpu.read_reg(addr_rebased);
   if (memory::map::TIMERS.contains(addr, addr_rebased))
@@ -118,6 +118,8 @@ u8 Bus::read8(u32 addr) const {
   }
   if (memory::map::CDROM.contains(addr, addr_rebased))
     return m_cdrom.read_reg(addr_rebased);
+  if (memory::map::DMA.contains(addr, addr_rebased))
+    return m_dma.read<u8>(addr_rebased);
   if (memory::map::SIO.contains(addr, addr_rebased)) {
     LOG_WARN("Unhandled 8-bit read of SIO register at 0x{:08X}", addr);
     return 0;
@@ -177,7 +179,7 @@ void Bus::write32(u32 addr, u32 val) {
     return;  // Cache Control, ignore
   }
   if (memory::map::DMA.contains(addr, addr_rebased))
-    return m_dma.write_reg(addr_rebased, val);
+    return m_dma.write<u32>(addr_rebased, val);
   if (memory::map::GPU.contains(addr, addr_rebased))
     return m_gpu.write_reg(addr_rebased, val);
   if (memory::map::TIMERS.contains(addr, addr_rebased)) {
@@ -248,6 +250,8 @@ void Bus::write8(u32 addr, u8 val) {
     m_cdrom.write_reg(addr_rebased, val);
     return;
   }
+  if (memory::map::DMA.contains(addr, addr_rebased))
+    return m_dma.write<u8>(addr_rebased, val);
 
   LOG_ERROR("Unknown 8-bit write of 0x{:02X} at 0x{:08X} ", val, addr);
   assert(0);
