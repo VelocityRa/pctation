@@ -13,19 +13,28 @@ class Gui;
 namespace io {
 
 union TimerMode {
+  enum class RepeatMode : bool {
+    Once = 0,
+    Repeat = 1,
+  };
+  enum class ToggleMode : bool {
+    Pulse = 0,
+    Toggle = 1,
+  };
+
   u16 word{};
 
   struct {
-    u16 sync_enable : 1;      // [0]    Synchronization Enable (0=Free Run, 1=Synchronize via Bit1-2)
-    u16 sync_mode : 2;        // [1-2]  Synchronization Mode   (0-3)
-    u16 reset_on_target : 1;  // [3]    Reset counter to 0000h  (0=After Counter=FFFFh, 1=After
-                              // Counter=Target)
-    u16 irq_on_target : 1;    // [4]    IRQ when Counter=Target (0=Disable, 1=Enable)
-    u16 irq_on_max : 1;       // [5]    IRQ when Counter=FFFFh  (0=Disable, 1=Enable)
-    u16 irq_repeat_mode : 1;  // [6]    IRQ Once/Repeat Mode    (0=One-shot, 1=Repeatedly)
-    u16 irq_toggle_mode : 1;  // [7]    IRQ Pulse/Toggle Mode   (0=Short Bit10=0 Pulse, 1=Toggle Bit10
-                              // on/off)
-    u16 clock_source : 2;     // [8-9]  Clock Source (0-3)
+    u16 sync_enable : 1;       // [0]    Synchronization Enable (0=Free Run, 1=Synchronize via Bit1-2)
+    u16 sync_mode : 2;         // [1-2]  Synchronization Mode   (0-3)
+    u16 reset_on_target : 1;   // [3]    Reset counter to 0000h  (0=After Counter=FFFFh, 1=After
+                               // Counter=Target)
+    u16 irq_on_target : 1;     // [4]    IRQ when Counter=Target (0=Disable, 1=Enable)
+    u16 irq_on_max : 1;        // [5]    IRQ when Counter=FFFFh  (0=Disable, 1=Enable)
+    u16 _irq_repeat_mode : 1;  // [6]    IRQ Once/Repeat Mode    (0=One-shot, 1=Repeatedly)
+    u16 _irq_toggle_mode : 1;  // [7]    IRQ Pulse/Toggle Mode   (0=Short Bit10=0 Pulse, 1=Toggle Bit10
+                               // on/off)
+    u16 clock_source : 2;      // [8-9]  Clock Source (0-3)
     u16 irq_not : 1;  // [10]   Interrupt Request       (0=Yes, 1=No) (Set after Writing) (W=1) (R)
     u16 reached_target : 1;  // [11]   Reached Target Value    (0=No, 1=Yes) (Reset after Reading) (R)
     u16 reached_max : 1;     // [12]   Reached FFFFh Value     (0=No, 1=Yes) (Reset after Reading) (R)
@@ -37,6 +46,8 @@ union TimerMode {
     reached_max = false;
     return reg_val;
   }
+  RepeatMode irq_repeat_mode() const { return static_cast<RepeatMode>(_irq_repeat_mode); }
+  ToggleMode irq_toggle_mode() const { return static_cast<ToggleMode>(_irq_toggle_mode); }
 };
 
 enum TimerIndex : u16 {
@@ -65,8 +76,6 @@ class Timers {
   bool source1() const;
   bool source2() const;
 
-  bool timer2_paused() const;
-
  private:
   cpu::Interrupts* m_interrupts{};
 
@@ -75,6 +84,7 @@ class Timers {
   u16 m_timer_target[3]{};
 
   bool m_timer_irq_occured[3]{};  // Set when a one-shot IRQ happens
+  bool m_timer_paused[3]{};
 };
 
 }  // namespace io

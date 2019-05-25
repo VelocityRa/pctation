@@ -17,8 +17,8 @@ void Timers::step(u32 cycles) {
                                    source2() ? cycles / 8 : cycles };
 
   for (auto i = Timer0; i < TimerMax; i = (TimerIndex)((u16)i + 1)) {
-    if (i == 2 && timer2_paused())  // TODO: other sync modes
-      break;
+    if (m_timer_paused[i])
+      continue;
 
     // Shorthands
     auto& value = m_timer_value[i];
@@ -49,7 +49,7 @@ void Timers::step(u32 cycles) {
       step_irq(i);
 
     // Handle possible overflow (we use u32 but counter value is u16)
-    value = static_cast<u16>(m_timer_value[i]);
+    value = static_cast<u16>(value);
   }
 }
 
@@ -75,24 +75,54 @@ void Timers::write_reg(address addr, u16 val) {
   u8 timer_select = timer_from_addr(addr);
   u8 reg = addr & 0xF;
 
+  // Shorthands
+  auto& value = m_timer_value[timer_select];
+  auto& mode = m_timer_mode[timer_select];
+  auto& target = m_timer_target[timer_select];
+
   switch (reg) {
     case 0:  // Current Counter Value
-      m_timer_value[timer_select] = static_cast<u16>(val);
+      value = static_cast<u16>(val);
       break;
     case 4:  // Counter Mode
-      m_timer_mode[timer_select].word = val;
-      m_timer_mode->irq_not = true;
+      mode.word = val;
+      mode.irq_not = true;
+
+      m_timer_paused[timer_select] = false;
+      m_timer_irq_occured[timer_select] = false;
+
+      value = 0;
+
+      if (mode.sync_enable) {
+        if (timer_select == 2) {  // TODO: other sync modes
+          if (mode.sync_mode == 0 || mode.sync_mode == 3)
+            m_timer_paused[timer_select] = true;
+        }
+      }
       break;
     case 8:  // Counter Target Value
-      m_timer_target[timer_select] = val;
+      target = val;
       break;
     default: LOG_ERROR("Invalid Timer register access"); break;
   }
 }
 
 void Timers::step_irq(TimerIndex i) {
-  // TODO: pulse/repeat modes
-  m_interrupts->trigger(timer_index_to_irq(i));
+  auto& mode = m_timer_mode[i];
+
+  if (mode.irq_toggle_mode() == TimerMode::ToggleMode::Toggle)
+    mode.irq_not ^= 1;
+  else
+    mode.irq_not = false;
+
+  if (mode.irq_repeat_mode() == TimerMode::RepeatMode::Once && m_timer_irq_occured[i])
+    return;
+
+  if (!mode.irq_not) {
+    m_interrupts->trigger(timer_index_to_irq(i));
+    m_timer_irq_occured[i] = true;
+  }
+  mode.irq_not = true;
 }
 
 u8 Timers::timer_from_addr(address addr) {
@@ -111,17 +141,12 @@ bool Timers::source2() const {
   return m_timer_mode[2].clock_source >= 2;
 }
 
-bool Timers::timer2_paused() const {
-  return m_timer_mode[2].sync_enable &&
-         (m_timer_mode[2].sync_mode == 0 || m_timer_mode[2].sync_mode == 3);
-}
-
 static cpu::IrqType timer_index_to_irq(TimerIndex i) {
   switch (i) {
     case 0: return cpu::IrqType::TIMER0;
     case 1: return cpu::IrqType::TIMER1;
     case 2: return cpu::IrqType::TIMER2;
-    default: return cpu::IrqType::INVALID;
+    default: LOG_CRITICAL("Invalid interrupt"); return cpu::IrqType::INVALID;
   }
 }
 
