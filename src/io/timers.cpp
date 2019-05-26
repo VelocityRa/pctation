@@ -126,7 +126,7 @@ void Timers::step_irq(TimerIndex i) {
 }
 
 u8 Timers::timer_from_addr(address addr) {
-  const auto timer_select = (addr & 0xF0) >> 8;
+  const auto timer_select = (addr & 0xF0) >> 4;
   Expects(timer_select <= 2);
   return timer_select;
 }
