@@ -325,8 +325,8 @@ void Gpu::gp0_copy_rect_vram_to_vram() {
   const auto dest_pos_word = m_gp0_cmd[2];
   const auto size_word = m_gp0_cmd[3];
 
-  u16 dest_x = dest_pos_word & 0x3FF;
-  u16 dest_y = (dest_pos_word >> 16) & 0x1FF;
+  u16 dest_x = dest_pos_word & 0xFFFF;
+  u16 dest_y = (dest_pos_word >> 16) & 0xFFFF;
 
   const auto dest_x_start = dest_x;
 
@@ -339,7 +339,7 @@ void Gpu::gp0_copy_rect_vram_to_vram() {
   while (pixel_count--) {
     const auto src_word = get_vram_pos(m_vram_transfer_x, m_vram_transfer_y);
 
-    set_vram_pos(dest_x, dest_y, src_word, false);
+    set_vram_pos(dest_x, dest_y, src_word, true);
 
     advance_vram_transfer_pos();
 
