@@ -38,12 +38,8 @@ u32 Bus::read32(u32 addr) const {
     return m_gpu.read_reg(addr_rebased);
   if (memory::map::TIMERS.contains(addr, addr_rebased))
     return static_cast<u32>(m_timers.read_reg(addr_rebased));
-  }
-  if (memory::map::EXPANSION_1.contains(addr, addr_rebased)) {
-    if (addr_rebased == 0x020018)
-      __debugbreak();
+  if (memory::map::EXPANSION_1.contains(addr, addr_rebased))
     return m_expansion.read<u32>(addr_rebased);
-  }
 
   LOG_ERROR("Unknown 32-bit read at 0x{:08X}", addr);
   assert(0);
@@ -74,15 +70,14 @@ u16 Bus::read16(u32 addr) const {
     LOG_TRACE_JOYPAD("{} 16-bit read of 0x{:04X}", io::Joypad::addr_to_reg_name(addr_rebased), val);
     return val;
   }
-  if (memory::map::EXPANSION_1.contains(addr, addr_rebased)) {
-    if (addr_rebased == 0x020018)
-      __debugbreak();
+  if (memory::map::EXPANSION_1.contains(addr, addr_rebased))
     return m_expansion.read<u16>(addr_rebased);
-  }
   if (memory::map::SIO.contains(addr, addr_rebased)) {
     LOG_WARN("Unhandled 16-bit read of SIO register at 0x{:04X}", addr);
     return 0;
   }
+  if (memory::map::BIOS.contains(addr, addr_rebased))
+    return m_bios.read<u16>(addr_rebased);
   if (memory::map::TIMERS.contains(addr, addr_rebased))
     return m_timers.read_reg(addr_rebased);
 
@@ -107,11 +102,8 @@ u8 Bus::read8(u32 addr) const {
     LOG_TRACE_JOYPAD("{} 8-bit read of 0x{:02X}", io::Joypad::addr_to_reg_name(addr_rebased), val);
     return val;
   }
-  if (memory::map::EXPANSION_1.contains(addr, addr_rebased)) {
-    if (addr_rebased == 0x020018)
-      __debugbreak();
+  if (memory::map::EXPANSION_1.contains(addr, addr_rebased))
     return m_expansion.read<u8>(addr_rebased);
-  }
   if (memory::map::EXPANSION_2.contains(addr, addr_rebased)) {
     LOG_WARN("Unhandled 8-bit read of EXPANSION_2 register at 0x{:08X}", addr);
     return 0;
@@ -165,10 +157,10 @@ void Bus::write32(u32 addr, u32 val) {
       case 0x1C:  // Expansion 2 Delay/Size
       case 0x20:  // COM_DELAY
         if (val != 0)
-          LOG_WARN("Unhandled non-0 32-bit write to MEM_CONTROL1: 0x{:08X} at 0x{:08X}", val, addr);
+          LOG_DEBUG("Unhandled non-0 32-bit write to MEM_CONTROL1: 0x{:08X} at 0x{:08X}", val, addr);
         return;
       default:
-        LOG_WARN("Unhandled 32-bit write to MEM_CONTROL1: 0x{:08X} at 0x{:08X}", val, addr);
+        LOG_DEBUG("Unhandled 32-bit write to MEM_CONTROL1: 0x{:08X} at 0x{:08X}", val, addr);
         return;
     }
   }
