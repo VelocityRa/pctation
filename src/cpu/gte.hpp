@@ -80,7 +80,30 @@ class Gte {
       return word;
     }
   };
+
   // Commands
+  void cmd_rtps();
+  void cmd_nclip();
+  void cmd_op();
+  void cmd_dpcs();
+  void cmd_intpl();
+  void cmd_mvmva();
+  void cmd_ncds();
+  void cmd_cdp();
+  void cmd_ncdt();
+  void cmd_nccs();
+  void cmd_cc();
+  void cmd_ncs();
+  void cmd_nct();
+  void cmd_sqr();
+  void cmd_dcpl();
+  void cmd_dpct();
+  void cmd_avsz3();
+  void cmd_avsz4();
+  void cmd_rtpt();
+  void cmd_gpf();
+  void cmd_gpl();
+  void cmd_ncct();
 
  private:
   //

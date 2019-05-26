@@ -247,31 +247,53 @@ void Gte::cmd(u32 word) {
   flag.reset();
 
   switch (cmd.opcode()) {
-    case GteCommand::RTPS: break;
-    case GteCommand::NCLIP: break;
-    case GteCommand::OP: break;
-    case GteCommand::DPCS: break;
-    case GteCommand::INTPL: break;
-    case GteCommand::MVMVA: break;
-    case GteCommand::NCDS: break;
-    case GteCommand::CDP: break;
-    case GteCommand::NCDT: break;
-    case GteCommand::NCCS: break;
-    case GteCommand::CC: break;
-    case GteCommand::NCS: break;
-    case GteCommand::NCT: break;
-    case GteCommand::SQR: break;
-    case GteCommand::DCPL: break;
-    case GteCommand::DPCT: break;
-    case GteCommand::AVSZ3: break;
-    case GteCommand::AVSZ4: break;
-    case GteCommand::RTPT: break;
-    case GteCommand::GPF: break;
-    case GteCommand::GPL: break;
-    case GteCommand::NCCT: break;
-    default:;
+    case GteCommand::RTPS: cmd_rtps(); break;
+    case GteCommand::NCLIP: cmd_nclip(); break;
+    case GteCommand::OP: cmd_op(); break;
+    case GteCommand::DPCS: cmd_dpcs(); break;
+    case GteCommand::INTPL: cmd_intpl(); break;
+    case GteCommand::MVMVA: cmd_mvmva(); break;
+    case GteCommand::NCDS: cmd_ncds(); break;
+    case GteCommand::CDP: cmd_cdp(); break;
+    case GteCommand::NCDT: cmd_ncdt(); break;
+    case GteCommand::NCCS: cmd_nccs(); break;
+    case GteCommand::CC: cmd_cc(); break;
+    case GteCommand::NCS: cmd_ncs(); break;
+    case GteCommand::NCT: cmd_nct(); break;
+    case GteCommand::SQR: cmd_sqr(); break;
+    case GteCommand::DCPL: cmd_dcpl(); break;
+    case GteCommand::DPCT: cmd_dpct(); break;
+    case GteCommand::AVSZ3: cmd_avsz3(); break;
+    case GteCommand::AVSZ4: cmd_avsz4(); break;
+    case GteCommand::RTPT: cmd_rtpt(); break;
+    case GteCommand::GPF: cmd_gpf(); break;
+    case GteCommand::GPL: cmd_gpl(); break;
+    case GteCommand::NCCT: cmd_ncct(); break;
   }
 }
+
+void Gte::cmd_rtps() {}
+void Gte::cmd_nclip() {}
+void Gte::cmd_op() {}
+void Gte::cmd_dpcs() {}
+void Gte::cmd_intpl() {}
+void Gte::cmd_mvmva() {}
+void Gte::cmd_ncds() {}
+void Gte::cmd_cdp() {}
+void Gte::cmd_ncdt() {}
+void Gte::cmd_nccs() {}
+void Gte::cmd_cc() {}
+void Gte::cmd_ncs() {}
+void Gte::cmd_nct() {}
+void Gte::cmd_sqr() {}
+void Gte::cmd_dcpl() {}
+void Gte::cmd_dpct() {}
+void Gte::cmd_avsz3() {}
+void Gte::cmd_avsz4() {}
+void Gte::cmd_rtpt() {}
+void Gte::cmd_gpf() {}
+void Gte::cmd_gpl() {}
+void Gte::cmd_ncct() {}
 
 }  // namespace gte
 }  // namespace cpu
