@@ -60,11 +60,8 @@ u16 Timers::read_reg(address addr) {
   switch (reg) {
     case 0:  // Current Counter Value
       return static_cast<u16>(m_timer_value[timer_select]);
-    case 4: {                                     // Counter Mode
-      m_timer_irq_occured[timer_select] = false;  // Reset one-shot IRQ tracker
-      m_timer_value[timer_select] = 0;
+    case 4:  // Counter Mode
       return m_timer_mode[timer_select].read();
-    }
     case 8:  // Counter Target Value
       return m_timer_target[timer_select];
     default: LOG_ERROR("Invalid Timer register access"); return 0xFFFF;
@@ -89,7 +86,7 @@ void Timers::write_reg(address addr, u16 val) {
       mode.irq_not = true;
 
       m_timer_paused[timer_select] = false;
-      m_timer_irq_occured[timer_select] = false;
+      m_timer_irq_occured[timer_select] = false;  // Reset one-shot IRQ tracker
 
       value = 0;
 
