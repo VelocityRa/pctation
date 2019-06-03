@@ -46,20 +46,6 @@ u16 Gpu::get_vram_idx(u32 vram_idx) const {
   return vram()[vram_idx];
 }
 
-void Gpu::set_vram_pos(u16 x, u16 y, u16 val, bool wrap) {
-  if (wrap) {
-    x %= VRAM_WIDTH;
-    y %= VRAM_HEIGHT;
-  }
-
-  Ensures(x <= 1024);
-  Ensures(y <= 512);
-
-  const auto idx = x + y * VRAM_WIDTH;
-
-  set_vram_idx(idx, val);
-}
-
 void Gpu::set_vram_idx(u32 vram_idx, u16 val) {
   vram()[vram_idx] = val;
 }
@@ -290,7 +276,7 @@ void Gpu::gp0_fill_rect_in_vram() {
 
   for (auto i_x = pos_start.x; i_x < pos_end.x; ++i_x)
     for (auto i_y = pos_start.y; i_y < pos_end.y; ++i_y)
-      set_vram_pos(i_x, i_y, c16.word, true);
+      set_vram_pos<true>(i_x, i_y, c16.word);
 }
 
 void Gpu::gp0_copy_rect_cpu_to_vram() {
@@ -339,7 +325,7 @@ void Gpu::gp0_copy_rect_vram_to_vram() {
   while (pixel_count--) {
     const auto src_word = get_vram_pos(m_vram_transfer_x, m_vram_transfer_y);
 
-    set_vram_pos(dest_x, dest_y, src_word, true);
+    set_vram_pos<true>(dest_x, dest_y, src_word);
 
     advance_vram_transfer_pos();
 
@@ -367,7 +353,7 @@ void Gpu::do_cpu_to_vram_transfer(u32 cmd) {
     //        LOG_TRACE("X: {:>4X} Y: {:>4X} SRC: 0x{:04X}", m_vram_transfer_x, m_vram_transfer_y,
     //        src_word);
 
-    set_vram_pos(m_vram_transfer_x, m_vram_transfer_y, src_word, true);
+    set_vram_pos<true>(m_vram_transfer_x, m_vram_transfer_y, src_word);
     advance_vram_transfer_pos();
   }
   if (m_gp0_arg_index == m_gp0_arg_count) {

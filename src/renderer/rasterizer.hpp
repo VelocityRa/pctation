@@ -7,7 +7,6 @@
 #include <util/bit_utils.hpp>
 #include <util/log.hpp>
 #include <util/types.hpp>
-#include <variant>
 
 namespace gpu {
 class Gpu;
@@ -136,12 +135,6 @@ struct TextureInfo {
     }
   }
 };
-
-// Tagged union for draw command arguments that vary between command types
-// For example, all of them have Positions (so we always pass those), but
-// the existance of color and texture info arguments depend on the type of
-// command.
-using DrawTriVariableArgs = std::variant<Color3, TextureInfo>;
 
 // Last 3 values map to GPUSTAT.7-8 "Texture Page Colors"
 enum class PixelRenderType {
@@ -277,13 +270,17 @@ class Rasterizer {
 
   template <PixelRenderType RenderType>
   void draw_pixel(Position pos,
-                  DrawTriVariableArgs draw_args,
+                  const Color3* col,
+                  const TextureInfo* tex_info,
                   BarycentricCoords bar,
                   s32 area,
-                  DrawCommand::Flags draw_flags);
+                  DrawCommand::Flags draw_flags) const;
 
   template <PixelRenderType RenderType>
-  void draw_triangle(Position3 pos, DrawTriVariableArgs draw_args, DrawCommand::Flags draw_flags);
+  void draw_triangle(Position3 pos,
+                     const Color3* col,
+                     const TextureInfo* tex_info,
+                     DrawCommand::Flags draw_flags);
 
   void draw_polygon(const DrawCommand::Polygon& polygon);
   void draw_rectangle(const DrawCommand::Rectangle& polygon);
@@ -306,10 +303,11 @@ class Rasterizer {
                          TextureInfo tex_info,
                          bool is_quad,
                          DrawCommand::Flags draw_flags);
-  void draw_triangle_textured(TextureInfo tex_info,
+  void draw_triangle_textured(Position3 tri_positions,
+                              const Color3* col,
+                              TextureInfo tex_info,
                               DrawCommand::Flags draw_flags,
-                              PixelRenderType pixel_render_type,
-                              Position3 tri_positions);
+                              PixelRenderType pixel_render_type);
 
   TexelPos calculate_texel_pos(BarycentricCoords bar, s32 area, Texcoord3 uv) const;
   static gpu::RGB16 calculate_pixel_shaded(Color3 colors, BarycentricCoords bar);

@@ -9,7 +9,6 @@
 #include <cassert>
 #include <numeric>
 #include <string>
-#include <variant>
 
 namespace renderer {
 namespace rasterizer {
@@ -18,67 +17,67 @@ PixelRenderType tex_page_col_to_render_type(u8 tex_page_colors);
 
 template <PixelRenderType RenderType>
 void Rasterizer::draw_pixel(Position pos,
-                            DrawTriVariableArgs draw_args,
+                            const Color3* col,
+                            const TextureInfo* tex_info,
                             BarycentricCoords bar,
                             s32 area,
-                            DrawCommand::Flags draw_flags) {
+                            DrawCommand::Flags draw_flags) const {
   // Texture stuff, unused for SHADED render type
-  TextureInfo tex_info{};
   TexelPos texel{};
 
   constexpr bool is_textured = RenderType != PixelRenderType::SHADED;
 
-  if (is_textured) {
-    tex_info = std::get<TextureInfo>(draw_args);
-    texel = calculate_texel_pos(bar, area, tex_info.uv_active);
-  }
+  if (is_textured)
+    texel = calculate_texel_pos(bar, area, tex_info->uv_active);
 
   gpu::RGB16 out_color;
 
   switch (RenderType) {
     case PixelRenderType::SHADED: {
-      const auto color = std::get<Color3>(draw_args);
-      out_color = calculate_pixel_shaded(color, bar);
+      out_color = calculate_pixel_shaded(*col, bar);
       break;
     }
     case PixelRenderType::TEXTURED_PALETTED_4BIT:
-      out_color = calculate_pixel_tex_4bit(tex_info, texel);
+      out_color = calculate_pixel_tex_4bit(*tex_info, texel);
       break;
     case PixelRenderType::TEXTURED_PALETTED_8BIT:
-      out_color = calculate_pixel_tex_8bit(tex_info, texel);
+      out_color = calculate_pixel_tex_8bit(*tex_info, texel);
       break;
-    case PixelRenderType::TEXTURED_16BIT: out_color = calculate_pixel_tex_16bit(tex_info, texel); break;
+    case PixelRenderType::TEXTURED_16BIT: out_color = calculate_pixel_tex_16bit(*tex_info, texel); break;
     default: assert(0);
   }
 
   // Don't write to VRAM if drawing a texture, or if (TODO) the semi-transparency bit is enabled
-  if (is_textured && out_color.word == 0x0000)
+  if ((is_textured || draw_flags.semi_transparency) && out_color.word == 0x0000)
     return;
 
   const auto is_raw = draw_flags.texture_mode == DrawCommand::TextureMode::Raw;
 
-  // Apply texture color or (TODO) shading
+  // Apply texture color or shading
   if (is_textured && !is_raw) {
     glm::vec3 brightness;
     if (draw_flags.shading == DrawCommand::Shading::Flat) {
-      brightness = gpu::RGB32::from_word(tex_info.color.word()).to_vec();
+      brightness = gpu::RGB32::from_word(tex_info->color.word()).to_vec();
     } else if (draw_flags.shading == DrawCommand::Shading::Gouraud) {
-      // TODO: shading
-      brightness = glm::vec3(0.5);
+      const auto c = *col;
+      brightness = glm::vec3(bar.a * c[0].r + bar.b * c[1].r + bar.c * c[2].r,
+                             bar.a * c[0].g + bar.b * c[1].g + bar.c * c[2].g,
+                             bar.a * c[0].b + bar.b * c[1].b + bar.c * c[2].b) /
+                   (255.f * area);
     }
     out_color *= brightness * 2.f;
   }
 
-  m_gpu.set_vram_pos(pos.x, pos.y, out_color.word, false);
+  m_gpu.set_vram_pos<false>(pos.x, pos.y, out_color.word);
 }
 
 gpu::RGB16 Rasterizer::calculate_pixel_shaded(Color3 colors, BarycentricCoords bar) {
   // https://codeplea.com/triangular-interpolation
 
-  auto w = (float)(bar.a + bar.b + bar.c);
-  u8 r = (u8)((colors[0].r * bar.a + colors[1].r * bar.b + colors[2].r * bar.c) / w);
-  u8 g = (u8)((colors[0].g * bar.a + colors[1].g * bar.b + colors[2].g * bar.c) / w);
-  u8 b = (u8)((colors[0].b * bar.a + colors[1].b * bar.b + colors[2].b * bar.c) / w);
+  const auto w = (float)(bar.a + bar.b + bar.c);
+  const u8 r = (u8)((colors[0].r * bar.a + colors[1].r * bar.b + colors[2].r * bar.c) / w);
+  const u8 g = (u8)((colors[0].g * bar.a + colors[1].g * bar.b + colors[2].g * bar.c) / w);
+  const u8 b = (u8)((colors[0].b * bar.a + colors[1].b * bar.b + colors[2].b * bar.c) / w);
 
   return gpu::RGB16::from_RGB(r, g, b);
 }
@@ -89,15 +88,15 @@ gpu::RGB16 Rasterizer::calculate_pixel_tex_4bit(TextureInfo tex_info, TexelPos t
   const auto index_x = texel_pos.x / 4 + texpage.tex_base_x();
   const auto index_y = texel_pos.y + texpage.tex_base_y();
 
-  u16 index = m_gpu.get_vram_pos(index_x, index_y);
+  const u16 index = m_gpu.get_vram_pos(index_x, index_y);
 
   const auto index_shift = (texel_pos.x & 0b11) * 4;
-  u16 entry = (index >> index_shift) & 0xF;
+  const u16 entry = (index >> index_shift) & 0xF;
 
   const auto clut_x = tex_info.palette.x() + entry;
   const auto clut_y = tex_info.palette.y();
 
-  u16 color = m_gpu.get_vram_pos(clut_x, clut_y);
+  const u16 color = m_gpu.get_vram_pos(clut_x, clut_y);
 
   return gpu::RGB16::from_word(color);
 }
@@ -108,15 +107,15 @@ gpu::RGB16 Rasterizer::calculate_pixel_tex_8bit(TextureInfo tex_info, TexelPos t
   const auto index_x = texel_pos.x / 2 + texpage.tex_base_x();
   const auto index_y = texel_pos.y + texpage.tex_base_y();
 
-  u16 index = m_gpu.get_vram_pos(index_x, index_y);
+  const u16 index = m_gpu.get_vram_pos(index_x, index_y);
 
   const auto index_shift = (texel_pos.x & 0b01) * 8;
-  u16 entry = (index >> index_shift) & 0xFF;
+  const u16 entry = (index >> index_shift) & 0xFF;
 
   const auto clut_x = tex_info.palette.x() + entry;
   const auto clut_y = tex_info.palette.y();
 
-  u16 color = m_gpu.get_vram_pos(clut_x, clut_y);
+  const u16 color = m_gpu.get_vram_pos(clut_x, clut_y);
 
   return gpu::RGB16::from_word(color);
 }
@@ -153,8 +152,9 @@ TexelPos Rasterizer::calculate_texel_pos(BarycentricCoords bar, s32 area, Texcoo
 }
 
 template <PixelRenderType RenderType>
-void Rasterizer::draw_triangle(Position3 positions,
-                               DrawTriVariableArgs draw_args,
+void Rasterizer::draw_triangle(Position3 pos,
+                               const Color3* col,
+                               const TextureInfo* tex_info,
                                DrawCommand::Flags draw_flags) {
   // Algorithm from https://fgiesen.wordpress.com/2013/02/08/triangle-rasterization-in-practice/
   // TODO: optimize
@@ -168,14 +168,14 @@ void Rasterizer::draw_triangle(Position3 positions,
   const auto drawing_offset = m_gpu.m_drawing_offset;
 
   for (auto i = 0; i < 3; ++i) {
-    positions[i].x += drawing_offset.x;
-    positions[i].y += drawing_offset.y;
+    pos[i].x += drawing_offset.x;
+    pos[i].y += drawing_offset.y;
   }
 
   // Short-hands
-  const auto v0 = positions[0];
-  auto v1 = positions[1];
-  auto v2 = positions[2];
+  const auto v0 = pos[0];
+  auto v1 = pos[1];
+  auto v2 = pos[2];
 
   // If CCW order, swap vertices (and tex coords) to make it CW
   const auto area = orient_2d(v0, v1, v2);
@@ -191,10 +191,12 @@ void Rasterizer::draw_triangle(Position3 positions,
   const auto da_top = m_gpu.m_drawing_area_top_left.x;
   const auto da_right = m_gpu.m_drawing_area_bottom_right.x;
   const auto da_bottom = m_gpu.m_drawing_area_bottom_right.y;
-  s16 min_x = std::max((s16)da_left, std::max((s16)0, std::min({ v0.x, v1.x, v2.x })));
-  s16 min_y = std::max((s16)da_top, std::max((s16)0, std::min({ v0.y, v1.y, v2.y })));
-  s16 max_x = std::min((s16)da_right, std::min((s16)gpu::VRAM_WIDTH, std::max({ v0.x, v1.x, v2.x })));
-  s16 max_y = std::min((s16)da_bottom, std::min((s16)gpu::VRAM_HEIGHT, std::max({ v0.y, v1.y, v2.y })));
+  const s16 min_x = std::max((s16)da_left, std::max((s16)0, std::min({ v0.x, v1.x, v2.x })));
+  const s16 min_y = std::max((s16)da_top, std::max((s16)0, std::min({ v0.y, v1.y, v2.y })));
+  const s16 max_x =
+      std::min((s16)da_right, std::min((s16)gpu::VRAM_WIDTH, std::max({ v0.x, v1.x, v2.x })));
+  const s16 max_y =
+      std::min((s16)da_bottom, std::min((s16)gpu::VRAM_HEIGHT, std::max({ v0.y, v1.y, v2.y })));
 
   // Rasterize
   Position p_iter;
@@ -211,24 +213,25 @@ void Rasterizer::draw_triangle(Position3 positions,
           std::swap(w1, w2);
         const auto area_abs = std::abs(area);
         const auto bar = BarycentricCoords{ w0, w1, w2 };
-        draw_pixel<RenderType>(p_iter, draw_args, bar, area_abs, draw_flags);
+        draw_pixel<RenderType>(p_iter, col, tex_info, bar, area_abs, draw_flags);
       }
     }
 }
 
-void Rasterizer::draw_triangle_textured(TextureInfo tex_info,
+void Rasterizer::draw_triangle_textured(Position3 tri_positions,
+                                        const Color3* col,
+                                        TextureInfo tex_info,
                                         DrawCommand::Flags draw_flags,
-                                        PixelRenderType pixel_render_type,
-                                        Position3 tri_positions) {
+                                        PixelRenderType pixel_render_type) {
   switch (pixel_render_type) {
     case PixelRenderType::TEXTURED_PALETTED_4BIT:
-      draw_triangle<PixelRenderType::TEXTURED_PALETTED_4BIT>(tri_positions, tex_info, draw_flags);
+      draw_triangle<PixelRenderType::TEXTURED_PALETTED_4BIT>(tri_positions, col, &tex_info, draw_flags);
       break;
     case PixelRenderType::TEXTURED_PALETTED_8BIT:
-      draw_triangle<PixelRenderType::TEXTURED_PALETTED_8BIT>(tri_positions, tex_info, draw_flags);
+      draw_triangle<PixelRenderType::TEXTURED_PALETTED_8BIT>(tri_positions, col, &tex_info, draw_flags);
       break;
     case PixelRenderType::TEXTURED_16BIT:
-      draw_triangle<PixelRenderType::TEXTURED_16BIT>(tri_positions, tex_info, draw_flags);
+      draw_triangle<PixelRenderType::TEXTURED_16BIT>(tri_positions, col, &tex_info, draw_flags);
       break;
     case PixelRenderType::SHADED:
     default: LOG_ERROR("Invalid textured PixelRenderType"); break;
@@ -263,13 +266,13 @@ void Rasterizer::draw_polygon_impl(Position4 positions,
         tri_positions = tri_positions_second;
       tex_info.update_active_triangle(tri_idx);
 
-      draw_triangle_textured(tex_info, draw_flags, pixel_render_type, tri_positions);
+      draw_triangle_textured(tri_positions, &tri_colors, tex_info, draw_flags, pixel_render_type);
     } else {                                       // Non-textured
       if (tri_idx == QuadTriangleIndex::Second) {  // rendering second triangle
         tri_positions = tri_positions_second;
         tri_colors = tri_colors_second;
       }
-      draw_triangle<PixelRenderType::SHADED>(tri_positions, tri_colors, draw_flags);
+      draw_triangle<PixelRenderType::SHADED>(tri_positions, &tri_colors, nullptr, draw_flags);
     }
 
     tri_idx = (QuadTriangleIndex)((u32)tri_idx + 1);

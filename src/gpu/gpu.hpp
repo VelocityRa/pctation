@@ -228,7 +228,20 @@ class Gpu {
   // VRAM
   u16 get_vram_pos(u16 x, u16 y) const;
   u16 get_vram_idx(u32 vram_idx) const;
-  void set_vram_pos(u16 x, u16 y, u16 val, bool wrap);
+  template <bool Wrap>
+  void set_vram_pos(u16 x, u16 y, u16 val) {
+    if (Wrap) {
+      x %= VRAM_WIDTH;
+      y %= VRAM_HEIGHT;
+    } else {
+      Ensures(x <= 1024);
+      Ensures(y <= 512);
+    }
+
+    const auto idx = x + y * VRAM_WIDTH;
+
+    set_vram_idx(idx, val);
+  }
   void set_vram_idx(u32 vram_idx, u16 val);
   void advance_vram_transfer_pos();
 
