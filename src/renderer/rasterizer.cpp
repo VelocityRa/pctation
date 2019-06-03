@@ -187,8 +187,8 @@ void Rasterizer::draw_triangle(Position3 pos,
     std::swap(v1, v2);
 
   // Compute triangle bounding box and clip against drawing area bounds
-  const auto da_left = m_gpu.m_drawing_area_top_left.y;
-  const auto da_top = m_gpu.m_drawing_area_top_left.x;
+  const auto da_left = m_gpu.m_drawing_area_top_left.x;
+  const auto da_top = m_gpu.m_drawing_area_top_left.y;
   const auto da_right = m_gpu.m_drawing_area_bottom_right.x;
   const auto da_bottom = m_gpu.m_drawing_area_bottom_right.y;
   const s16 min_x = std::max((s16)da_left, std::max((s16)0, std::min({ v0.x, v1.x, v2.x })));
