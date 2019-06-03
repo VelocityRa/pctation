@@ -17,6 +17,10 @@
 
 #define LOG_TRACE_GTE(...) SPDLOG_LOGGER_TRACE(logging::g_gte_logger, __VA_ARGS__)
 #define LOG_DEBUG_GTE(...) SPDLOG_LOGGER_DEBUG(logging::g_gte_logger, __VA_ARGS__)
+#define LOG_INFO_GTE(...) SPDLOG_LOGGER_INFO(logging::g_gte_logger, __VA_ARGS__)
+#define LOG_WARN_GTE(...) SPDLOG_LOGGER_WARN(logging::g_gte_logger, __VA_ARGS__)
+#define LOG_ERROR_GTE(...) SPDLOG_LOGGER_ERROR(logging::g_gte_logger, __VA_ARGS__)
+#define LOG_CRITICAL_GTE(...) SPDLOG_LOGGER_CRITICAL(logging::g_gte_logger, __VA_ARGS__)
 
 #define LOG_TRACE_CDROM(...) SPDLOG_LOGGER_TRACE(logging::g_cdrom_logger, __VA_ARGS__)
 #define LOG_DEBUG_CDROM(...) SPDLOG_LOGGER_DEBUG(logging::g_cdrom_logger, __VA_ARGS__)
