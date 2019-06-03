@@ -5,7 +5,7 @@
 namespace bit_utils {
 
 template <u32 sign_bit, typename T>
-T sign_extend(u64 n) {
+constexpr T sign_extend(u64 n) {
   static_assert(sign_bit > 0 && sign_bit < 63, "sign bit out of range");
 
   T mask = (1LL << sign_bit) - 1;
@@ -19,12 +19,24 @@ T sign_extend(u64 n) {
   return val;
 }
 
-inline u32 leading_zeroes(s32 n) {
-  u32 zeroes{};
-  if ((n & 0x80000000) == 0)
-    n = ~n;
+template <typename T>
+constexpr std::size_t bit_size() noexcept {
+  return sizeof(T) * CHAR_BIT;
+}
 
-  while ((n & 0x80000000) != 0) {
+template <typename T>
+constexpr size_t leading_zeroes(T n) {
+  using UnsignedT = typename std::make_unsigned<T>::type;
+
+  if (n == 0)
+    return 0;
+
+  constexpr auto top_bit_shift = bit_size<T>() - 1;
+  constexpr u64 top_bit = 1 << top_bit_shift;
+
+  size_t zeroes{};
+
+  while (!(static_cast<UnsignedT>(n) & top_bit)) {
     zeroes++;
     n <<= 1;
   }
