@@ -21,16 +21,19 @@ struct Settings {
 
   // Resolutions below are technically redundant, used to pass new res from Emulator to Gui
   // Changed when screen_view changes
-  u32 res_width;
-  u32 res_height;
+  u32 res_width{};
+  u32 res_height{};
 
   bool show_gui{ true };
 
-  bool limit_framerate{ false };
+  bool limit_framerate{};
   bool limit_framerate_changed{ true };
 
   // Logging
   bool log_trace_cpu{};
+
+  bool fullscreen{};
+  bool fullscreen_changed{};
 
   f32 get_screen_scale() const {
     switch (screen_scale) {

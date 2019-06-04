@@ -301,6 +301,12 @@ void Gui::apply_settings() const {
   if (m_settings->limit_framerate_changed)
     // Limit framerate via Vsync
     SDL_GL_SetSwapInterval(m_settings->limit_framerate ? -1 : 0);
+  if (m_settings->fullscreen_changed) {
+    m_settings->fullscreen_changed = false;
+
+    // Windowed (fake) fullscreen
+    SDL_SetWindowFullscreen(m_window, m_settings->fullscreen ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0);
+  }
 }
 
 void Gui::deinit() {
@@ -403,6 +409,11 @@ void Gui::imgui_draw(const emulator::Emulator& emulator) {
                      ARRAYSIZE(items_screen_scale));
         if (!m_settings->window_size_changed)
           m_settings->window_size_changed = (screen_scale_old != m_settings->screen_scale);
+
+        // Fullscreen
+        auto fullscreen_old = m_settings->fullscreen;
+        ImGui::MenuItem("Fullscreen", "Ctrl+S", &m_settings->fullscreen);
+        m_settings->fullscreen_changed = (fullscreen_old != m_settings->fullscreen);
 
         auto limit_framerate_old = m_settings->limit_framerate;
         // Frame limiter
