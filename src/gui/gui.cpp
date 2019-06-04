@@ -723,7 +723,7 @@ void Gui::draw_window_gp0_commands(const gpu::Gpu& gpu) {
         ImGui::Spacing();
       } else {
         frame_cmds = &gpu.m_gp0_cmds_record[cmds_i];
-        frame_str = fmt::format("Frame #{}", cmds_i);
+        frame_str = fmt::format("Frame #{:<3}", cmds_i);
       }
 
       const auto cmds_count = frame_cmds->size();
@@ -731,6 +731,8 @@ void Gui::draw_window_gp0_commands(const gpu::Gpu& gpu) {
       // Skip frames with no commands
       if (cmds_count == 0)
         continue;
+
+      frame_str += fmt::format(" ({} cmds)", cmds_count);
 
       if (ImGui::TreeNode(frame_str.c_str())) {
         // For each command
