@@ -480,7 +480,9 @@ void Gte::cmd_nclip() {
              s_xy[0].x * s_xy[2].y - s_xy[1].x * s_xy[0].y - s_xy[2].x * s_xy[1].y);
 }
 
-void Gte::cmd_op() {}
+void Gte::cmd_op() {
+  LOG_TODO();
+}
 
 void Gte::cmd_dpcs(bool use_rgb0) {
   s16 r = use_rgb0 ? rgb_fifo[0].r << 4 : rgbc_r();
@@ -495,7 +497,9 @@ void Gte::cmd_dpcs(bool use_rgb0) {
   push_color();
 }
 
-void Gte::cmd_intpl() {}
+void Gte::cmd_intpl() {
+  LOG_TODO();
+}
 
 void Gte::cmd_mvmva(u32 mul_mat_idx, u32 mul_vec_idx, u32 tr_vec_idx) {
   mat3x3_s16 mul_mat;
@@ -554,7 +558,9 @@ void Gte::cmd_ncds(u8 vec_idx) {
   push_color();
 }
 
-void Gte::cmd_cdp() {}
+void Gte::cmd_cdp() {
+  LOG_TODO();
+}
 
 void Gte::cmd_ncdt() {
   cmd_ncds(0);
@@ -591,7 +597,9 @@ void Gte::cmd_sqr() {
   mul_vec_vec(ir_to_vec(), ir_to_vec());
 }
 
-void Gte::cmd_dcpl() {}
+void Gte::cmd_dcpl() {
+  LOG_TODO();
+}
 
 void Gte::cmd_dpct() {
   cmd_dpcs(true);

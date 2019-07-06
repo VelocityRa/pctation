@@ -169,28 +169,28 @@ class Gte {
   //
 
   void cmd_rtps(u8 vec_n = 0,
-                bool set_mac0 = true);  // Coordinate transformation and perspective transformation
-  void cmd_nclip();                     // Normal clipping
-  void cmd_op();
-  void cmd_dpcs(bool use_rgb0 = false);
-  void cmd_intpl();
+                bool set_mac0 = true);   // Coordinate transformation and perspective transformation
+  void cmd_nclip();                      // Normal clipping
+  void cmd_op();                         // Outer product
+  void cmd_dpcs(bool use_rgb0 = false);  // Depth queuing
+  void cmd_intpl();                      // Interpolation
   void cmd_mvmva(u32 mul_mat, u32 mul_vec, u32 trans_vec);  // Matrix and vector multiplication
   void cmd_ncds(u8 vec_idx = 0);                            // Light source calculation
-  void cmd_cdp();
-  void cmd_ncdt();                // Light source calculation
-  void cmd_nccs(u8 vec_idx = 0);  // Light source calculation
-  void cmd_cc();                  // Light source calculation
-  void cmd_ncs(u8 vec_idx = 0);
-  void cmd_nct();
-  void cmd_sqr();
-  void cmd_dcpl();
-  void cmd_dpct();
-  void cmd_avsz3();  // Calculate average of 3 Z values
-  void cmd_avsz4();  // Calculate average of 4 Z values
-  void cmd_rtpt();   // Coordinate transformation and perspective transformation
-  void cmd_gpf();    // General purpose interpolation
-  void cmd_gpl();    // General purpose interpolation
-  void cmd_ncct();   // Light source calculation
+  void cmd_cdp();                                           // Light source calculation
+  void cmd_ncdt();                                          // Light source calculation
+  void cmd_nccs(u8 vec_idx = 0);                            // Light source calculation
+  void cmd_cc();                                            // Light source calculation
+  void cmd_ncs(u8 vec_idx = 0);                             // Light source calculation
+  void cmd_nct();                                           // Light source calculation
+  void cmd_sqr();                                           // Vector squaring
+  void cmd_dcpl();                                          // Depth queuing
+  void cmd_dpct();                                          // Depth queuing
+  void cmd_avsz3();                                         // Calculate average of 3 Z values
+  void cmd_avsz4();                                         // Calculate average of 4 Z values
+  void cmd_rtpt();  // Coordinate transformation and perspective transformation
+  void cmd_gpf();   // General purpose interpolation
+  void cmd_gpl();   // General purpose interpolation
+  void cmd_ncct();  // Light source calculation
 
  private:
   //
