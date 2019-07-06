@@ -53,13 +53,13 @@ void init() {
 
   // Set up GTE logger
   g_gte_logger = std::make_shared<spdlog::logger>("gte", main_sinks);
-  g_gte_logger->set_level(spdlog::level::trace);
+  g_gte_logger->set_level(spdlog::level::warn);
   g_gte_logger->flush_on(spdlog::level::trace);
   g_gte_logger->set_pattern(DEFAULT_LOG_PATTERN);
 
   // Set up CDROM logger
   g_cdrom_logger = std::make_shared<spdlog::logger>("cdrom", main_sinks);
-  g_cdrom_logger->set_level(spdlog::level::trace);
+  g_cdrom_logger->set_level(spdlog::level::warn);
   g_cdrom_logger->flush_on(spdlog::level::trace);
   g_cdrom_logger->set_pattern(DEFAULT_LOG_PATTERN);
 
