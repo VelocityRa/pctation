@@ -23,12 +23,16 @@ s32 main(s32 argc, char** argv) {
     std::string exe_path;
     std::string cdrom_path;  // Either a cue sheet or a raw CD-ROM binary file
 
-    //    if (argc > 1)
-    //      exe_path = argv[1];
-
     // TODO: do this properly
-    //    if (argc > 2)
-    //      bootstrap_path = argv[2];
+
+    if (argc > 1)
+      cdrom_path = argv[1];
+
+//    if (argc > 2)
+//      exe_path = argv[2];
+//
+//    if (argc > 3)
+//      bootstrap_path = argv[3];
 
     gui.init();
 
