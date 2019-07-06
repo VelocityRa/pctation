@@ -538,7 +538,7 @@ bool Gui::draw_window_exe_select(std::string& exe_path) const {
 }
 
 bool Gui::draw_window_cdrom_select(std::string& cdrom_path) const {
-  const char CDROM_PATH[] = "D:\\Nikos\\PSX\\Games";
+  const char CDROM_PATH[] = "data/cdrom";
 
   bool selected = false;
 
