@@ -385,6 +385,7 @@ void Gui::imgui_draw(const emulator::Emulator& emulator) {
         ImGui::MenuItem("RAM Contents", "Ctrl+R", &m_draw_ram);
         ImGui::MenuItem("GPU Registers", "Ctrl+U", &m_draw_gpu_registers);
         ImGui::MenuItem("CPU Registers", "Ctrl+C", &m_draw_cpu_registers);
+        ImGui::MenuItem("Timers", "Ctrl+I", &m_draw_timers);
         ImGui::MenuItem("GP0 Commands", "Ctrl+C", &m_draw_cpu_registers, gpu::GP0_DEBUG_RECORD);
         ImGui::EndMenu();
       }
