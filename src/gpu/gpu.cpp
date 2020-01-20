@@ -19,7 +19,7 @@ Gpu::Gpu() {
 
 u32 Gpu::read_reg(u32 addr) {
   switch (addr) {
-    case 0: LOG_WARN("Unhandled 32-bit read of GPUREAD"); return 0;
+    case 0: return dma_read_vram();
     case 4: return gpustat().word;
   }
   // Unreachable because the GPU Range only includes the above 2 registers
@@ -360,6 +360,15 @@ void Gpu::do_cpu_to_vram_transfer(u32 cmd) {
     // Transfer done, start processing new commands
     m_gp0_cmd_type = Gp0CommandType::None;
   }
+}
+
+u32 Gpu::dma_read_vram() {
+  u32 word = get_vram_pos(m_vram_transfer_x, m_vram_transfer_y);
+  advance_vram_transfer_pos();
+  word |= get_vram_pos(m_vram_transfer_x, m_vram_transfer_y) << 16;
+  advance_vram_transfer_pos();
+
+  return word;
 }
 
 void Gpu::gp0_texture_window(u32 cmd) {
