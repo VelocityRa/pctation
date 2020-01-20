@@ -27,7 +27,7 @@ u32 Bus::read32(u32 addr) const {
     return m_scratchpad.read<u32>(addr_rebased);
   if (memory::map::IRQ_CONTROL.contains(addr, addr_rebased)) {
     auto val = m_interrupts.read<u32>(addr_rebased);
-    LOG_DEBUG("{} 32-bit read of 0x{:08X}", addr_rebased == 0 ? "I_STAT" : "I_MASK", val);
+    LOG_TRACE("{} 32-bit read of 0x{:08X}", addr_rebased == 0 ? "I_STAT" : "I_MASK", val);
     return val;
   }
   if (memory::map::BIOS.contains(addr, addr_rebased))
@@ -62,7 +62,7 @@ u16 Bus::read16(u32 addr) const {
   }
   if (memory::map::IRQ_CONTROL.contains(addr, addr_rebased)) {
     auto val = m_interrupts.read<u16>(addr_rebased);
-    LOG_DEBUG("{} 16-bit read of 0x{:04X}", addr_rebased == 0 ? "I_STAT" : "I_MASK", val);
+    LOG_TRACE("{} 16-bit read of 0x{:04X}", addr_rebased == 0 ? "I_STAT" : "I_MASK", val);
     return val;
   }
   if (memory::map::JOYPAD.contains(addr, addr_rebased)) {
@@ -136,7 +136,7 @@ void Bus::write32(u32 addr, u32 val) {
     return m_spu.write<u32>(addr_rebased, val);
   }
   if (memory::map::IRQ_CONTROL.contains(addr, addr_rebased)) {
-    LOG_DEBUG("{} 32-bit write of 0x{:08X}", addr_rebased == 0 ? "I_STAT" : "I_MASK", val);
+    LOG_TRACE("{} 32-bit write of 0x{:08X}", addr_rebased == 0 ? "I_STAT" : "I_MASK", val);
     return m_interrupts.write<u32>(addr_rebased, val);
   }
   if (memory::map::MEM_CONTROL1.contains(addr, addr_rebased)) {
@@ -202,7 +202,7 @@ void Bus::write16(u32 addr, u16 val) {
     return m_spu.write<u16>(addr_rebased, val);
   }
   if (memory::map::IRQ_CONTROL.contains(addr, addr_rebased)) {
-    LOG_DEBUG("{} 16-bit write of 0x{:04X}", addr_rebased == 0 ? "I_STAT" : "I_MASK", val);
+    LOG_TRACE("{} 16-bit write of 0x{:04X}", addr_rebased == 0 ? "I_STAT" : "I_MASK", val);
     return m_interrupts.write<u16>(addr_rebased, val);
   }
   if (memory::map::JOYPAD.contains(addr, addr_rebased)) {
