@@ -21,8 +21,8 @@ include_directories(src)
 include_directories(external)
 
 # vcpkg setup
-set(VCPKG_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/external/vcpkg")
-set(CMAKE_TOOLCHAIN_FILE "${VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake")
+set(VCPKG_ROOT "$C:/vcpkg")
+set(CMAKE_TOOLCHAIN_FILE "C:/vcpkg/scripts/buildsystems/vcpkg.cmake")
 
 # Project definition
 project(pctation VERSION 0.1

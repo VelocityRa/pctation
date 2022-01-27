@@ -1,6 +1,3 @@
-[submodule "external/vcpkg"]
-	path = external/vcpkg
-	url = https://github.com/Microsoft/vcpkg.git
 [submodule "external/imgui_club"]
 	path = external/imgui_club
 	url = https://github.com/ocornut/imgui_club.git

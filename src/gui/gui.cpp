@@ -17,6 +17,7 @@
 #pragma warning(default : 4251)
 #include <SDL2/SDL.h>
 #include <imgui.h>
+#include <SDL_syswm.h>
 #include <imgui_sdl2_gl3_backend/imgui_impl_opengl3.h>
 #include <imgui_sdl2_gl3_backend/imgui_impl_sdl.h>
 
@@ -71,7 +72,7 @@ void init_theme() {
   style.Colors[ImGuiCol_Text] = TXT(0.78f);
   style.Colors[ImGuiCol_TextDisabled] = TXT(0.28f);
   style.Colors[ImGuiCol_WindowBg] = ImVec4(0.13f, 0.14f, 0.17f, 1.00f);
-  style.Colors[ImGuiCol_ChildWindowBg] = BG(0.58f);
+  style.Colors[ImGuiCol_ChildBg] = BG(0.58f);
   style.Colors[ImGuiCol_PopupBg] = BG(0.9f);
   style.Colors[ImGuiCol_Border] = ImVec4(0.31f, 0.31f, 1.00f, 0.00f);
   style.Colors[ImGuiCol_BorderShadow] = ImVec4(0.00f, 0.00f, 0.00f, 0.00f);
@@ -95,9 +96,9 @@ void init_theme() {
   style.Colors[ImGuiCol_Header] = MED(0.76f);
   style.Colors[ImGuiCol_HeaderHovered] = MED(0.86f);
   style.Colors[ImGuiCol_HeaderActive] = HI(1.00f);
-  style.Colors[ImGuiCol_Column] = ImVec4(0.14f, 0.16f, 0.19f, 1.00f);
-  style.Colors[ImGuiCol_ColumnHovered] = MED(0.78f);
-  style.Colors[ImGuiCol_ColumnActive] = MED(1.00f);
+  style.Colors[ImGuiCol_Separator] = ImVec4(0.14f, 0.16f, 0.19f, 1.00f);
+  style.Colors[ImGuiCol_SeparatorHovered] = MED(0.78f);
+  style.Colors[ImGuiCol_SeparatorActive] = MED(1.00f);
   style.Colors[ImGuiCol_ResizeGrip] = ImVec4(0.47f, 0.77f, 0.83f, 0.04f);
   style.Colors[ImGuiCol_ResizeGripHovered] = MED(0.78f);
   style.Colors[ImGuiCol_ResizeGripActive] = MED(1.00f);
@@ -106,7 +107,7 @@ void init_theme() {
   style.Colors[ImGuiCol_PlotHistogram] = TXT(0.63f);
   style.Colors[ImGuiCol_PlotHistogramHovered] = MED(1.00f);
   style.Colors[ImGuiCol_TextSelectedBg] = MED(0.43f);
-  style.Colors[ImGuiCol_ModalWindowDarkening] = BG(0.73f);
+  style.Colors[ImGuiCol_ModalWindowDimBg] = BG(0.73f);
 
   style.WindowPadding = ImVec2(6, 4);
   style.WindowRounding = 0.0f;
@@ -475,7 +476,7 @@ void Gui::draw_window_log(const char* title,
   ImGui::TextUnformatted(text_contents);
 
   if (should_autoscroll)
-    ImGui::SetScrollHere(1.0f);
+    ImGui::SetScrollHereY(1.0f);
   ImGui::EndChild();
 
   ImGui::End();
@@ -934,7 +935,7 @@ void Gui::draw_window_ram(const std::array<byte, RamSize>& ram_data) {
   // Window style
   ImGui::SetNextWindowSize(ImVec2(500, 411), ImGuiCond_FirstUseEver);
 
-  m_ram_memeditor.DrawWindow("RAM Contents", (MemoryEditor::u8*)ram_data.data(), RamSize, 0);
+  m_ram_memeditor.DrawWindow("RAM Contents", (ImU8*)ram_data.data(), RamSize, 0);
 }
 
 struct RegisterTableEntry {

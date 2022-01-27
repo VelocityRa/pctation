@@ -4,6 +4,8 @@
 
 #include <glbinding/gl/gl.h>
 
+#include <stdexcept>
+
 using namespace gl;
 
 namespace renderer {
